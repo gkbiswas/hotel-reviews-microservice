@@ -1,0 +1,165 @@
+# Git files
+.git
+.gitignore
+.gitmodules
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.md
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Build artifacts
+dist/
+build/
+out/
+target/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency directories
+node_modules/
+vendor/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Test files
+*_test.go
+*_test.json
+test/
+tests/
+testing/
+testdata/
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+Jenkinsfile
+
+# Docker files (avoid copying docker files into themselves)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Kubernetes files
+k8s/
+kubernetes/
+*.yaml
+*.yml
+!configs/*.yml
+!configs/*.yaml
+
+# Scripts
+scripts/
+*.sh
+*.bat
+*.ps1
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.cache/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Large files that shouldn't be in containers
+*.iso
+*.dmg
+*.pkg
+
+# Development tools
+Makefile
+makefile
+justfile
+
+# Editor configs
+.editorconfig
+.prettierrc
+.eslintrc*
+
+# Sample/example files
+examples/
+samples/
+demo/
+
+# Migration files (if they contain sensitive data)
+migrations/
+
+# Binaries (will be built in container)
+hotel-reviews-api
+hotel-reviews-cli
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go specific
+go.work
+go.work.sum
+
+# Mac specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini

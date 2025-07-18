@@ -1,0 +1,60 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Hotel Reviews API metrics
+  - job_name: "hotel-reviews-api"
+    static_configs:
+      - targets: ["hotel-reviews-api:8080"]
+    metrics_path: /api/v1/metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # PostgreSQL metrics (if using postgres_exporter)
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres:5432"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Redis metrics (if using redis_exporter)
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis:6379"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # MinIO metrics
+  - job_name: "minio"
+    static_configs:
+      - targets: ["minio:9000"]
+    metrics_path: /minio/v2/metrics/cluster
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Node exporter (if added)
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Nginx metrics (if using nginx_exporter)
+  - job_name: "nginx"
+    static_configs:
+      - targets: ["nginx:9113"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
