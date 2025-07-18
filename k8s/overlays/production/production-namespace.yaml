@@ -1,0 +1,184 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    tier: production
+    cost-center: operations
+    team: sre
+    backup.kubernetes.io/required: "true"
+    monitoring.kubernetes.io/critical: "true"
+    security.kubernetes.io/scan-required: "true"
+    compliance.kubernetes.io/soc2: "true"
+    compliance.kubernetes.io/gdpr: "true"
+  annotations:
+    app.kubernetes.io/environment: production
+    config.kubernetes.io/origin: production
+    contact: sre-team@hotel-reviews.com
+    description: "Production environment for Hotel Reviews microservice"
+    business-unit: "customer-experience"
+    data-classification: "confidential"
+    compliance.kubernetes.io/soc2: "required"
+    compliance.kubernetes.io/gdpr: "required"
+    backup.kubernetes.io/retention: "30d"
+    monitoring.kubernetes.io/alerting: "critical"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: hotel-reviews-production-quota
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 40Gi
+    limits.cpu: "40"
+    limits.memory: 80Gi
+    persistentvolumeclaims: "20"
+    services: "20"
+    secrets: "20"
+    configmaps: "20"
+    pods: "100"
+    count/deployments.apps: "20"
+    count/statefulsets.apps: "10"
+    count/jobs.batch: "10"
+    count/cronjobs.batch: "10"
+    count/horizontalpodautoscalers.autoscaling: "10"
+    count/poddisruptionbudgets.policy: "10"
+    count/networkpolicies.networking.k8s.io: "10"
+    count/ingresses.networking.k8s.io: "5"
+    count/services.loadbalancer: "5"
+    count/persistentvolumeclaims: "20"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: hotel-reviews-production-limits
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+spec:
+  limits:
+    - default:
+        cpu: 1000m
+        memory: 1Gi
+      defaultRequest:
+        cpu: 500m
+        memory: 512Mi
+      type: Container
+    - max:
+        cpu: 4000m
+        memory: 8Gi
+      min:
+        cpu: 100m
+        memory: 128Mi
+      type: Container
+    - max:
+        storage: 500Gi
+      min:
+        storage: 5Gi
+      type: PersistentVolumeClaim
+    - max:
+        cpu: 8000m
+        memory: 16Gi
+      min:
+        cpu: 1000m
+        memory: 1Gi
+      type: Pod
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-production-default-deny
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # Default deny all traffic - explicit allow rules must be created
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-production-allow-dns
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hotel-reviews-production-role
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: rbac
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+    resourceNames: ["hotel-reviews-secrets", "hotel-reviews-production-secrets"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hotel-reviews-production-role-binding
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: rbac
+subjects:
+  - kind: ServiceAccount
+    name: hotel-reviews-service-account
+    namespace: hotel-reviews-production
+roleRef:
+  kind: Role
+  name: hotel-reviews-production-role
+  apiGroup: rbac.authorization.k8s.io

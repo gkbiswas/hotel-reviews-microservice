@@ -1,0 +1,300 @@
+name: Docker Build and Push
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: 'Docker image tag'
+        required: true
+        type: string
+      push_to_registry:
+        description: 'Push image to registry'
+        required: false
+        type: boolean
+        default: true
+      target_environment:
+        description: 'Target environment (staging/production)'
+        required: false
+        type: string
+        default: 'staging'
+    outputs:
+      image_digest:
+        description: 'Docker image digest'
+        value: ${{ jobs.build.outputs.digest }}
+      image_tag:
+        description: 'Docker image tag'
+        value: ${{ jobs.build.outputs.tag }}
+    secrets:
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_PASSWORD:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: true
+      AWS_ACCOUNT_ID:
+        required: true
+      SNYK_TOKEN:
+        required: false
+
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag'
+        required: true
+        default: 'latest'
+      push_to_registry:
+        description: 'Push image to registry'
+        required: false
+        type: boolean
+        default: true
+      target_environment:
+        description: 'Target environment'
+        required: false
+        type: choice
+        options:
+          - staging
+          - production
+        default: 'staging'
+
+env:
+  DOCKER_REGISTRY: docker.io
+  IMAGE_NAME: gkbiswas/hotel-reviews
+  DOCKERFILE_PATH: ./docker/Dockerfile
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      - name: Log in to Docker Hub
+        if: inputs.push_to_registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Log in to Amazon ECR
+        if: inputs.push_to_registry
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: ${{ secrets.AWS_ACCOUNT_ID }}
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ inputs.image_tag }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value={{date 'YYYY-MM-DD-HHmmss'}}
+          labels: |
+            org.opencontainers.image.title=hotel-reviews-microservice
+            org.opencontainers.image.description=A microservice for processing hotel review data
+            org.opencontainers.image.vendor=Hotel Reviews Inc.
+            org.opencontainers.image.version=${{ inputs.image_tag }}
+            org.opencontainers.image.created={{date 'YYYY-MM-DDTHH:mm:ssZ'}}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/blob/main/README.md
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE_PATH }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ inputs.push_to_registry }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: ${{ inputs.target_environment == 'production' && 'production' || 'staging' }}
+          build-args: |
+            VERSION=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            ENVIRONMENT=${{ inputs.target_environment }}
+          provenance: true
+          sbom: true
+
+      - name: Generate build summary
+        run: |
+          echo "## Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ inputs.image_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Digest | ${{ steps.build.outputs.digest }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ inputs.target_environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Platforms | linux/amd64, linux/arm64 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Registry | ${{ env.DOCKER_REGISTRY }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Push to Registry | ${{ inputs.push_to_registry }} |" >> $GITHUB_STEP_SUMMARY
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.push_to_registry
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Trivy vulnerability scanner (JSON format)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+          format: 'json'
+          output: 'trivy-results.json'
+
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: trivy-results.json
+          retention-days: 30
+
+      - name: Run Snyk container scan
+        if: secrets.SNYK_TOKEN
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+          args: --severity-threshold=high --file=docker/Dockerfile
+
+      - name: Upload Snyk results to GitHub Code Scanning
+        if: secrets.SNYK_TOKEN
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
+
+      - name: Docker Scout scan
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+          sarif-file: scout-results.sarif
+
+      - name: Upload Docker Scout results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scout-results.sarif
+
+  image-analysis:
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.push_to_registry
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Analyze image size
+        run: |
+          # Pull the image and analyze its size
+          docker pull ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }}
+          
+          # Get image size
+          IMAGE_SIZE=$(docker image inspect ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }} --format='{{.Size}}')
+          IMAGE_SIZE_MB=$((IMAGE_SIZE / 1024 / 1024))
+          
+          echo "## Image Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Size | ${IMAGE_SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
+          
+          # Analyze layers
+          docker history ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.image_tag }} --no-trunc --format "table {{.CreatedBy}}\t{{.Size}}" >> image_history.txt
+          
+          # Check for best practices
+          echo "### Layer Analysis" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -20 image_history.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload image analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-analysis
+          path: image_history.txt
+          retention-days: 30
+
+  cosign-sign:
+    runs-on: ubuntu-latest
+    needs: [build, security-scan]
+    if: inputs.push_to_registry && inputs.target_environment == 'production'
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with Cosign
+        run: |
+          cosign sign --yes ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+      - name: Verify signature
+        run: |
+          cosign verify ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.digest }}
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [build, security-scan, image-analysis]
+    if: always()
+    steps:
+      - name: Clean up dangling images
+        run: |
+          # Clean up dangling images to save space
+          docker image prune -f
+          
+          # Remove old images (keep last 5 tags)
+          docker images --filter "reference=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}" --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" | tail -n +6 | awk '{print $3}' | xargs -r docker rmi -f || true
+
+      - name: Generate cleanup summary
+        run: |
+          echo "## Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Removed dangling images" >> $GITHUB_STEP_SUMMARY
+          echo "- Kept last 5 image tags" >> $GITHUB_STEP_SUMMARY
+          echo "- Freed up disk space" >> $GITHUB_STEP_SUMMARY

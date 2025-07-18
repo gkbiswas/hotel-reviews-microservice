@@ -149,3 +149,133 @@ type ReviewProcessingStatus struct {
 	// Relationships
 	Provider Provider `json:"provider" gorm:"foreignKey:ProviderID"`
 }
+
+// User represents a system user
+type User struct {
+	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	Username       string         `json:"username" gorm:"type:varchar(50);not null;unique" validate:"required,min=3,max=50"`
+	Email          string         `json:"email" gorm:"type:varchar(255);not null;unique" validate:"required,email,max=255"`
+	PasswordHash   string         `json:"-" gorm:"type:varchar(255);not null"`
+	FirstName      string         `json:"first_name" gorm:"type:varchar(100)" validate:"max=100"`
+	LastName       string         `json:"last_name" gorm:"type:varchar(100)" validate:"max=100"`
+	IsActive       bool           `json:"is_active" gorm:"default:true"`
+	IsVerified     bool           `json:"is_verified" gorm:"default:false"`
+	LastLoginAt    *time.Time     `json:"last_login_at,omitempty"`
+	PasswordExpiry *time.Time     `json:"password_expiry,omitempty"`
+	FailedAttempts int            `json:"failed_attempts" gorm:"default:0"`
+	LockedUntil    *time.Time     `json:"locked_until,omitempty"`
+	TwoFactorEnabled bool         `json:"two_factor_enabled" gorm:"default:false"`
+	TwoFactorSecret  string       `json:"-" gorm:"type:varchar(255)"`
+	CreatedAt      time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt      time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt      gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	
+	// Relationships
+	Roles        []Role        `json:"roles,omitempty" gorm:"many2many:user_roles;"`
+	Sessions     []Session     `json:"sessions,omitempty" gorm:"foreignKey:UserID"`
+	ApiKeys      []ApiKey      `json:"api_keys,omitempty" gorm:"foreignKey:UserID"`
+	AuditLogs    []AuditLog    `json:"audit_logs,omitempty" gorm:"foreignKey:UserID"`
+}
+
+// Role represents a user role
+type Role struct {
+	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	Name        string         `json:"name" gorm:"type:varchar(50);not null;unique" validate:"required,min=1,max=50"`
+	Description string         `json:"description" gorm:"type:text"`
+	IsActive    bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	
+	// Relationships
+	Users       []User       `json:"users,omitempty" gorm:"many2many:user_roles;"`
+	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;"`
+}
+
+// Permission represents a system permission
+type Permission struct {
+	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	Name        string         `json:"name" gorm:"type:varchar(100);not null;unique" validate:"required,min=1,max=100"`
+	Resource    string         `json:"resource" gorm:"type:varchar(50);not null" validate:"required,max=50"`
+	Action      string         `json:"action" gorm:"type:varchar(20);not null" validate:"required,oneof=create read update delete execute"`
+	Description string         `json:"description" gorm:"type:text"`
+	IsActive    bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	
+	// Relationships
+	Roles []Role `json:"roles,omitempty" gorm:"many2many:role_permissions;"`
+}
+
+// Session represents a user session
+type Session struct {
+	ID            uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	UserID        uuid.UUID      `json:"user_id" gorm:"type:uuid;not null" validate:"required"`
+	AccessToken   string         `json:"access_token" gorm:"type:text;not null"`
+	RefreshToken  string         `json:"refresh_token" gorm:"type:text;not null"`
+	ExpiresAt     time.Time      `json:"expires_at" gorm:"not null"`
+	RefreshExpiresAt time.Time   `json:"refresh_expires_at" gorm:"not null"`
+	IsActive      bool           `json:"is_active" gorm:"default:true"`
+	UserAgent     string         `json:"user_agent" gorm:"type:text"`
+	IpAddress     string         `json:"ip_address" gorm:"type:varchar(45)"`
+	DeviceId      string         `json:"device_id" gorm:"type:varchar(255)"`
+	LastUsedAt    time.Time      `json:"last_used_at" gorm:"autoUpdateTime"`
+	CreatedAt     time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt     time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	
+	// Relationships
+	User User `json:"user" gorm:"foreignKey:UserID"`
+}
+
+// ApiKey represents an API key for service-to-service authentication
+type ApiKey struct {
+	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	UserID      uuid.UUID      `json:"user_id" gorm:"type:uuid;not null" validate:"required"`
+	Name        string         `json:"name" gorm:"type:varchar(100);not null" validate:"required,min=1,max=100"`
+	Key         string         `json:"key" gorm:"type:varchar(255);not null;unique"`
+	KeyHash     string         `json:"-" gorm:"type:varchar(255);not null"`
+	IsActive    bool           `json:"is_active" gorm:"default:true"`
+	ExpiresAt   *time.Time     `json:"expires_at,omitempty"`
+	LastUsedAt  *time.Time     `json:"last_used_at,omitempty"`
+	UsageCount  int            `json:"usage_count" gorm:"default:0"`
+	RateLimit   int            `json:"rate_limit" gorm:"default:1000"`
+	Scopes      []string       `json:"scopes" gorm:"type:jsonb"`
+	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
+	DeletedAt   gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+	
+	// Relationships
+	User User `json:"user" gorm:"foreignKey:UserID"`
+}
+
+// AuditLog represents an audit log entry
+type AuditLog struct {
+	ID         uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	UserID     *uuid.UUID     `json:"user_id,omitempty" gorm:"type:uuid"`
+	Action     string         `json:"action" gorm:"type:varchar(50);not null" validate:"required,max=50"`
+	Resource   string         `json:"resource" gorm:"type:varchar(50);not null" validate:"required,max=50"`
+	ResourceID *uuid.UUID     `json:"resource_id,omitempty" gorm:"type:uuid"`
+	OldValues  map[string]interface{} `json:"old_values,omitempty" gorm:"type:jsonb"`
+	NewValues  map[string]interface{} `json:"new_values,omitempty" gorm:"type:jsonb"`
+	IpAddress  string         `json:"ip_address" gorm:"type:varchar(45)"`
+	UserAgent  string         `json:"user_agent" gorm:"type:text"`
+	Result     string         `json:"result" gorm:"type:varchar(20);not null" validate:"required,oneof=success failure"`
+	ErrorMsg   string         `json:"error_msg,omitempty" gorm:"type:text"`
+	CreatedAt  time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	
+	// Relationships
+	User *User `json:"user,omitempty" gorm:"foreignKey:UserID"`
+}
+
+// LoginAttempt represents a login attempt for rate limiting
+type LoginAttempt struct {
+	ID          uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
+	Email       string         `json:"email" gorm:"type:varchar(255);not null" validate:"required,email,max=255"`
+	IpAddress   string         `json:"ip_address" gorm:"type:varchar(45);not null" validate:"required"`
+	UserAgent   string         `json:"user_agent" gorm:"type:text"`
+	Success     bool           `json:"success" gorm:"default:false"`
+	FailureReason string       `json:"failure_reason,omitempty" gorm:"type:varchar(100)"`
+	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
+}

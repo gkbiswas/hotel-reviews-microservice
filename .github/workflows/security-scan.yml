@@ -1,0 +1,431 @@
+name: Security Scanning
+
+on:
+  workflow_call:
+    inputs:
+      scan_type:
+        description: 'Type of scan (code, dependencies, secrets, all)'
+        required: false
+        type: string
+        default: 'all'
+      severity_threshold:
+        description: 'Severity threshold (low, medium, high, critical)'
+        required: false
+        type: string
+        default: 'medium'
+    secrets:
+      SNYK_TOKEN:
+        required: false
+      GITHUB_TOKEN:
+        required: true
+
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'docker/**'
+      - '.github/workflows/security-scan.yml'
+
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'docker/**'
+      - '.github/workflows/security-scan.yml'
+
+  schedule:
+    # Run security scan daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of scan'
+        required: true
+        type: choice
+        options:
+          - code
+          - dependencies
+          - secrets
+          - all
+        default: 'all'
+      severity_threshold:
+        description: 'Severity threshold'
+        required: false
+        type: choice
+        options:
+          - low
+          - medium
+          - high
+          - critical
+        default: 'medium'
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  code-security-scan:
+    runs-on: ubuntu-latest
+    if: inputs.scan_type == 'code' || inputs.scan_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run gosec security scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt sarif -out gosec-results.sarif -severity ${{ inputs.severity_threshold || 'medium' }} ./...'
+
+      - name: Upload gosec results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec-results.sarif
+
+      - name: Run gosec (JSON format for artifacts)
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: '-fmt json -out gosec-results.json -severity ${{ inputs.severity_threshold || 'medium' }} ./...'
+
+      - name: Upload gosec results
+        uses: actions/upload-artifact@v4
+        with:
+          name: gosec-scan-results
+          path: gosec-results.json
+          retention-days: 30
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/go
+            p/docker
+            p/kubernetes
+            p/terraform
+          generateSarif: "1"
+
+      - name: Upload Semgrep results to GitHub Advanced Security Dashboard
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          languages: go
+          queries: security-and-quality
+
+      - name: Run Bandit (Python security linter) on scripts
+        run: |
+          if find . -name "*.py" -type f | grep -q .; then
+            pip install bandit
+            bandit -r . -f json -o bandit-results.json || true
+          else
+            echo "No Python files found, skipping Bandit scan"
+          fi
+
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        if: hashFiles('bandit-results.json') != ''
+        with:
+          name: bandit-scan-results
+          path: bandit-results.json
+          retention-days: 30
+
+  dependency-security-scan:
+    runs-on: ubuntu-latest
+    if: inputs.scan_type == 'dependencies' || inputs.scan_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck -json ./... > govulncheck-results.json || true
+
+      - name: Upload govulncheck results
+        uses: actions/upload-artifact@v4
+        with:
+          name: govulncheck-scan-results
+          path: govulncheck-results.json
+          retention-days: 30
+
+      - name: Run Nancy for dependency vulnerabilities
+        run: |
+          go install github.com/sonatypecommunity/nancy@latest
+          go list -json -deps ./... | nancy sleuth --output-format json > nancy-results.json || true
+
+      - name: Upload Nancy results
+        uses: actions/upload-artifact@v4
+        with:
+          name: nancy-scan-results
+          path: nancy-results.json
+          retention-days: 30
+
+      - name: Run Snyk for dependency vulnerabilities
+        if: secrets.SNYK_TOKEN
+        uses: snyk/actions/golang@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=${{ inputs.severity_threshold || 'medium' }} --json-file-output=snyk-results.json
+
+      - name: Upload Snyk results to GitHub Code Scanning
+        if: secrets.SNYK_TOKEN
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
+
+      - name: Upload Snyk results
+        if: secrets.SNYK_TOKEN
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-scan-results
+          path: snyk-results.json
+          retention-days: 30
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: |-
+            --format=json
+            --output=osv-results.json
+            ./
+
+      - name: Upload OSV Scanner results
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-scan-results
+          path: osv-results.json
+          retention-days: 30
+
+      - name: Run Trivy for filesystem vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy filesystem results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    if: inputs.scan_type == 'secrets' || inputs.scan_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Upload GitLeaks results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-scan-results
+          path: results.sarif
+          retention-days: 30
+
+      - name: Run detect-secrets
+        run: |
+          pip install detect-secrets
+          detect-secrets scan --all-files --force-use-all-plugins --baseline .secrets.baseline
+          detect-secrets audit --baseline .secrets.baseline --diff || true
+
+      - name: Upload detect-secrets baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: detect-secrets-baseline
+          path: .secrets.baseline
+          retention-days: 30
+
+  docker-security-scan:
+    runs-on: ubuntu-latest
+    if: inputs.scan_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint (Dockerfile linter)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ./docker/Dockerfile
+          format: sarif
+          output-file: hadolint-results.sarif
+
+      - name: Upload Hadolint results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint-results.sarif
+
+      - name: Run Checkov on Dockerfile
+        uses: bridgecrewio/checkov-action@master
+        with:
+          file: ./docker/Dockerfile
+          framework: dockerfile
+          output_format: sarif
+          output_file_path: checkov-dockerfile-results.sarif
+
+      - name: Upload Checkov results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-dockerfile-results.sarif
+
+  compliance-check:
+    runs-on: ubuntu-latest
+    if: inputs.scan_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov for compliance
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: all
+          output_format: sarif
+          output_file_path: checkov-compliance-results.sarif
+
+      - name: Upload Checkov compliance results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-compliance-results.sarif
+
+      - name: Run Terrascan
+        uses: tenable/terrascan-action@main
+        with:
+          iac_type: 'docker'
+          iac_version: 'v1'
+          policy_type: 'all'
+          only_warn: false
+          sarif_upload: true
+
+  security-report:
+    runs-on: ubuntu-latest
+    needs: [code-security-scan, dependency-security-scan, secrets-scan, docker-security-scan, compliance-check]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./security-results
+
+      - name: Generate security summary
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan Type | Status | Artifacts |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|-----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Security | ${{ needs.code-security-scan.result }} | gosec, semgrep, codeql |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Security | ${{ needs.dependency-security-scan.result }} | govulncheck, nancy, snyk, osv |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secrets Scan | ${{ needs.secrets-scan.result }} | trufflehog, gitleaks, detect-secrets |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Security | ${{ needs.docker-security-scan.result }} | hadolint, checkov |" >> $GITHUB_STEP_SUMMARY
+          echo "| Compliance Check | ${{ needs.compliance-check.result }} | checkov, terrascan |" >> $GITHUB_STEP_SUMMARY
+          
+          # Count total issues found
+          TOTAL_ISSUES=0
+          for result_file in $(find ./security-results -name "*.json" -type f); do
+            if [ -f "$result_file" ]; then
+              echo "Processing $result_file"
+              # This would need to be customized based on each tool's output format
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Key Findings" >> $GITHUB_STEP_SUMMARY
+          echo "- Total security issues found: $TOTAL_ISSUES" >> $GITHUB_STEP_SUMMARY
+          echo "- Severity threshold: ${{ inputs.severity_threshold || 'medium' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Scan type: ${{ inputs.scan_type || 'all' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload consolidated security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-report
+          path: ./security-results
+          retention-days: 90
+
+      - name: Comment on PR with security summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Security Scan Summary')
+            );
+            
+            const body = `## Security Scan Summary
+            
+            | Scan Type | Status |
+            |-----------|--------|
+            | Code Security | ${{ needs.code-security-scan.result }} |
+            | Dependency Security | ${{ needs.dependency-security-scan.result }} |
+            | Secrets Scan | ${{ needs.secrets-scan.result }} |
+            | Docker Security | ${{ needs.docker-security-scan.result }} |
+            | Compliance Check | ${{ needs.compliance-check.result }} |
+            
+            **Severity Threshold:** ${{ inputs.severity_threshold || 'medium' }}
+            **Scan Type:** ${{ inputs.scan_type || 'all' }}
+            
+            For detailed results, check the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            `;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }

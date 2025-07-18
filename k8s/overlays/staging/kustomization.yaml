@@ -1,0 +1,300 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hotel-reviews-staging
+  namespace: hotel-reviews-staging
+
+# Base resources
+resources:
+  - ../../base
+
+# Staging-specific namespace
+namespace: hotel-reviews-staging
+
+# Staging-specific labels
+commonLabels:
+  environment: staging
+  tier: staging
+
+# Staging-specific annotations
+commonAnnotations:
+  app.kubernetes.io/environment: staging
+  config.kubernetes.io/origin: staging
+
+# Staging-specific images
+images:
+  - name: hotel-reviews-api
+    newName: hotel-reviews-api
+    newTag: staging-latest
+  - name: hotel-reviews-worker
+    newName: hotel-reviews-worker
+    newTag: staging-latest
+
+# Staging-specific replicas
+replicas:
+  - name: hotel-reviews-api
+    count: 2
+  - name: hotel-reviews-worker
+    count: 1
+  - name: hotel-reviews-postgres
+    count: 1
+  - name: hotel-reviews-redis
+    count: 1
+  - name: hotel-reviews-kafka
+    count: 1
+  - name: hotel-reviews-zookeeper
+    count: 1
+
+# Staging-specific ConfigMap
+configMapGenerator:
+  - name: hotel-reviews-staging-config
+    literals:
+      - environment=staging
+      - debug=true
+      - log_level=debug
+      - metrics_enabled=true
+      - rate_limit=500
+      - rate_limit_window=1h
+      - enable_profiling=true
+      - enable_tracing=true
+      - cache_ttl=30m
+      - session_timeout=1h
+      - max_file_size=50MB
+      - processing_timeout=15m
+      - backup_retention_days=7
+      - alert_webhook_url=https://hooks.slack.com/services/staging/webhook
+    behavior: merge
+
+# Staging-specific Secret
+secretGenerator:
+  - name: hotel-reviews-staging-secrets
+    literals:
+      - database-password=staging_db_password
+      - jwt-secret=staging_jwt_secret_key_for_development_only
+      - redis-password=staging_redis_password
+      - s3-access-key-id=staging_s3_access_key
+      - s3-secret-access-key=staging_s3_secret_key
+      - slack-webhook-url=https://hooks.slack.com/services/staging/webhook/url
+    type: Opaque
+    behavior: merge
+
+# Staging-specific patches
+patches:
+  # Reduce resource limits for staging
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "128Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "300m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "256Mi"
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Reduce resource limits for worker
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "128Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
+    target:
+      kind: Deployment
+      name: hotel-reviews-worker
+  
+  # Reduce PVC sizes for staging
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "10Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: hotel-reviews-postgres-pvc
+  
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "2Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: hotel-reviews-redis-pvc
+  
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "5Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: hotel-reviews-kafka-pvc
+  
+  # Update HPA for staging
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+      - op: replace
+        path: /spec/maxReplicas
+        value: 5
+      - op: replace
+        path: /spec/metrics/0/resource/target/averageUtilization
+        value: 60
+      - op: replace
+        path: /spec/metrics/1/resource/target/averageUtilization
+        value: 70
+    target:
+      kind: HorizontalPodAutoscaler
+      name: hotel-reviews-api-hpa
+  
+  # Update PDB for staging
+  - patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 1
+    target:
+      kind: PodDisruptionBudget
+      name: hotel-reviews-api-pdb
+  
+  # Update ingress for staging
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: "staging-api.hotel-reviews.com"
+      - op: replace
+        path: /spec/rules/1/host
+        value: "staging-admin.hotel-reviews.com"
+      - op: replace
+        path: /spec/rules/2/host
+        value: "staging-metrics.hotel-reviews.com"
+      - op: replace
+        path: /spec/tls/0/hosts
+        value: 
+          - "staging-api.hotel-reviews.com"
+          - "staging-admin.hotel-reviews.com"
+          - "staging-metrics.hotel-reviews.com"
+    target:
+      kind: Ingress
+      name: hotel-reviews-ingress
+  
+  # Update service annotations for staging
+  - patch: |-
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-additional-resource-tags
+        value: "Environment=staging,CostCenter=development"
+    target:
+      kind: Service
+      name: hotel-reviews-api-lb
+  
+  # Add staging-specific environment variables
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENVIRONMENT
+          value: staging
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: DEBUG
+          value: "true"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENABLE_PROFILING
+          value: "true"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: RATE_LIMIT
+          value: "500"
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Update StatefulSet resources for staging
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "128Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
+    target:
+      kind: StatefulSet
+      name: hotel-reviews-postgres
+  
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "50m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "64Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "200m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "256Mi"
+    target:
+      kind: StatefulSet
+      name: hotel-reviews-redis
+  
+  # Update backup schedule for staging
+  - patch: |-
+      - op: replace
+        path: /spec/schedule
+        value: "0 4 * * *"
+    target:
+      kind: CronJob
+      name: hotel-reviews-backup
+  
+  # Update cleanup schedule for staging
+  - patch: |-
+      - op: replace
+        path: /spec/schedule
+        value: "0 2 * * 0"
+    target:
+      kind: CronJob
+      name: hotel-reviews-cleanup
+
+# Staging-specific resources
+resources:
+  - staging-namespace.yaml
+  - staging-monitoring.yaml
+
+# Staging-specific transformers
+transformers:
+  - |-
+    apiVersion: builtin
+    kind: AnnotationsTransformer
+    metadata:
+      name: staging-annotations
+    annotations:
+      environment: staging
+      cost-center: development
+      team: platform-engineering
+      contact: platform-team@hotel-reviews.com
+    fieldSpecs:
+      - path: metadata/annotations
+        create: true

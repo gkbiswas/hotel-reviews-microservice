@@ -1,0 +1,425 @@
+name: Notifications
+
+on:
+  workflow_call:
+    inputs:
+      notification_type:
+        description: 'Type of notification (success, failure, warning, info)'
+        required: true
+        type: string
+      title:
+        description: 'Notification title'
+        required: true
+        type: string
+      message:
+        description: 'Notification message'
+        required: true
+        type: string
+      environment:
+        description: 'Environment context'
+        required: false
+        type: string
+      commit_sha:
+        description: 'Commit SHA'
+        required: false
+        type: string
+      workflow_url:
+        description: 'Workflow URL'
+        required: false
+        type: string
+      include_metrics:
+        description: 'Include system metrics in notification'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      SLACK_WEBHOOK_URL:
+        required: false
+      DISCORD_WEBHOOK_URL:
+        required: false
+      TEAMS_WEBHOOK_URL:
+        required: false
+      NOTIFICATION_EMAIL:
+        required: false
+      EMAIL_USERNAME:
+        required: false
+      EMAIL_PASSWORD:
+        required: false
+      SMTP_HOST:
+        required: false
+      SMTP_PORT:
+        required: false
+      TELEGRAM_BOT_TOKEN:
+        required: false
+      TELEGRAM_CHAT_ID:
+        required: false
+      PAGERDUTY_INTEGRATION_KEY:
+        required: false
+      DATADOG_API_KEY:
+        required: false
+
+jobs:
+  send-slack-notification:
+    runs-on: ubuntu-latest
+    if: secrets.SLACK_WEBHOOK_URL
+    steps:
+      - name: Determine notification color
+        id: color
+        run: |
+          case "${{ inputs.notification_type }}" in
+            "success") echo "color=good" >> $GITHUB_OUTPUT ;;
+            "failure") echo "color=danger" >> $GITHUB_OUTPUT ;;
+            "warning") echo "color=warning" >> $GITHUB_OUTPUT ;;
+            *) echo "color=#0066cc" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              "attachments": [{
+                "color": "${{ steps.color.outputs.color }}",
+                "title": "${{ inputs.title }}",
+                "text": "${{ inputs.message }}",
+                "fields": [
+                  {
+                    "title": "Repository",
+                    "value": "${{ github.repository }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Branch",
+                    "value": "${{ github.ref_name }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Commit",
+                    "value": "${{ inputs.commit_sha || github.sha }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Environment",
+                    "value": "${{ inputs.environment || 'N/A' }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Workflow",
+                    "value": "<${{ inputs.workflow_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>",
+                    "short": true
+                  },
+                  {
+                    "title": "Triggered By",
+                    "value": "${{ github.actor }}",
+                    "short": true
+                  }
+                ],
+                "footer": "GitHub Actions",
+                "footer_icon": "https://github.com/favicon.ico",
+                "ts": ${{ github.event.head_commit.timestamp && 'github.event.head_commit.timestamp' || 'github.event.created_at' }}
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  send-discord-notification:
+    runs-on: ubuntu-latest
+    if: secrets.DISCORD_WEBHOOK_URL
+    steps:
+      - name: Determine embed color
+        id: color
+        run: |
+          case "${{ inputs.notification_type }}" in
+            "success") echo "color=65280" >> $GITHUB_OUTPUT ;;  # Green
+            "failure") echo "color=16711680" >> $GITHUB_OUTPUT ;;  # Red
+            "warning") echo "color=16776960" >> $GITHUB_OUTPUT ;;  # Yellow
+            *) echo "color=255" >> $GITHUB_OUTPUT ;;  # Blue
+          esac
+
+      - name: Send Discord notification
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: custom
+          title: ${{ inputs.title }}
+          description: ${{ inputs.message }}
+          color: ${{ steps.color.outputs.color }}
+          username: GitHub Actions
+          avatar_url: https://github.com/favicon.ico
+
+  send-teams-notification:
+    runs-on: ubuntu-latest
+    if: secrets.TEAMS_WEBHOOK_URL
+    steps:
+      - name: Determine theme color
+        id: color
+        run: |
+          case "${{ inputs.notification_type }}" in
+            "success") echo "color=00FF00" >> $GITHUB_OUTPUT ;;
+            "failure") echo "color=FF0000" >> $GITHUB_OUTPUT ;;
+            "warning") echo "color=FFFF00" >> $GITHUB_OUTPUT ;;
+            *) echo "color=0066CC" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Send Teams notification
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "${{ steps.color.outputs.color }}",
+              "summary": "${{ inputs.title }}",
+              "sections": [{
+                "activityTitle": "${{ inputs.title }}",
+                "activitySubtitle": "${{ inputs.message }}",
+                "facts": [
+                  {
+                    "name": "Repository",
+                    "value": "${{ github.repository }}"
+                  },
+                  {
+                    "name": "Branch",
+                    "value": "${{ github.ref_name }}"
+                  },
+                  {
+                    "name": "Commit",
+                    "value": "${{ inputs.commit_sha || github.sha }}"
+                  },
+                  {
+                    "name": "Environment",
+                    "value": "${{ inputs.environment || 'N/A' }}"
+                  },
+                  {
+                    "name": "Triggered By",
+                    "value": "${{ github.actor }}"
+                  }
+                ],
+                "markdown": true
+              }],
+              "potentialAction": [{
+                "@type": "OpenUri",
+                "name": "View Workflow",
+                "targets": [{
+                  "os": "default",
+                  "uri": "${{ inputs.workflow_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }]
+              }]
+            }' \
+            ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+  send-email-notification:
+    runs-on: ubuntu-latest
+    if: secrets.NOTIFICATION_EMAIL && secrets.EMAIL_USERNAME && secrets.EMAIL_PASSWORD
+    steps:
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST || 'smtp.gmail.com' }}
+          server_port: ${{ secrets.SMTP_PORT || '587' }}
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "${{ inputs.title }}"
+          body: |
+            ${{ inputs.message }}
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ inputs.commit_sha || github.sha }}
+            Environment: ${{ inputs.environment || 'N/A' }}
+            Triggered By: ${{ github.actor }}
+            
+            Workflow: ${{ inputs.workflow_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            This is an automated notification from GitHub Actions.
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          content_type: text/plain
+
+  send-telegram-notification:
+    runs-on: ubuntu-latest
+    if: secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID
+    steps:
+      - name: Send Telegram notification
+        run: |
+          # Determine emoji based on notification type
+          case "${{ inputs.notification_type }}" in
+            "success") EMOJI="✅" ;;
+            "failure") EMOJI="❌" ;;
+            "warning") EMOJI="⚠️" ;;
+            *) EMOJI="ℹ️" ;;
+          esac
+          
+          MESSAGE="$EMOJI *${{ inputs.title }}*
+          
+          ${{ inputs.message }}
+          
+          *Repository:* ${{ github.repository }}
+          *Branch:* ${{ github.ref_name }}
+          *Commit:* \`${{ inputs.commit_sha || github.sha }}\`
+          *Environment:* ${{ inputs.environment || 'N/A' }}
+          *Triggered By:* ${{ github.actor }}
+          
+          [View Workflow](${{ inputs.workflow_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          curl -s -X POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="$MESSAGE" \
+            -d parse_mode="Markdown"
+
+  send-pagerduty-alert:
+    runs-on: ubuntu-latest
+    if: secrets.PAGERDUTY_INTEGRATION_KEY && inputs.notification_type == 'failure'
+    steps:
+      - name: Send PagerDuty alert
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+              "routing_key": "${{ secrets.PAGERDUTY_INTEGRATION_KEY }}",
+              "event_action": "trigger",
+              "dedup_key": "github-actions-${{ github.repository }}-${{ github.run_id }}",
+              "payload": {
+                "summary": "${{ inputs.title }}",
+                "source": "GitHub Actions",
+                "severity": "error",
+                "component": "${{ github.repository }}",
+                "group": "CI/CD",
+                "class": "deployment",
+                "custom_details": {
+                  "repository": "${{ github.repository }}",
+                  "branch": "${{ github.ref_name }}",
+                  "commit": "${{ inputs.commit_sha || github.sha }}",
+                  "environment": "${{ inputs.environment || 'N/A' }}",
+                  "triggered_by": "${{ github.actor }}",
+                  "workflow_url": "${{ inputs.workflow_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                  "message": "${{ inputs.message }}"
+                }
+              }
+            }' \
+            "https://events.pagerduty.com/v2/enqueue"
+
+  send-datadog-event:
+    runs-on: ubuntu-latest
+    if: secrets.DATADOG_API_KEY && inputs.include_metrics
+    steps:
+      - name: Send Datadog event
+        run: |
+          # Determine alert type
+          case "${{ inputs.notification_type }}" in
+            "success") ALERT_TYPE="success" ;;
+            "failure") ALERT_TYPE="error" ;;
+            "warning") ALERT_TYPE="warning" ;;
+            *) ALERT_TYPE="info" ;;
+          esac
+          
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "DD-API-KEY: ${{ secrets.DATADOG_API_KEY }}" \
+            -d '{
+              "title": "${{ inputs.title }}",
+              "text": "${{ inputs.message }}",
+              "alert_type": "'$ALERT_TYPE'",
+              "source_type_name": "github",
+              "tags": [
+                "repository:${{ github.repository }}",
+                "branch:${{ github.ref_name }}",
+                "environment:${{ inputs.environment || 'unknown' }}",
+                "notification_type:${{ inputs.notification_type }}",
+                "triggered_by:${{ github.actor }}"
+              ],
+              "aggregation_key": "github-actions-${{ github.repository }}"
+            }' \
+            "https://api.datadoghq.com/api/v1/events"
+
+  send-custom-webhook:
+    runs-on: ubuntu-latest
+    if: secrets.CUSTOM_WEBHOOK_URL
+    steps:
+      - name: Send custom webhook
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+              "notification_type": "${{ inputs.notification_type }}",
+              "title": "${{ inputs.title }}",
+              "message": "${{ inputs.message }}",
+              "repository": "${{ github.repository }}",
+              "branch": "${{ github.ref_name }}",
+              "commit": "${{ inputs.commit_sha || github.sha }}",
+              "environment": "${{ inputs.environment || null }}",
+              "triggered_by": "${{ github.actor }}",
+              "workflow_url": "${{ inputs.workflow_url || github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "timestamp": "${{ github.event.head_commit.timestamp || github.event.created_at }}"
+            }' \
+            "${{ secrets.CUSTOM_WEBHOOK_URL }}"
+
+  notification-summary:
+    runs-on: ubuntu-latest
+    needs: [send-slack-notification, send-discord-notification, send-teams-notification, send-email-notification, send-telegram-notification, send-pagerduty-alert, send-datadog-event, send-custom-webhook]
+    if: always()
+    steps:
+      - name: Generate notification summary
+        run: |
+          echo "## Notification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Channel | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Slack
+          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            echo "| Slack | ${{ needs.send-slack-notification.result }} | Sent to configured webhook |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Slack | Skipped | No webhook configured |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Discord
+          if [ "${{ secrets.DISCORD_WEBHOOK_URL }}" ]; then
+            echo "| Discord | ${{ needs.send-discord-notification.result }} | Sent to configured webhook |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Discord | Skipped | No webhook configured |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Teams
+          if [ "${{ secrets.TEAMS_WEBHOOK_URL }}" ]; then
+            echo "| Teams | ${{ needs.send-teams-notification.result }} | Sent to configured webhook |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Teams | Skipped | No webhook configured |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Email
+          if [ "${{ secrets.NOTIFICATION_EMAIL }}" ]; then
+            echo "| Email | ${{ needs.send-email-notification.result }} | Sent to ${{ secrets.NOTIFICATION_EMAIL }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Email | Skipped | No email configured |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Telegram
+          if [ "${{ secrets.TELEGRAM_BOT_TOKEN }}" ]; then
+            echo "| Telegram | ${{ needs.send-telegram-notification.result }} | Sent to configured chat |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Telegram | Skipped | No bot token configured |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # PagerDuty
+          if [ "${{ secrets.PAGERDUTY_INTEGRATION_KEY }}" ] && [ "${{ inputs.notification_type }}" == "failure" ]; then
+            echo "| PagerDuty | ${{ needs.send-pagerduty-alert.result }} | Alert sent (failure notifications only) |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| PagerDuty | Skipped | No integration key or not a failure |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Datadog
+          if [ "${{ secrets.DATADOG_API_KEY }}" ] && [ "${{ inputs.include_metrics }}" == "true" ]; then
+            echo "| Datadog | ${{ needs.send-datadog-event.result }} | Event sent with metrics |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Datadog | Skipped | No API key or metrics not requested |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Notification Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** ${{ inputs.notification_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Title:** ${{ inputs.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Message:** ${{ inputs.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ inputs.commit_sha || github.sha }}" >> $GITHUB_STEP_SUMMARY

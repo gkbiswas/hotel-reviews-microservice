@@ -20,6 +20,8 @@ type Config struct {
 	Notification NotificationConfig `mapstructure:"notification" json:"notification"`
 	Processing   ProcessingConfig   `mapstructure:"processing" json:"processing"`
 	Security     SecurityConfig     `mapstructure:"security" json:"security"`
+	Auth         AuthConfig         `mapstructure:"auth" json:"auth"`
+	Kafka        KafkaConfig        `mapstructure:"kafka" json:"kafka"`
 }
 
 // DatabaseConfig represents database configuration
@@ -166,6 +168,55 @@ type SecurityConfig struct {
 	APIKeyHeader     string        `mapstructure:"api_key_header" json:"api_key_header"`
 	EnableEncryption bool          `mapstructure:"enable_encryption" json:"enable_encryption"`
 	EncryptionKey    string        `mapstructure:"encryption_key" json:"encryption_key"`
+}
+
+// AuthConfig represents authentication configuration
+type AuthConfig struct {
+	JWTSecret            string        `mapstructure:"jwt_secret" json:"jwt_secret" validate:"required"`
+	JWTIssuer            string        `mapstructure:"jwt_issuer" json:"jwt_issuer"`
+	AccessTokenExpiry    time.Duration `mapstructure:"access_token_expiry" json:"access_token_expiry"`
+	RefreshTokenExpiry   time.Duration `mapstructure:"refresh_token_expiry" json:"refresh_token_expiry"`
+	MaxLoginAttempts     int           `mapstructure:"max_login_attempts" json:"max_login_attempts"`
+	LoginAttemptWindow   time.Duration `mapstructure:"login_attempt_window" json:"login_attempt_window"`
+	AccountLockDuration  time.Duration `mapstructure:"account_lock_duration" json:"account_lock_duration"`
+	PasswordMinLength    int           `mapstructure:"password_min_length" json:"password_min_length"`
+	PasswordMaxLength    int           `mapstructure:"password_max_length" json:"password_max_length"`
+	RequireStrongPassword bool         `mapstructure:"require_strong_password" json:"require_strong_password"`
+	EnableTwoFactor      bool          `mapstructure:"enable_two_factor" json:"enable_two_factor"`
+	EnableEmailVerification bool       `mapstructure:"enable_email_verification" json:"enable_email_verification"`
+	EnablePasswordReset  bool          `mapstructure:"enable_password_reset" json:"enable_password_reset"`
+	EnableSessionCleanup bool          `mapstructure:"enable_session_cleanup" json:"enable_session_cleanup"`
+	SessionCleanupInterval time.Duration `mapstructure:"session_cleanup_interval" json:"session_cleanup_interval"`
+	EnableAuditLogging   bool          `mapstructure:"enable_audit_logging" json:"enable_audit_logging"`
+	EnableRateLimiting   bool          `mapstructure:"enable_rate_limiting" json:"enable_rate_limiting"`
+	BCryptCost           int           `mapstructure:"bcrypt_cost" json:"bcrypt_cost"`
+	ApiKeyLength         int           `mapstructure:"api_key_length" json:"api_key_length"`
+	ApiKeyPrefix         string        `mapstructure:"api_key_prefix" json:"api_key_prefix"`
+	DefaultRole          string        `mapstructure:"default_role" json:"default_role"`
+}
+
+// KafkaConfig represents Kafka configuration
+type KafkaConfig struct {
+	Brokers              []string      `mapstructure:"brokers" json:"brokers" validate:"required"`
+	ReviewTopic          string        `mapstructure:"review_topic" json:"review_topic" validate:"required"`
+	ProcessingTopic      string        `mapstructure:"processing_topic" json:"processing_topic" validate:"required"`
+	DeadLetterTopic      string        `mapstructure:"dead_letter_topic" json:"dead_letter_topic"`
+	ConsumerGroup        string        `mapstructure:"consumer_group" json:"consumer_group" validate:"required"`
+	BatchSize            int           `mapstructure:"batch_size" json:"batch_size"`
+	BatchTimeout         time.Duration `mapstructure:"batch_timeout" json:"batch_timeout"`
+	MaxRetries           int           `mapstructure:"max_retries" json:"max_retries"`
+	RetryDelay           time.Duration `mapstructure:"retry_delay" json:"retry_delay"`
+	EnableSASL           bool          `mapstructure:"enable_sasl" json:"enable_sasl"`
+	SASLUsername         string        `mapstructure:"sasl_username" json:"sasl_username"`
+	SASLPassword         string        `mapstructure:"sasl_password" json:"sasl_password"`
+	EnableTLS            bool          `mapstructure:"enable_tls" json:"enable_tls"`
+	MaxMessageSize       int           `mapstructure:"max_message_size" json:"max_message_size"`
+	CompressionType      string        `mapstructure:"compression_type" json:"compression_type"`
+	ProducerFlushTimeout time.Duration `mapstructure:"producer_flush_timeout" json:"producer_flush_timeout"`
+	ConsumerTimeout      time.Duration `mapstructure:"consumer_timeout" json:"consumer_timeout"`
+	EnableIdempotence    bool          `mapstructure:"enable_idempotence" json:"enable_idempotence"`
+	Partitions           int           `mapstructure:"partitions" json:"partitions"`
+	ReplicationFactor    int           `mapstructure:"replication_factor" json:"replication_factor"`
 }
 
 // Load loads configuration from environment variables and config files
@@ -332,6 +383,51 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("security.api_key_header", "HOTEL_REVIEWS_SECURITY_API_KEY_HEADER")
 	v.BindEnv("security.enable_encryption", "HOTEL_REVIEWS_SECURITY_ENABLE_ENCRYPTION")
 	v.BindEnv("security.encryption_key", "HOTEL_REVIEWS_SECURITY_ENCRYPTION_KEY")
+	
+	// Authentication configuration
+	v.BindEnv("auth.jwt_secret", "HOTEL_REVIEWS_AUTH_JWT_SECRET")
+	v.BindEnv("auth.jwt_issuer", "HOTEL_REVIEWS_AUTH_JWT_ISSUER")
+	v.BindEnv("auth.access_token_expiry", "HOTEL_REVIEWS_AUTH_ACCESS_TOKEN_EXPIRY")
+	v.BindEnv("auth.refresh_token_expiry", "HOTEL_REVIEWS_AUTH_REFRESH_TOKEN_EXPIRY")
+	v.BindEnv("auth.max_login_attempts", "HOTEL_REVIEWS_AUTH_MAX_LOGIN_ATTEMPTS")
+	v.BindEnv("auth.login_attempt_window", "HOTEL_REVIEWS_AUTH_LOGIN_ATTEMPT_WINDOW")
+	v.BindEnv("auth.account_lock_duration", "HOTEL_REVIEWS_AUTH_ACCOUNT_LOCK_DURATION")
+	v.BindEnv("auth.password_min_length", "HOTEL_REVIEWS_AUTH_PASSWORD_MIN_LENGTH")
+	v.BindEnv("auth.password_max_length", "HOTEL_REVIEWS_AUTH_PASSWORD_MAX_LENGTH")
+	v.BindEnv("auth.require_strong_password", "HOTEL_REVIEWS_AUTH_REQUIRE_STRONG_PASSWORD")
+	v.BindEnv("auth.enable_two_factor", "HOTEL_REVIEWS_AUTH_ENABLE_TWO_FACTOR")
+	v.BindEnv("auth.enable_email_verification", "HOTEL_REVIEWS_AUTH_ENABLE_EMAIL_VERIFICATION")
+	v.BindEnv("auth.enable_password_reset", "HOTEL_REVIEWS_AUTH_ENABLE_PASSWORD_RESET")
+	v.BindEnv("auth.enable_session_cleanup", "HOTEL_REVIEWS_AUTH_ENABLE_SESSION_CLEANUP")
+	v.BindEnv("auth.session_cleanup_interval", "HOTEL_REVIEWS_AUTH_SESSION_CLEANUP_INTERVAL")
+	v.BindEnv("auth.enable_audit_logging", "HOTEL_REVIEWS_AUTH_ENABLE_AUDIT_LOGGING")
+	v.BindEnv("auth.enable_rate_limiting", "HOTEL_REVIEWS_AUTH_ENABLE_RATE_LIMITING")
+	v.BindEnv("auth.bcrypt_cost", "HOTEL_REVIEWS_AUTH_BCRYPT_COST")
+	v.BindEnv("auth.api_key_length", "HOTEL_REVIEWS_AUTH_API_KEY_LENGTH")
+	v.BindEnv("auth.api_key_prefix", "HOTEL_REVIEWS_AUTH_API_KEY_PREFIX")
+	v.BindEnv("auth.default_role", "HOTEL_REVIEWS_AUTH_DEFAULT_ROLE")
+	
+	// Kafka configuration
+	v.BindEnv("kafka.brokers", "HOTEL_REVIEWS_KAFKA_BROKERS")
+	v.BindEnv("kafka.review_topic", "HOTEL_REVIEWS_KAFKA_REVIEW_TOPIC")
+	v.BindEnv("kafka.processing_topic", "HOTEL_REVIEWS_KAFKA_PROCESSING_TOPIC")
+	v.BindEnv("kafka.dead_letter_topic", "HOTEL_REVIEWS_KAFKA_DEAD_LETTER_TOPIC")
+	v.BindEnv("kafka.consumer_group", "HOTEL_REVIEWS_KAFKA_CONSUMER_GROUP")
+	v.BindEnv("kafka.batch_size", "HOTEL_REVIEWS_KAFKA_BATCH_SIZE")
+	v.BindEnv("kafka.batch_timeout", "HOTEL_REVIEWS_KAFKA_BATCH_TIMEOUT")
+	v.BindEnv("kafka.max_retries", "HOTEL_REVIEWS_KAFKA_MAX_RETRIES")
+	v.BindEnv("kafka.retry_delay", "HOTEL_REVIEWS_KAFKA_RETRY_DELAY")
+	v.BindEnv("kafka.enable_sasl", "HOTEL_REVIEWS_KAFKA_ENABLE_SASL")
+	v.BindEnv("kafka.sasl_username", "HOTEL_REVIEWS_KAFKA_SASL_USERNAME")
+	v.BindEnv("kafka.sasl_password", "HOTEL_REVIEWS_KAFKA_SASL_PASSWORD")
+	v.BindEnv("kafka.enable_tls", "HOTEL_REVIEWS_KAFKA_ENABLE_TLS")
+	v.BindEnv("kafka.max_message_size", "HOTEL_REVIEWS_KAFKA_MAX_MESSAGE_SIZE")
+	v.BindEnv("kafka.compression_type", "HOTEL_REVIEWS_KAFKA_COMPRESSION_TYPE")
+	v.BindEnv("kafka.producer_flush_timeout", "HOTEL_REVIEWS_KAFKA_PRODUCER_FLUSH_TIMEOUT")
+	v.BindEnv("kafka.consumer_timeout", "HOTEL_REVIEWS_KAFKA_CONSUMER_TIMEOUT")
+	v.BindEnv("kafka.enable_idempotence", "HOTEL_REVIEWS_KAFKA_ENABLE_IDEMPOTENCE")
+	v.BindEnv("kafka.partitions", "HOTEL_REVIEWS_KAFKA_PARTITIONS")
+	v.BindEnv("kafka.replication_factor", "HOTEL_REVIEWS_KAFKA_REPLICATION_FACTOR")
 }
 
 // setDefaults sets default configuration values
@@ -430,6 +526,48 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("security.enable_api_key", false)
 	v.SetDefault("security.api_key_header", "X-API-Key")
 	v.SetDefault("security.enable_encryption", false)
+	
+	// Authentication defaults
+	v.SetDefault("auth.jwt_issuer", "hotel-reviews-api")
+	v.SetDefault("auth.access_token_expiry", "15m")
+	v.SetDefault("auth.refresh_token_expiry", "7d")
+	v.SetDefault("auth.max_login_attempts", 5)
+	v.SetDefault("auth.login_attempt_window", "15m")
+	v.SetDefault("auth.account_lock_duration", "30m")
+	v.SetDefault("auth.password_min_length", 8)
+	v.SetDefault("auth.password_max_length", 128)
+	v.SetDefault("auth.require_strong_password", true)
+	v.SetDefault("auth.enable_two_factor", false)
+	v.SetDefault("auth.enable_email_verification", false)
+	v.SetDefault("auth.enable_password_reset", true)
+	v.SetDefault("auth.enable_session_cleanup", true)
+	v.SetDefault("auth.session_cleanup_interval", "1h")
+	v.SetDefault("auth.enable_audit_logging", true)
+	v.SetDefault("auth.enable_rate_limiting", true)
+	v.SetDefault("auth.bcrypt_cost", 12)
+	v.SetDefault("auth.api_key_length", 32)
+	v.SetDefault("auth.api_key_prefix", "hr_")
+	v.SetDefault("auth.default_role", "user")
+	
+	// Kafka defaults
+	v.SetDefault("kafka.brokers", []string{"localhost:9092"})
+	v.SetDefault("kafka.review_topic", "hotel-reviews")
+	v.SetDefault("kafka.processing_topic", "hotel-reviews-processing")
+	v.SetDefault("kafka.dead_letter_topic", "hotel-reviews-dlq")
+	v.SetDefault("kafka.consumer_group", "hotel-reviews-consumer")
+	v.SetDefault("kafka.batch_size", 100)
+	v.SetDefault("kafka.batch_timeout", "1s")
+	v.SetDefault("kafka.max_retries", 3)
+	v.SetDefault("kafka.retry_delay", "1s")
+	v.SetDefault("kafka.enable_sasl", false)
+	v.SetDefault("kafka.enable_tls", false)
+	v.SetDefault("kafka.max_message_size", 1*1024*1024) // 1MB
+	v.SetDefault("kafka.compression_type", "snappy")
+	v.SetDefault("kafka.producer_flush_timeout", "10s")
+	v.SetDefault("kafka.consumer_timeout", "10s")
+	v.SetDefault("kafka.enable_idempotence", true)
+	v.SetDefault("kafka.partitions", 3)
+	v.SetDefault("kafka.replication_factor", 1)
 }
 
 // validate validates the configuration
@@ -501,6 +639,47 @@ func validate(config *Config) error {
 		return fmt.Errorf("JWT secret is required")
 	}
 	
+	// Validate authentication configuration
+	if config.Auth.JWTSecret == "" {
+		return fmt.Errorf("authentication JWT secret is required")
+	}
+	if config.Auth.JWTIssuer == "" {
+		return fmt.Errorf("authentication JWT issuer is required")
+	}
+	if config.Auth.AccessTokenExpiry <= 0 {
+		return fmt.Errorf("access token expiry must be positive")
+	}
+	if config.Auth.RefreshTokenExpiry <= 0 {
+		return fmt.Errorf("refresh token expiry must be positive")
+	}
+	if config.Auth.MaxLoginAttempts <= 0 {
+		return fmt.Errorf("max login attempts must be positive")
+	}
+	if config.Auth.LoginAttemptWindow <= 0 {
+		return fmt.Errorf("login attempt window must be positive")
+	}
+	if config.Auth.AccountLockDuration <= 0 {
+		return fmt.Errorf("account lock duration must be positive")
+	}
+	if config.Auth.PasswordMinLength < 4 {
+		return fmt.Errorf("password min length must be at least 4")
+	}
+	if config.Auth.PasswordMaxLength < config.Auth.PasswordMinLength {
+		return fmt.Errorf("password max length must be greater than or equal to min length")
+	}
+	if config.Auth.BCryptCost < 4 || config.Auth.BCryptCost > 31 {
+		return fmt.Errorf("bcrypt cost must be between 4 and 31")
+	}
+	if config.Auth.ApiKeyLength < 16 {
+		return fmt.Errorf("API key length must be at least 16")
+	}
+	if config.Auth.ApiKeyPrefix == "" {
+		return fmt.Errorf("API key prefix is required")
+	}
+	if config.Auth.DefaultRole == "" {
+		return fmt.Errorf("default role is required")
+	}
+	
 	// Validate TLS configuration
 	if config.Server.TLSCertFile != "" && config.Server.TLSKeyFile == "" {
 		return fmt.Errorf("TLS key file is required when TLS cert file is provided")
@@ -518,6 +697,51 @@ func validate(config *Config) error {
 	if config.Server.TLSKeyFile != "" {
 		if _, err := os.Stat(config.Server.TLSKeyFile); os.IsNotExist(err) {
 			return fmt.Errorf("TLS key file does not exist: %s", config.Server.TLSKeyFile)
+		}
+	}
+	
+	// Validate Kafka configuration
+	if len(config.Kafka.Brokers) == 0 {
+		return fmt.Errorf("at least one Kafka broker is required")
+	}
+	if config.Kafka.ReviewTopic == "" {
+		return fmt.Errorf("Kafka review topic is required")
+	}
+	if config.Kafka.ProcessingTopic == "" {
+		return fmt.Errorf("Kafka processing topic is required")
+	}
+	if config.Kafka.ConsumerGroup == "" {
+		return fmt.Errorf("Kafka consumer group is required")
+	}
+	if config.Kafka.BatchSize <= 0 {
+		return fmt.Errorf("Kafka batch size must be positive")
+	}
+	if config.Kafka.MaxRetries < 0 {
+		return fmt.Errorf("Kafka max retries must be non-negative")
+	}
+	if config.Kafka.MaxMessageSize <= 0 {
+		return fmt.Errorf("Kafka max message size must be positive")
+	}
+	if config.Kafka.Partitions <= 0 {
+		return fmt.Errorf("Kafka partitions must be positive")
+	}
+	if config.Kafka.ReplicationFactor <= 0 {
+		return fmt.Errorf("Kafka replication factor must be positive")
+	}
+	
+	// Validate Kafka compression type
+	validCompressionTypes := []string{"gzip", "snappy", "lz4", "zstd", "none"}
+	if !contains(validCompressionTypes, config.Kafka.CompressionType) {
+		return fmt.Errorf("Kafka compression type must be one of: %s", strings.Join(validCompressionTypes, ", "))
+	}
+	
+	// Validate SASL configuration
+	if config.Kafka.EnableSASL {
+		if config.Kafka.SASLUsername == "" {
+			return fmt.Errorf("SASL username is required when SASL is enabled")
+		}
+		if config.Kafka.SASLPassword == "" {
+			return fmt.Errorf("SASL password is required when SASL is enabled")
 		}
 	}
 	

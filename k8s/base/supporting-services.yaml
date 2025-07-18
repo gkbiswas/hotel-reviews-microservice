@@ -1,0 +1,483 @@
+# Supporting services for PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-postgres
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+    - name: metrics
+      port: 9187
+      targetPort: 9187
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-postgres-headless
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: hotel-reviews
+    component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+    - name: metrics
+      port: 9187
+      targetPort: 9187
+      protocol: TCP
+---
+# Supporting services for Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-redis
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: redis
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+    - name: metrics
+      port: 9121
+      targetPort: 9121
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-redis-headless
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: redis
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: hotel-reviews
+    component: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+    - name: metrics
+      port: 9121
+      targetPort: 9121
+      protocol: TCP
+---
+# Supporting services for Kafka
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-kafka
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: kafka-internal
+      port: 9093
+      targetPort: 9093
+      protocol: TCP
+    - name: metrics
+      port: 9308
+      targetPort: 9308
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-kafka-headless
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: kafka
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: hotel-reviews
+    component: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+    - name: kafka-internal
+      port: 9093
+      targetPort: 9093
+      protocol: TCP
+    - name: metrics
+      port: 9308
+      targetPort: 9308
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-kafka-bootstrap
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: kafka
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+      protocol: TCP
+---
+# Supporting services for ZooKeeper
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-zookeeper
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: zookeeper
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+      protocol: TCP
+    - name: server
+      port: 2888
+      targetPort: 2888
+      protocol: TCP
+    - name: leader-election
+      port: 3888
+      targetPort: 3888
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-zookeeper-headless
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: zookeeper
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: hotel-reviews
+    component: zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+      protocol: TCP
+    - name: server
+      port: 2888
+      targetPort: 2888
+      protocol: TCP
+    - name: leader-election
+      port: 3888
+      targetPort: 3888
+      protocol: TCP
+---
+# Monitoring services
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-prometheus
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: prometheus
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-grafana
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: grafana
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: grafana
+  ports:
+    - name: web
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
+---
+# Worker service
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews-worker
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: worker
+spec:
+  type: ClusterIP
+  selector:
+    app: hotel-reviews
+    component: worker
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+---
+# ConfigMaps for service configurations
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: postgres
+data:
+  postgresql.conf: |
+    # PostgreSQL configuration
+    max_connections = 100
+    shared_buffers = 128MB
+    effective_cache_size = 4GB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    work_mem = 4MB
+    min_wal_size = 1GB
+    max_wal_size = 4GB
+    max_worker_processes = 8
+    max_parallel_workers_per_gather = 2
+    max_parallel_workers = 8
+    max_parallel_maintenance_workers = 2
+    
+    # Logging
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = 'log'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_truncate_on_rotation = on
+    log_rotation_age = 1d
+    log_rotation_size = 10MB
+    log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+    log_checkpoints = on
+    log_connections = on
+    log_disconnections = on
+    log_lock_waits = on
+    log_temp_files = 0
+    log_autovacuum_min_duration = 0
+    log_error_verbosity = default
+    
+    # Replication
+    wal_level = replica
+    archive_mode = on
+    archive_command = 'test ! -f /var/lib/postgresql/data/archive/%f && cp %p /var/lib/postgresql/data/archive/%f'
+    max_wal_senders = 3
+    wal_keep_segments = 32
+    hot_standby = on
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: redis
+data:
+  redis.conf: |
+    # Redis configuration
+    bind 0.0.0.0
+    port 6379
+    
+    # Security
+    protected-mode no
+    # requirepass will be set via environment variable
+    
+    # Memory management
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    
+    # Persistence
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # Logging
+    loglevel notice
+    logfile ""
+    
+    # Client settings
+    timeout 300
+    tcp-keepalive 300
+    
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+    
+    # Latency monitoring
+    latency-monitor-threshold 100
+    
+    # Performance
+    tcp-backlog 511
+    databases 16
+    
+    # Append only file
+    appendonly yes
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: postgres
+data:
+  init-extensions.sql: |
+    -- Create necessary extensions
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+    CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+    CREATE EXTENSION IF NOT EXISTS "btree_gin";
+    CREATE EXTENSION IF NOT EXISTS "btree_gist";
+    
+    -- Create monitoring user
+    CREATE USER monitoring WITH PASSWORD 'monitoring_password';
+    GRANT SELECT ON ALL TABLES IN SCHEMA public TO monitoring;
+    GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO monitoring;
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO monitoring;
+    
+    -- Create application database and user
+    CREATE DATABASE hotel_reviews_app;
+    CREATE USER hotel_reviews_app WITH PASSWORD 'app_password';
+    GRANT ALL PRIVILEGES ON DATABASE hotel_reviews_app TO hotel_reviews_app;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        storage.path  /var/log/flb-storage/
+        storage.sync  normal
+        storage.checksum off
+        storage.backlog.mem_limit 5M
+    
+    [INPUT]
+        Name              tail
+        Path              /var/log/app/*.log
+        multiline.parser  docker, cri
+        Tag               app.*
+        Mem_Buf_Limit     5MB
+        Skip_Long_Lines   On
+        storage.type      filesystem
+    
+    [FILTER]
+        Name                kubernetes
+        Match               app.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     app.var.log.containers.
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+    
+    [OUTPUT]
+        Name  stdout
+        Match *
+  
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+    
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<message>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z

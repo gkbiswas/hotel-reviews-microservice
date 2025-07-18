@@ -1,0 +1,289 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-reviews-worker
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: worker
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: hotel-reviews
+        component: worker
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: hotel-reviews-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: hotel-reviews-worker
+          image: hotel-reviews-worker:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            # Database Configuration
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.name
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-password
+            
+            # Cache Configuration
+            - name: CACHE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: cache.host
+            - name: CACHE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: cache.port
+            - name: CACHE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: redis-password
+            
+            # Kafka Configuration
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.brokers
+            - name: KAFKA_CONSUMER_GROUP
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.consumer_group
+            - name: KAFKA_REVIEW_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.review_topic
+            - name: KAFKA_PROCESSING_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.processing_topic
+            - name: KAFKA_DEAD_LETTER_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.dead_letter_topic
+            
+            # S3 Configuration
+            - name: S3_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: s3.region
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: s3.bucket
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: s3-access-key-id
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: s3-secret-access-key
+            
+            # Processing Configuration
+            - name: PROCESSING_WORKER_COUNT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: processing.worker_count
+            - name: PROCESSING_BATCH_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: processing.batch_size
+            - name: PROCESSING_MAX_RETRIES
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: processing.max_retries
+            - name: PROCESSING_RETRY_DELAY
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: processing.retry_delay
+            
+            # Logging Configuration
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: log.level
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: log.format
+            
+            # Kubernetes specific
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          
+          startupProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+            successThreshold: 1
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+            - name: cache-volume
+              mountPath: /app/cache
+            - name: logs-volume
+              mountPath: /app/logs
+            - name: processing-volume
+              mountPath: /app/processing
+      
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+        - name: cache-volume
+          emptyDir: {}
+        - name: logs-volume
+          emptyDir: {}
+        - name: processing-volume
+          emptyDir:
+            sizeLimit: 10Gi
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - hotel-reviews
+                    - key: component
+                      operator: In
+                      values:
+                        - worker
+                topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-type
+                    operator: In
+                    values:
+                      - worker
+                      - compute
+      
+      tolerations:
+        - key: "node-role.kubernetes.io/worker"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always

@@ -1,0 +1,467 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hotel-reviews-production-alerts
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    monitoring: prometheus
+spec:
+  groups:
+    - name: hotel-reviews-production.critical
+      rules:
+        - alert: HotelReviewsProductionAPIDown
+          expr: up{job="hotel-reviews-api",namespace="hotel-reviews-production"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            environment: production
+            component: api
+            team: sre
+            escalation: "page"
+          annotations:
+            summary: "CRITICAL: Hotel Reviews Production API is down"
+            description: "Hotel Reviews Production API has been down for more than 1 minute. This is a critical production incident."
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/api-down"
+            dashboard_url: "https://grafana.hotel-reviews.com/d/production-api"
+            slack_channel: "#production-alerts"
+            pagerduty_service: "hotel-reviews-api"
+        
+        - alert: HotelReviewsProductionAPIHighErrorRate
+          expr: rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-production",status=~"5.."}[5m]) / rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-production"}[5m]) > 0.05
+          for: 2m
+          labels:
+            severity: critical
+            environment: production
+            component: api
+            team: sre
+            escalation: "page"
+          annotations:
+            summary: "CRITICAL: Hotel Reviews Production API high error rate"
+            description: "Hotel Reviews Production API error rate is above 5% for more than 2 minutes"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/high-error-rate"
+            current_value: "{{ $value | humanizePercentage }}"
+        
+        - alert: HotelReviewsProductionAPIHighLatency
+          expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="hotel-reviews-api",namespace="hotel-reviews-production"}[5m])) > 2
+          for: 3m
+          labels:
+            severity: critical
+            environment: production
+            component: api
+            team: sre
+            escalation: "page"
+          annotations:
+            summary: "CRITICAL: Hotel Reviews Production API high latency"
+            description: "Hotel Reviews Production API 99th percentile latency is above 2 seconds for more than 3 minutes"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/high-latency"
+            current_value: "{{ $value | humanizeDuration }}"
+        
+        - alert: HotelReviewsProductionDatabaseDown
+          expr: up{job="hotel-reviews-postgres",namespace="hotel-reviews-production"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            environment: production
+            component: database
+            team: sre
+            escalation: "page"
+          annotations:
+            summary: "CRITICAL: Hotel Reviews Production Database is down"
+            description: "Hotel Reviews Production PostgreSQL database has been down for more than 1 minute"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/database-down"
+        
+        - alert: HotelReviewsProductionDatabaseHighConnections
+          expr: pg_stat_database_numbackends{job="hotel-reviews-postgres",namespace="hotel-reviews-production"} > 90
+          for: 2m
+          labels:
+            severity: critical
+            environment: production
+            component: database
+            team: sre
+            escalation: "page"
+          annotations:
+            summary: "CRITICAL: Hotel Reviews Production Database high connections"
+            description: "Hotel Reviews Production PostgreSQL has more than 90 active connections"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/database-connections"
+            current_value: "{{ $value }}"
+    
+    - name: hotel-reviews-production.warning
+      rules:
+        - alert: HotelReviewsProductionAPIHighCPU
+          expr: rate(container_cpu_usage_seconds_total{pod=~"hotel-reviews-api-.*",namespace="hotel-reviews-production"}[5m]) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            environment: production
+            component: api
+            team: sre
+          annotations:
+            summary: "WARNING: Hotel Reviews Production API high CPU usage"
+            description: "Hotel Reviews Production API CPU usage is above 80% for more than 5 minutes"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/high-cpu"
+            current_value: "{{ $value | humanizePercentage }}"
+        
+        - alert: HotelReviewsProductionAPIHighMemory
+          expr: container_memory_usage_bytes{pod=~"hotel-reviews-api-.*",namespace="hotel-reviews-production"} / container_spec_memory_limit_bytes{pod=~"hotel-reviews-api-.*",namespace="hotel-reviews-production"} > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            environment: production
+            component: api
+            team: sre
+          annotations:
+            summary: "WARNING: Hotel Reviews Production API high memory usage"
+            description: "Hotel Reviews Production API memory usage is above 85% for more than 5 minutes"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/high-memory"
+            current_value: "{{ $value | humanizePercentage }}"
+        
+        - alert: HotelReviewsProductionDatabaseSlowQueries
+          expr: rate(pg_stat_statements_total_time{job="hotel-reviews-postgres",namespace="hotel-reviews-production"}[5m]) / rate(pg_stat_statements_calls{job="hotel-reviews-postgres",namespace="hotel-reviews-production"}[5m]) > 1000
+          for: 10m
+          labels:
+            severity: warning
+            environment: production
+            component: database
+            team: sre
+          annotations:
+            summary: "WARNING: Hotel Reviews Production Database slow queries"
+            description: "Hotel Reviews Production PostgreSQL has slow queries with average execution time > 1s"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/slow-queries"
+            current_value: "{{ $value | humanizeDuration }}"
+        
+        - alert: HotelReviewsProductionKafkaConsumerLag
+          expr: kafka_consumer_lag_sum{job="hotel-reviews-kafka",namespace="hotel-reviews-production"} > 5000
+          for: 5m
+          labels:
+            severity: warning
+            environment: production
+            component: kafka
+            team: sre
+          annotations:
+            summary: "WARNING: Hotel Reviews Production Kafka consumer lag"
+            description: "Hotel Reviews Production Kafka consumer lag is above 5000 messages"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/kafka-lag"
+            current_value: "{{ $value }}"
+        
+        - alert: HotelReviewsProductionRedisHighMemory
+          expr: redis_memory_used_bytes{job="hotel-reviews-redis",namespace="hotel-reviews-production"} / redis_memory_max_bytes{job="hotel-reviews-redis",namespace="hotel-reviews-production"} > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            environment: production
+            component: redis
+            team: sre
+          annotations:
+            summary: "WARNING: Hotel Reviews Production Redis high memory usage"
+            description: "Hotel Reviews Production Redis memory usage is above 85%"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/redis-memory"
+            current_value: "{{ $value | humanizePercentage }}"
+    
+    - name: hotel-reviews-production.sla
+      rules:
+        - alert: HotelReviewsProductionSLABreach
+          expr: (rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-production",status!~"5.."}[5m]) / rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-production"}[5m])) < 0.995
+          for: 5m
+          labels:
+            severity: warning
+            environment: production
+            component: api
+            team: sre
+            sla: "availability"
+          annotations:
+            summary: "SLA BREACH: Hotel Reviews Production API availability below 99.5%"
+            description: "Hotel Reviews Production API availability is below SLA threshold of 99.5%"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/sla-breach"
+            current_value: "{{ $value | humanizePercentage }}"
+        
+        - alert: HotelReviewsProductionLatencySLABreach
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="hotel-reviews-api",namespace="hotel-reviews-production"}[5m])) > 1
+          for: 10m
+          labels:
+            severity: warning
+            environment: production
+            component: api
+            team: sre
+            sla: "latency"
+          annotations:
+            summary: "SLA BREACH: Hotel Reviews Production API latency above 1s"
+            description: "Hotel Reviews Production API 95th percentile latency is above SLA threshold of 1 second"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/latency-sla"
+            current_value: "{{ $value | humanizeDuration }}"
+    
+    - name: hotel-reviews-production.business
+      rules:
+        - alert: HotelReviewsProductionLowThroughput
+          expr: rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-production"}[5m]) < 10
+          for: 10m
+          labels:
+            severity: warning
+            environment: production
+            component: api
+            team: product
+            type: business
+          annotations:
+            summary: "BUSINESS: Hotel Reviews Production API low throughput"
+            description: "Hotel Reviews Production API throughput is below 10 requests/second"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/low-throughput"
+            current_value: "{{ $value }}"
+        
+        - alert: HotelReviewsProductionNoReviewsProcessed
+          expr: rate(review_processing_total{job="hotel-reviews-worker",namespace="hotel-reviews-production"}[30m]) == 0
+          for: 30m
+          labels:
+            severity: warning
+            environment: production
+            component: worker
+            team: product
+            type: business
+          annotations:
+            summary: "BUSINESS: No reviews processed in 30 minutes"
+            description: "No reviews have been processed by the worker service in the last 30 minutes"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/no-processing"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-reviews-production-grafana-dashboards
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: grafana
+data:
+  production-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Hotel Reviews Production Overview",
+        "tags": ["hotel-reviews", "production", "overview"],
+        "style": "dark",
+        "timezone": "UTC",
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "API Request Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[5m]))",
+                "legendFormat": "Requests/sec"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "API Success Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{namespace=\"hotel-reviews-production\",status!~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[5m])) * 100",
+                "legendFormat": "Success Rate %"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "API Response Time (P95)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"hotel-reviews-production\"}[5m])) by (le))",
+                "legendFormat": "P95 Latency"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Active Pods",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "count(up{namespace=\"hotel-reviews-production\"} == 1)",
+                "legendFormat": "Active Pods"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Database Connections",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "pg_stat_database_numbackends{namespace=\"hotel-reviews-production\"}",
+                "legendFormat": "Active Connections"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Cache Hit Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "redis_keyspace_hits_total{namespace=\"hotel-reviews-production\"} / (redis_keyspace_hits_total{namespace=\"hotel-reviews-production\"} + redis_keyspace_misses_total{namespace=\"hotel-reviews-production\"}) * 100",
+                "legendFormat": "Cache Hit Rate %"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Kafka Consumer Lag",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "kafka_consumer_lag_sum{namespace=\"hotel-reviews-production\"}",
+                "legendFormat": "Consumer Lag"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Pod CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{namespace=\"hotel-reviews-production\"}[5m]) * 100",
+                "legendFormat": "{{pod}} CPU %"
+              }
+            ]
+          },
+          {
+            "id": 9,
+            "title": "Pod Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{namespace=\"hotel-reviews-production\"} / container_spec_memory_limit_bytes{namespace=\"hotel-reviews-production\"} * 100",
+                "legendFormat": "{{pod}} Memory %"
+              }
+            ]
+          },
+          {
+            "id": 10,
+            "title": "Network I/O",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_network_receive_bytes_total{namespace=\"hotel-reviews-production\"}[5m])",
+                "legendFormat": "{{pod}} RX"
+              },
+              {
+                "expr": "rate(container_network_transmit_bytes_total{namespace=\"hotel-reviews-production\"}[5m])",
+                "legendFormat": "{{pod}} TX"
+              }
+            ]
+          },
+          {
+            "id": 11,
+            "title": "Disk I/O",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_fs_reads_bytes_total{namespace=\"hotel-reviews-production\"}[5m])",
+                "legendFormat": "{{pod}} Read"
+              },
+              {
+                "expr": "rate(container_fs_writes_bytes_total{namespace=\"hotel-reviews-production\"}[5m])",
+                "legendFormat": "{{pod}} Write"
+              }
+            ]
+          },
+          {
+            "id": 12,
+            "title": "Alerts Status",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "ALERTS{namespace=\"hotel-reviews-production\"}",
+                "legendFormat": "{{alertname}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  
+  production-sla.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Hotel Reviews Production SLA Dashboard",
+        "tags": ["hotel-reviews", "production", "sla"],
+        "style": "dark",
+        "timezone": "UTC",
+        "refresh": "1m",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Monthly SLA (99.5% target)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "(1 - (sum(rate(http_requests_total{namespace=\"hotel-reviews-production\",status=~\"5..\"}[30d])) / sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[30d])))) * 100",
+                "legendFormat": "Monthly Availability"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Weekly SLA Trend",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "(1 - (sum(rate(http_requests_total{namespace=\"hotel-reviews-production\",status=~\"5..\"}[7d])) / sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[7d])))) * 100",
+                "legendFormat": "Weekly Availability"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Daily SLA Trend",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "(1 - (sum(rate(http_requests_total{namespace=\"hotel-reviews-production\",status=~\"5..\"}[24h])) / sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[24h])))) * 100",
+                "legendFormat": "Daily Availability"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "P95 Latency SLA (1s target)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace=\"hotel-reviews-production\"}[30d])) by (le))",
+                "legendFormat": "P95 Latency"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Error Budget Burn Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{namespace=\"hotel-reviews-production\",status=~\"5..\"}[1h])) / sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[1h])) * 100 / 0.5",
+                "legendFormat": "Error Budget Burn Rate"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Remaining Error Budget",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "100 - (sum(rate(http_requests_total{namespace=\"hotel-reviews-production\",status=~\"5..\"}[30d])) / sum(rate(http_requests_total{namespace=\"hotel-reviews-production\"}[30d])) * 100 / 0.5)",
+                "legendFormat": "Remaining Error Budget %"
+              }
+            ]
+          }
+        ]
+      }
+    }

@@ -1,0 +1,210 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hotel-reviews-staging-alerts
+  namespace: hotel-reviews-staging
+  labels:
+    app: hotel-reviews
+    environment: staging
+    monitoring: prometheus
+spec:
+  groups:
+    - name: hotel-reviews-staging.api
+      rules:
+        - alert: HotelReviewsStagingAPIDown
+          expr: up{job="hotel-reviews-api",namespace="hotel-reviews-staging"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            environment: staging
+            component: api
+          annotations:
+            summary: "Hotel Reviews Staging API is down"
+            description: "Hotel Reviews Staging API has been down for more than 2 minutes"
+            runbook_url: "https://wiki.hotel-reviews.com/runbooks/api-down"
+        
+        - alert: HotelReviewsStagingAPIHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="hotel-reviews-api",namespace="hotel-reviews-staging"}[5m])) > 5
+          for: 5m
+          labels:
+            severity: info
+            environment: staging
+            component: api
+          annotations:
+            summary: "Hotel Reviews Staging API high latency"
+            description: "Hotel Reviews Staging API 95th percentile latency is above 5 seconds"
+        
+        - alert: HotelReviewsStagingAPIHighErrorRate
+          expr: rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-staging",status=~"5.."}[5m]) / rate(http_requests_total{job="hotel-reviews-api",namespace="hotel-reviews-staging"}[5m]) > 0.2
+          for: 5m
+          labels:
+            severity: info
+            environment: staging
+            component: api
+          annotations:
+            summary: "Hotel Reviews Staging API high error rate"
+            description: "Hotel Reviews Staging API error rate is above 20%"
+    
+    - name: hotel-reviews-staging.database
+      rules:
+        - alert: HotelReviewsStagingPostgresDown
+          expr: up{job="hotel-reviews-postgres",namespace="hotel-reviews-staging"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            environment: staging
+            component: postgres
+          annotations:
+            summary: "Hotel Reviews Staging PostgreSQL is down"
+            description: "Hotel Reviews Staging PostgreSQL has been down for more than 2 minutes"
+    
+    - name: hotel-reviews-staging.cache
+      rules:
+        - alert: HotelReviewsStagingRedisDown
+          expr: up{job="hotel-reviews-redis",namespace="hotel-reviews-staging"} == 0
+          for: 2m
+          labels:
+            severity: warning
+            environment: staging
+            component: redis
+          annotations:
+            summary: "Hotel Reviews Staging Redis is down"
+            description: "Hotel Reviews Staging Redis has been down for more than 2 minutes"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-reviews-staging-grafana-dashboards
+  namespace: hotel-reviews-staging
+  labels:
+    app: hotel-reviews
+    environment: staging
+    component: grafana
+data:
+  staging-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Hotel Reviews Staging Dashboard",
+        "tags": ["hotel-reviews", "staging"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "API Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{namespace=\"hotel-reviews-staging\"}[5m])",
+                "legendFormat": "{{method}} {{status}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "requests/sec",
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "API Response Time",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{namespace=\"hotel-reviews-staging\"}[5m]))",
+                "legendFormat": "50th percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace=\"hotel-reviews-staging\"}[5m]))",
+                "legendFormat": "95th percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{namespace=\"hotel-reviews-staging\"}[5m]))",
+                "legendFormat": "99th percentile"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "seconds",
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Database Connections",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "pg_stat_database_numbackends{namespace=\"hotel-reviews-staging\"}",
+                "legendFormat": "Active Connections"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "connections",
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Redis Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "redis_memory_used_bytes{namespace=\"hotel-reviews-staging\"}",
+                "legendFormat": "Used Memory"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "bytes",
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Pod CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{namespace=\"hotel-reviews-staging\"}[5m])",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "CPU cores",
+                "min": 0
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Pod Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{namespace=\"hotel-reviews-staging\"}",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "label": "bytes",
+                "min": 0
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "5s"
+      }
+    }

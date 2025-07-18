@@ -3,8 +3,13 @@ global:
   evaluation_interval: 15s
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+  - "/etc/prometheus/alerting_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
 
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
@@ -20,18 +25,18 @@ scrape_configs:
     scrape_interval: 15s
     scrape_timeout: 10s
 
-  # PostgreSQL metrics (if using postgres_exporter)
+  # PostgreSQL metrics (using postgres_exporter)
   - job_name: "postgres"
     static_configs:
-      - targets: ["postgres:5432"]
+      - targets: ["postgres-exporter:9187"]
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s
 
-  # Redis metrics (if using redis_exporter)
+  # Redis metrics (using redis_exporter)
   - job_name: "redis"
     static_configs:
-      - targets: ["redis:6379"]
+      - targets: ["redis-exporter:9121"]
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s
@@ -44,17 +49,41 @@ scrape_configs:
     scrape_interval: 30s
     scrape_timeout: 10s
 
-  # Node exporter (if added)
+  # Node exporter (for system metrics)
   - job_name: "node"
     static_configs:
       - targets: ["node-exporter:9100"]
     scrape_interval: 30s
     scrape_timeout: 10s
 
-  # Nginx metrics (if using nginx_exporter)
+  # Nginx metrics (using nginx_exporter)
   - job_name: "nginx"
     static_configs:
-      - targets: ["nginx:9113"]
+      - targets: ["nginx-exporter:9113"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Grafana metrics
+  - job_name: "grafana"
+    static_configs:
+      - targets: ["grafana:3000"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # AlertManager metrics
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ["alertmanager:9093"]
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Jaeger metrics
+  - job_name: "jaeger"
+    static_configs:
+      - targets: ["jaeger:14269"]
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s

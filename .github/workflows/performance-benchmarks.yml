@@ -1,0 +1,539 @@
+name: Performance Benchmarks
+
+on:
+  workflow_call:
+    inputs:
+      benchmark_type:
+        description: 'Type of benchmark (unit, integration, load, all)'
+        required: false
+        type: string
+        default: 'all'
+      duration:
+        description: 'Benchmark duration (for load tests)'
+        required: false
+        type: string
+        default: '30s'
+      concurrent_users:
+        description: 'Number of concurrent users (for load tests)'
+        required: false
+        type: number
+        default: 10
+    secrets:
+      BENCHMARK_SLACK_WEBHOOK:
+        required: false
+
+  push:
+    branches: [ main ]
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/performance-benchmarks.yml'
+
+  schedule:
+    # Run benchmarks daily at 3 AM UTC
+    - cron: '0 3 * * *'
+
+  workflow_dispatch:
+    inputs:
+      benchmark_type:
+        description: 'Type of benchmark'
+        required: true
+        type: choice
+        options:
+          - unit
+          - integration
+          - load
+          - all
+        default: 'all'
+      duration:
+        description: 'Benchmark duration'
+        required: false
+        type: string
+        default: '30s'
+      concurrent_users:
+        description: 'Number of concurrent users'
+        required: false
+        type: number
+        default: 10
+
+env:
+  GO_VERSION: '1.23'
+  BENCHMARK_RESULTS_DIR: benchmark-results
+  BENCHMARK_HISTORY_DIR: benchmark-history
+
+jobs:
+  unit-benchmarks:
+    runs-on: ubuntu-latest
+    if: inputs.benchmark_type == 'unit' || inputs.benchmark_type == 'all' || github.event_name == 'push' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Create benchmark results directory
+        run: mkdir -p ${{ env.BENCHMARK_RESULTS_DIR }}
+
+      - name: Run unit benchmarks
+        run: |
+          # Run benchmarks with detailed output
+          go test -bench=. -benchmem -count=5 -timeout=30m \
+            -benchtime=10s -cpu=1,2,4 \
+            -outputdir=${{ env.BENCHMARK_RESULTS_DIR }} \
+            ./... > ${{ env.BENCHMARK_RESULTS_DIR }}/unit-benchmarks.txt 2>&1
+          
+          # Generate benchmark statistics
+          go install golang.org/x/perf/cmd/benchstat@latest
+          benchstat ${{ env.BENCHMARK_RESULTS_DIR }}/unit-benchmarks.txt > ${{ env.BENCHMARK_RESULTS_DIR }}/unit-benchmarks-stats.txt
+
+      - name: Run memory profiling
+        run: |
+          # Run with memory profiling
+          go test -bench=. -benchmem -memprofile=${{ env.BENCHMARK_RESULTS_DIR }}/mem.prof \
+            -cpuprofile=${{ env.BENCHMARK_RESULTS_DIR }}/cpu.prof ./... || true
+          
+          # Generate memory profile analysis
+          go tool pprof -text ${{ env.BENCHMARK_RESULTS_DIR }}/mem.prof > ${{ env.BENCHMARK_RESULTS_DIR }}/memory-profile.txt 2>/dev/null || true
+          go tool pprof -text ${{ env.BENCHMARK_RESULTS_DIR }}/cpu.prof > ${{ env.BENCHMARK_RESULTS_DIR }}/cpu-profile.txt 2>/dev/null || true
+
+      - name: Generate benchmark report
+        run: |
+          cat << 'EOF' > ${{ env.BENCHMARK_RESULTS_DIR }}/benchmark-report.md
+          # Unit Benchmark Report
+          
+          **Date:** $(date)
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+          
+          ## Benchmark Results
+          
+          \`\`\`
+          $(cat ${{ env.BENCHMARK_RESULTS_DIR }}/unit-benchmarks-stats.txt)
+          \`\`\`
+          
+          ## Top Memory Consumers
+          
+          \`\`\`
+          $(head -20 ${{ env.BENCHMARK_RESULTS_DIR }}/memory-profile.txt 2>/dev/null || echo "Memory profile not available")
+          \`\`\`
+          
+          ## Top CPU Consumers
+          
+          \`\`\`
+          $(head -20 ${{ env.BENCHMARK_RESULTS_DIR }}/cpu-profile.txt 2>/dev/null || echo "CPU profile not available")
+          \`\`\`
+          EOF
+
+      - name: Upload unit benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-benchmark-results
+          path: ${{ env.BENCHMARK_RESULTS_DIR }}
+          retention-days: 30
+
+  integration-benchmarks:
+    runs-on: ubuntu-latest
+    if: inputs.benchmark_type == 'integration' || inputs.benchmark_type == 'all' || github.event_name == 'push' || github.event_name == 'schedule'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: hotel_reviews_bench
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Create benchmark results directory
+        run: mkdir -p ${{ env.BENCHMARK_RESULTS_DIR }}
+
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/localhost/5432; do sleep 1; done'
+          timeout 60 bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/localhost/6379; do sleep 1; done'
+
+      - name: Setup test database
+        run: |
+          # Run migrations
+          go run ./cmd/migrate up || true
+        env:
+          HOTEL_REVIEWS_DATABASE_HOST: localhost
+          HOTEL_REVIEWS_DATABASE_PORT: 5432
+          HOTEL_REVIEWS_DATABASE_USER: postgres
+          HOTEL_REVIEWS_DATABASE_PASSWORD: postgres
+          HOTEL_REVIEWS_DATABASE_NAME: hotel_reviews_bench
+
+      - name: Run integration benchmarks
+        run: |
+          go test -bench=. -benchmem -count=3 -timeout=30m \
+            -tags=integration \
+            ./... > ${{ env.BENCHMARK_RESULTS_DIR }}/integration-benchmarks.txt 2>&1
+        env:
+          HOTEL_REVIEWS_DATABASE_HOST: localhost
+          HOTEL_REVIEWS_DATABASE_PORT: 5432
+          HOTEL_REVIEWS_DATABASE_USER: postgres
+          HOTEL_REVIEWS_DATABASE_PASSWORD: postgres
+          HOTEL_REVIEWS_DATABASE_NAME: hotel_reviews_bench
+          HOTEL_REVIEWS_REDIS_HOST: localhost
+          HOTEL_REVIEWS_REDIS_PORT: 6379
+
+      - name: Generate integration benchmark stats
+        run: |
+          go install golang.org/x/perf/cmd/benchstat@latest
+          benchstat ${{ env.BENCHMARK_RESULTS_DIR }}/integration-benchmarks.txt > ${{ env.BENCHMARK_RESULTS_DIR }}/integration-benchmarks-stats.txt
+
+      - name: Upload integration benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-benchmark-results
+          path: ${{ env.BENCHMARK_RESULTS_DIR }}
+          retention-days: 30
+
+  load-testing:
+    runs-on: ubuntu-latest
+    if: inputs.benchmark_type == 'load' || inputs.benchmark_type == 'all' || github.event_name == 'push' || github.event_name == 'schedule'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: hotel_reviews_load
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Create benchmark results directory
+        run: mkdir -p ${{ env.BENCHMARK_RESULTS_DIR }}
+
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/localhost/5432; do sleep 1; done'
+          timeout 60 bash -c 'until printf "" 2>>/dev/null >>/dev/tcp/localhost/6379; do sleep 1; done'
+
+      - name: Setup test database
+        run: |
+          go run ./cmd/migrate up || true
+        env:
+          HOTEL_REVIEWS_DATABASE_HOST: localhost
+          HOTEL_REVIEWS_DATABASE_PORT: 5432
+          HOTEL_REVIEWS_DATABASE_USER: postgres
+          HOTEL_REVIEWS_DATABASE_PASSWORD: postgres
+          HOTEL_REVIEWS_DATABASE_NAME: hotel_reviews_load
+
+      - name: Build and start application
+        run: |
+          go build -o hotel-reviews-api ./cmd/api
+          nohup ./hotel-reviews-api -mode server > app.log 2>&1 &
+          echo $! > app.pid
+          sleep 5
+          curl -f http://localhost:8080/api/v1/health || (cat app.log && exit 1)
+        env:
+          HOTEL_REVIEWS_DATABASE_HOST: localhost
+          HOTEL_REVIEWS_DATABASE_PORT: 5432
+          HOTEL_REVIEWS_DATABASE_USER: postgres
+          HOTEL_REVIEWS_DATABASE_PASSWORD: postgres
+          HOTEL_REVIEWS_DATABASE_NAME: hotel_reviews_load
+          HOTEL_REVIEWS_REDIS_HOST: localhost
+          HOTEL_REVIEWS_REDIS_PORT: 6379
+          HOTEL_REVIEWS_LOG_LEVEL: error
+
+      - name: Setup K6
+        run: |
+          curl -O -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz
+          tar -xzf k6-v0.47.0-linux-amd64.tar.gz
+          sudo mv k6-v0.47.0-linux-amd64/k6 /usr/local/bin/
+
+      - name: Create K6 load test script
+        run: |
+          cat << 'EOF' > ${{ env.BENCHMARK_RESULTS_DIR }}/load-test.js
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+          import { Rate } from 'k6/metrics';
+          
+          export let errorRate = new Rate('errors');
+          
+          export let options = {
+            stages: [
+              { duration: '30s', target: ${{ inputs.concurrent_users || 10 }} },
+              { duration: '${{ inputs.duration || '30s' }}', target: ${{ inputs.concurrent_users || 10 }} },
+              { duration: '30s', target: 0 },
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<500'],
+              errors: ['rate<0.1'],
+            },
+          };
+          
+          export default function() {
+            // Health check
+            let healthResponse = http.get('http://localhost:8080/api/v1/health');
+            check(healthResponse, {
+              'health check status is 200': (r) => r.status === 200,
+            }) || errorRate.add(1);
+            
+            // API endpoints load test
+            let endpoints = [
+              'http://localhost:8080/api/v1/health',
+              'http://localhost:8080/api/v1/metrics',
+              // Add more endpoints as needed
+            ];
+            
+            for (let endpoint of endpoints) {
+              let response = http.get(endpoint);
+              check(response, {
+                'status is 200': (r) => r.status === 200,
+                'response time < 500ms': (r) => r.timings.duration < 500,
+              }) || errorRate.add(1);
+            }
+            
+            sleep(1);
+          }
+          EOF
+
+      - name: Run K6 load tests
+        run: |
+          k6 run --out json=${{ env.BENCHMARK_RESULTS_DIR }}/load-test-results.json \
+            --summary-export=${{ env.BENCHMARK_RESULTS_DIR }}/load-test-summary.json \
+            ${{ env.BENCHMARK_RESULTS_DIR }}/load-test.js
+
+      - name: Generate load test report
+        run: |
+          cat << 'EOF' > ${{ env.BENCHMARK_RESULTS_DIR }}/load-test-report.md
+          # Load Test Report
+          
+          **Date:** $(date)
+          **Duration:** ${{ inputs.duration || '30s' }}
+          **Concurrent Users:** ${{ inputs.concurrent_users || 10 }}
+          **Commit:** ${{ github.sha }}
+          
+          ## Test Summary
+          
+          \`\`\`json
+          $(cat ${{ env.BENCHMARK_RESULTS_DIR }}/load-test-summary.json)
+          \`\`\`
+          
+          ## Application Logs
+          
+          \`\`\`
+          $(tail -50 app.log)
+          \`\`\`
+          EOF
+
+      - name: Stop application
+        run: |
+          if [ -f app.pid ]; then
+            kill $(cat app.pid) || true
+            rm app.pid
+          fi
+
+      - name: Upload load test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: ${{ env.BENCHMARK_RESULTS_DIR }}
+          retention-days: 30
+
+  memory-leak-detection:
+    runs-on: ubuntu-latest
+    if: inputs.benchmark_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Create benchmark results directory
+        run: mkdir -p ${{ env.BENCHMARK_RESULTS_DIR }}
+
+      - name: Install memory leak detection tools
+        run: |
+          go install github.com/google/gops@latest
+          go install github.com/google/pprof@latest
+
+      - name: Run memory leak tests
+        run: |
+          # Run long-running tests with memory profiling
+          go test -bench=. -benchmem -memprofile=${{ env.BENCHMARK_RESULTS_DIR }}/memory-leak.prof \
+            -benchtime=60s -timeout=10m ./... > ${{ env.BENCHMARK_RESULTS_DIR }}/memory-leak-test.txt 2>&1 || true
+          
+          # Analyze memory profile
+          go tool pprof -text ${{ env.BENCHMARK_RESULTS_DIR }}/memory-leak.prof > ${{ env.BENCHMARK_RESULTS_DIR }}/memory-leak-analysis.txt 2>/dev/null || true
+
+      - name: Upload memory leak analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-leak-analysis
+          path: ${{ env.BENCHMARK_RESULTS_DIR }}
+          retention-days: 30
+
+  benchmark-comparison:
+    runs-on: ubuntu-latest
+    needs: [unit-benchmarks, integration-benchmarks, load-testing]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download all benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          path: ./all-benchmark-results
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Compare with previous benchmarks
+        run: |
+          mkdir -p ${{ env.BENCHMARK_HISTORY_DIR }}
+          
+          # Try to get previous benchmark results from cache or artifacts
+          # This is a simplified approach - in practice, you'd want to store historical data
+          if [ -f "${{ env.BENCHMARK_HISTORY_DIR }}/previous-benchmarks.txt" ]; then
+            echo "Comparing with previous benchmarks..."
+            benchstat ${{ env.BENCHMARK_HISTORY_DIR }}/previous-benchmarks.txt \
+              ./all-benchmark-results/unit-benchmark-results/unit-benchmarks.txt \
+              > benchmark-comparison.txt || true
+          else
+            echo "No previous benchmark data found for comparison"
+          fi
+
+      - name: Generate comprehensive benchmark report
+        run: |
+          cat << 'EOF' > comprehensive-benchmark-report.md
+          # Comprehensive Benchmark Report
+          
+          **Date:** $(date)
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref_name }}
+          **Benchmark Type:** ${{ inputs.benchmark_type || 'all' }}
+          
+          ## Summary
+          
+          | Test Type | Status | Duration |
+          |-----------|--------|----------|
+          | Unit Benchmarks | ${{ needs.unit-benchmarks.result }} | N/A |
+          | Integration Benchmarks | ${{ needs.integration-benchmarks.result }} | N/A |
+          | Load Testing | ${{ needs.load-testing.result }} | ${{ inputs.duration || '30s' }} |
+          
+          ## Key Metrics
+          
+          - **Concurrent Users (Load Test):** ${{ inputs.concurrent_users || 10 }}
+          - **Test Duration:** ${{ inputs.duration || '30s' }}
+          - **Go Version:** ${{ env.GO_VERSION }}
+          
+          ## Performance Comparison
+          
+          $(if [ -f benchmark-comparison.txt ]; then echo "\`\`\`"; cat benchmark-comparison.txt; echo "\`\`\`"; else echo "No previous benchmark data for comparison"; fi)
+          
+          ## Next Steps
+          
+          1. Review benchmark results for any performance regressions
+          2. Investigate any failures or unexpected results
+          3. Update performance baselines if needed
+          4. Consider optimization opportunities
+          
+          EOF
+
+      - name: Upload comprehensive benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-benchmark-report
+          path: |
+            comprehensive-benchmark-report.md
+            benchmark-comparison.txt
+          retention-days: 90
+
+      - name: Update benchmark history
+        run: |
+          # Save current benchmarks for future comparison
+          mkdir -p ${{ env.BENCHMARK_HISTORY_DIR }}
+          cp ./all-benchmark-results/unit-benchmark-results/unit-benchmarks.txt \
+            ${{ env.BENCHMARK_HISTORY_DIR }}/previous-benchmarks.txt 2>/dev/null || true
+
+      - name: Post benchmark summary to GitHub
+        run: |
+          echo "## Benchmark Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Type | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Benchmarks | ${{ needs.unit-benchmarks.result }} | Memory and CPU profiling completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Benchmarks | ${{ needs.integration-benchmarks.result }} | Database and Redis performance tested |" >> $GITHUB_STEP_SUMMARY
+          echo "| Load Testing | ${{ needs.load-testing.result }} | ${{ inputs.concurrent_users || 10 }} users for ${{ inputs.duration || '30s' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Benchmark Type:** ${{ inputs.benchmark_type || 'all' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Send Slack notification
+        if: secrets.BENCHMARK_SLACK_WEBHOOK && (failure() || github.event_name == 'schedule')
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"Benchmark Results: Unit: ${{ needs.unit-benchmarks.result }}, Integration: ${{ needs.integration-benchmarks.result }}, Load: ${{ needs.load-testing.result }}"}' \
+            ${{ secrets.BENCHMARK_SLACK_WEBHOOK }}

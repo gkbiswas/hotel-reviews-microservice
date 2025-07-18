@@ -1,0 +1,348 @@
+# Production Environment Configuration
+name: production
+
+# Environment-specific variables
+variables:
+  ENVIRONMENT: production
+  LOG_LEVEL: info
+  HEALTH_CHECK_INTERVAL: 30s
+  HEALTH_CHECK_TIMEOUT: 10s
+  HEALTH_CHECK_RETRIES: 3
+  DEPLOYMENT_TIMEOUT: 1200s
+  ROLLBACK_TIMEOUT: 600s
+  
+  # Application settings
+  APP_PORT: 8080
+  APP_HOST: 0.0.0.0
+  APP_DEBUG: false
+  APP_METRICS_ENABLED: true
+  APP_PROFILING_ENABLED: false
+  
+  # Database settings
+  DATABASE_MAX_CONNECTIONS: 100
+  DATABASE_CONNECTION_TIMEOUT: 30s
+  DATABASE_IDLE_TIMEOUT: 600s
+  DATABASE_MAX_LIFETIME: 7200s
+  DATABASE_SSL_MODE: require
+  
+  # Redis settings
+  REDIS_MAX_CONNECTIONS: 200
+  REDIS_CONNECTION_TIMEOUT: 5s
+  REDIS_READ_TIMEOUT: 3s
+  REDIS_WRITE_TIMEOUT: 3s
+  REDIS_POOL_SIZE: 50
+  
+  # AWS settings
+  AWS_S3_REGION: us-east-1
+  AWS_S3_BUCKET: hotel-reviews-production
+  AWS_S3_ENDPOINT: ""
+  AWS_S3_FORCE_PATH_STYLE: false
+  
+  # Monitoring and observability
+  PROMETHEUS_METRICS_PATH: /metrics
+  JAEGER_AGENT_HOST: jaeger-agent
+  JAEGER_AGENT_PORT: 6831
+  JAEGER_SAMPLER_TYPE: probabilistic
+  JAEGER_SAMPLER_PARAM: 0.1
+  
+  # Security settings
+  JWT_SECRET_KEY: production-jwt-secret-key
+  CORS_ALLOWED_ORIGINS: "https://hotel-reviews.com"
+  CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+  CORS_ALLOWED_HEADERS: "Content-Type,Authorization"
+  
+  # Rate limiting
+  RATE_LIMIT_REQUESTS: 1000
+  RATE_LIMIT_WINDOW: 60s
+  RATE_LIMIT_BURST: 200
+  
+  # Circuit breaker settings
+  CIRCUIT_BREAKER_TIMEOUT: 60s
+  CIRCUIT_BREAKER_MAX_REQUESTS: 5
+  CIRCUIT_BREAKER_INTERVAL: 30s
+  CIRCUIT_BREAKER_RATIO: 0.6
+  
+  # Retry settings
+  RETRY_MAX_ATTEMPTS: 3
+  RETRY_INITIAL_DELAY: 1s
+  RETRY_MAX_DELAY: 10s
+  RETRY_MULTIPLIER: 2.0
+  
+  # Kafka settings (if applicable)
+  KAFKA_BROKERS: "kafka-production:9092"
+  KAFKA_CONSUMER_GROUP: hotel-reviews-production
+  KAFKA_TOPIC_PREFIX: production
+  
+  # Notification settings
+  NOTIFICATION_SLACK_WEBHOOK: ""
+  NOTIFICATION_EMAIL_ENABLED: true
+  NOTIFICATION_EMAIL_FROM: "noreply@hotel-reviews.com"
+  NOTIFICATION_EMAIL_TO: "ops-team@hotel-reviews.com"
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+    ephemeral-storage: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+    ephemeral-storage: 2Gi
+
+# Scaling configuration
+scaling:
+  min_replicas: 5
+  max_replicas: 50
+  target_cpu_utilization: 60
+  target_memory_utilization: 70
+  scale_up_cooldown: 300s
+  scale_down_cooldown: 900s
+
+# Load balancer configuration
+load_balancer:
+  type: application
+  scheme: internet-facing
+  target_type: ip
+  port: 443
+  protocol: HTTPS
+  ssl_policy: ELBSecurityPolicy-TLS-1-2-2017-01
+  certificate_arn: "arn:aws:acm:us-east-1:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+  health_check:
+    path: /api/v1/health
+    interval: 30s
+    timeout: 5s
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+    matcher: 200
+
+# Security configuration
+security:
+  network_policies:
+    ingress:
+      - from: load-balancer
+        ports: [8080]
+      - from: prometheus
+        ports: [8080]
+      - from: jaeger
+        ports: [8080]
+    egress:
+      - to: database
+        ports: [5432]
+      - to: redis
+        ports: [6379]
+      - to: s3
+        ports: [443]
+      - to: external-apis
+        ports: [443]
+  
+  pod_security_context:
+    run_as_non_root: true
+    run_as_user: 1000
+    run_as_group: 1000
+    fs_group: 1000
+    fs_group_change_policy: "Always"
+    seccomp_profile:
+      type: RuntimeDefault
+  
+  container_security_context:
+    allow_privilege_escalation: false
+    read_only_root_filesystem: true
+    drop_capabilities: ["ALL"]
+    add_capabilities: []
+    seccomp_profile:
+      type: RuntimeDefault
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics:
+    - prometheus
+    - datadog
+    - cloudwatch
+  logging:
+    level: info
+    format: json
+    destination: stdout
+  tracing:
+    enabled: true
+    sampler: probabilistic
+    sample_rate: 0.1
+  
+  alerts:
+    - name: high-cpu-usage
+      condition: cpu > 70%
+      duration: 5m
+      severity: warning
+    - name: critical-cpu-usage
+      condition: cpu > 90%
+      duration: 2m
+      severity: critical
+    - name: high-memory-usage
+      condition: memory > 80%
+      duration: 3m
+      severity: warning
+    - name: critical-memory-usage
+      condition: memory > 95%
+      duration: 1m
+      severity: critical
+    - name: high-error-rate
+      condition: error_rate > 1%
+      duration: 2m
+      severity: critical
+    - name: low-disk-space
+      condition: disk_usage > 85%
+      duration: 1m
+      severity: warning
+    - name: response-time-degradation
+      condition: p95_response_time > 1000ms
+      duration: 3m
+      severity: warning
+    - name: database-connection-pool-exhaustion
+      condition: db_connections > 80%
+      duration: 2m
+      severity: critical
+
+# Deployment configuration
+deployment:
+  strategy: blue-green
+  max_unavailable: 0
+  max_surge: 100%
+  revision_history_limit: 10
+  progress_deadline: 1200s
+  
+  # Approval required for production deployments
+  approval_required: true
+  approvers:
+    - ops-team
+    - senior-engineers
+  
+  # Pre-deployment checks
+  pre_deployment_checks:
+    - database_connectivity
+    - redis_connectivity
+    - s3_connectivity
+    - external_apis_connectivity
+    - load_balancer_health
+    - ssl_certificate_validity
+  
+  # Post-deployment checks
+  post_deployment_checks:
+    - health_check
+    - smoke_tests
+    - performance_tests
+    - security_scan
+    - integration_tests
+  
+  # Rollback configuration
+  rollback:
+    enabled: true
+    timeout: 600s
+    auto_rollback_on_failure: true
+    auto_rollback_conditions:
+      - error_rate > 5%
+      - response_time > 2000ms
+      - health_check_failure > 3
+    
+# Maintenance windows
+maintenance:
+  windows:
+    - day: sunday
+      start: "02:00"
+      end: "04:00"
+      timezone: UTC
+      description: "Weekly maintenance window"
+    - day: saturday
+      start: "03:00"
+      end: "05:00"
+      timezone: UTC
+      description: "Monthly maintenance window"
+      frequency: monthly
+  
+  notifications:
+    advance_notice: 72h
+    channels:
+      - slack
+      - email
+      - pagerduty
+
+# Data retention
+data_retention:
+  logs: 30d
+  metrics: 90d
+  traces: 30d
+  backups: 90d
+  
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 30d
+  encryption: true
+  compression: true
+  cross_region_replication: true
+  
+# Disaster recovery
+disaster_recovery:
+  rto: 1h  # Recovery Time Objective
+  rpo: 15m  # Recovery Point Objective
+  backup_frequency: hourly
+  cross_region_replication: true
+  multi_az_deployment: true
+  
+# Compliance and audit
+compliance:
+  standards:
+    - SOC2
+    - GDPR
+    - HIPAA
+  audit_logging: true
+  data_classification: true
+  encryption_at_rest: true
+  encryption_in_transit: true
+  
+# Performance requirements
+performance:
+  sla:
+    availability: 99.9%
+    response_time_p95: 500ms
+    response_time_p99: 1000ms
+    error_rate: < 0.1%
+  
+  load_testing:
+    enabled: true
+    schedule: weekly
+    concurrent_users: 1000
+    duration: 30m
+    ramp_up: 5m
+    
+# Cost optimization
+cost_optimization:
+  auto_scaling: true
+  spot_instances: false
+  reserved_instances: true
+  storage_optimization: true
+  
+# Security scanning
+security_scanning:
+  enabled: true
+  schedule: daily
+  tools:
+    - snyk
+    - trivy
+    - clair
+  vulnerability_threshold: medium
+  
+# Documentation and runbooks
+documentation:
+  runbooks:
+    - deployment_procedure
+    - rollback_procedure
+    - incident_response
+    - maintenance_checklist
+  
+  monitoring_dashboards:
+    - application_metrics
+    - infrastructure_metrics
+    - business_metrics
+    - security_metrics

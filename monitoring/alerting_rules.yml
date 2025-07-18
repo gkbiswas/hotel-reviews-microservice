@@ -1,0 +1,360 @@
+groups:
+  # High-level service availability alerts
+  - name: hotel-reviews-availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job="hotel-reviews-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: hotel-reviews-api
+        annotations:
+          summary: "Hotel Reviews API is down"
+          description: "The Hotel Reviews API service has been down for more than 1 minute."
+          runbook_url: "https://docs.company.com/runbooks/service-down"
+
+      - alert: HighErrorRate
+        expr: rate(hotel_reviews_http_requests_total{status_code=~"5.."}[5m]) / rate(hotel_reviews_http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: hotel-reviews-api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/high-error-rate"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(hotel_reviews_http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: hotel-reviews-api
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }}s for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/high-latency"
+
+      - alert: HealthCheckFailing
+        expr: rate(hotel_reviews_http_requests_total{endpoint="/health",status_code!="200"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: hotel-reviews-api
+        annotations:
+          summary: "Health check endpoint failing"
+          description: "Health check endpoint is returning non-200 status codes."
+          runbook_url: "https://docs.company.com/runbooks/health-check-failing"
+
+  # Database alerts
+  - name: hotel-reviews-database
+    rules:
+      - alert: DatabaseDown
+        expr: hotel_reviews_database_connections{state="open"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection pool is empty"
+          description: "No database connections are available."
+          runbook_url: "https://docs.company.com/runbooks/database-down"
+
+      - alert: DatabaseHighErrorRate
+        expr: rate(hotel_reviews_database_errors_total[5m]) / rate(hotel_reviews_database_queries_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High database error rate"
+          description: "Database error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/database-errors"
+
+      - alert: DatabaseSlowQueries
+        expr: histogram_quantile(0.95, rate(hotel_reviews_database_query_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query time is {{ $value }}s for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/slow-queries"
+
+      - alert: DatabaseConnectionPoolHigh
+        expr: hotel_reviews_database_connections{state="in_use"} / hotel_reviews_database_connections{state="open"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database connection pool utilization high"
+          description: "Database connection pool is {{ $value | humanizePercentage }} utilized."
+          runbook_url: "https://docs.company.com/runbooks/connection-pool-high"
+
+  # File processing alerts
+  - name: hotel-reviews-file-processing
+    rules:
+      - alert: FileProcessingBacklog
+        expr: hotel_reviews_file_processing_jobs{status="pending"} > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: file-processor
+        annotations:
+          summary: "File processing backlog is high"
+          description: "There are {{ $value }} files waiting to be processed."
+          runbook_url: "https://docs.company.com/runbooks/processing-backlog"
+
+      - alert: FileProcessingFailures
+        expr: rate(hotel_reviews_files_processed_total{status="failed"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: file-processor
+        annotations:
+          summary: "High file processing failure rate"
+          description: "File processing failure rate is {{ $value }} failures per second."
+          runbook_url: "https://docs.company.com/runbooks/processing-failures"
+
+      - alert: FileProcessingStalled
+        expr: rate(hotel_reviews_files_processed_total{status="success"}[10m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+          service: file-processor
+        annotations:
+          summary: "File processing appears to be stalled"
+          description: "No files have been successfully processed in the last 10 minutes."
+          runbook_url: "https://docs.company.com/runbooks/processing-stalled"
+
+  # Business metrics alerts
+  - name: hotel-reviews-business
+    rules:
+      - alert: ReviewIngestionRate
+        expr: rate(hotel_reviews_processed_total[5m]) < 100
+        for: 10m
+        labels:
+          severity: warning
+          service: review-processor
+        annotations:
+          summary: "Review ingestion rate is low"
+          description: "Review ingestion rate is {{ $value }} reviews per second, below expected threshold."
+          runbook_url: "https://docs.company.com/runbooks/low-ingestion-rate"
+
+      - alert: HighReviewRejectionRate
+        expr: rate(hotel_reviews_rejected_total[5m]) / rate(hotel_reviews_processed_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: review-processor
+        annotations:
+          summary: "High review rejection rate"
+          description: "Review rejection rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/high-rejection-rate"
+
+      - alert: DataQualityDegraded
+        expr: hotel_reviews_data_quality_score < 0.8
+        for: 15m
+        labels:
+          severity: warning
+          service: review-processor
+        annotations:
+          summary: "Data quality has degraded"
+          description: "Data quality score is {{ $value }} for provider {{ $labels.provider }}."
+          runbook_url: "https://docs.company.com/runbooks/data-quality-degraded"
+
+      - alert: ReviewBacklogGrowth
+        expr: increase(hotel_reviews_backlog_count[30m]) > 1000
+        for: 1m
+        labels:
+          severity: warning
+          service: review-processor
+        annotations:
+          summary: "Review backlog is growing rapidly"
+          description: "Review backlog has grown by {{ $value }} reviews in the last 30 minutes."
+          runbook_url: "https://docs.company.com/runbooks/backlog-growth"
+
+  # Cache alerts
+  - name: hotel-reviews-cache
+    rules:
+      - alert: CacheHitRateLow
+        expr: rate(hotel_reviews_cache_hits_total[5m]) / (rate(hotel_reviews_cache_hits_total[5m]) + rate(hotel_reviews_cache_misses_total[5m])) < 0.7
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Cache hit rate is low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/low-cache-hit-rate"
+
+      - alert: CacheDown
+        expr: rate(hotel_reviews_cache_operations_total[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: cache
+        annotations:
+          summary: "Cache appears to be down"
+          description: "No cache operations have been recorded in the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/cache-down"
+
+  # S3 alerts
+  - name: hotel-reviews-s3
+    rules:
+      - alert: S3HighErrorRate
+        expr: rate(hotel_reviews_s3_errors_total[5m]) / rate(hotel_reviews_s3_operations_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: s3
+        annotations:
+          summary: "High S3 error rate"
+          description: "S3 error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/s3-errors"
+
+      - alert: S3SlowOperations
+        expr: histogram_quantile(0.95, rate(hotel_reviews_s3_operation_duration_seconds_bucket[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: s3
+        annotations:
+          summary: "S3 operations are slow"
+          description: "95th percentile S3 operation time is {{ $value }}s for the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/s3-slow"
+
+  # Circuit breaker alerts
+  - name: hotel-reviews-circuit-breaker
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: hotel_reviews_circuit_breaker_state == 1
+        for: 1m
+        labels:
+          severity: warning
+          service: circuit-breaker
+        annotations:
+          summary: "Circuit breaker is open"
+          description: "Circuit breaker for {{ $labels.component }} is open."
+          runbook_url: "https://docs.company.com/runbooks/circuit-breaker-open"
+
+      - alert: CircuitBreakerHighFailureRate
+        expr: rate(hotel_reviews_circuit_breaker_failures_total[5m]) / rate(hotel_reviews_circuit_breaker_requests_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: circuit-breaker
+        annotations:
+          summary: "Circuit breaker failure rate is high"
+          description: "Circuit breaker failure rate is {{ $value | humanizePercentage }} for {{ $labels.component }}."
+          runbook_url: "https://docs.company.com/runbooks/circuit-breaker-failures"
+
+  # SLO alerts
+  - name: hotel-reviews-slo
+    rules:
+      - alert: SLOAvailabilityBreach
+        expr: hotel_reviews_sli_availability < 0.995
+        for: 5m
+        labels:
+          severity: critical
+          service: slo
+        annotations:
+          summary: "SLO availability breach"
+          description: "Service availability is {{ $value | humanizePercentage }}, below SLO target of 99.5%."
+          runbook_url: "https://docs.company.com/runbooks/slo-availability-breach"
+
+      - alert: SLOLatencyBreach
+        expr: hotel_reviews_sli_latency > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: slo
+        annotations:
+          summary: "SLO latency breach"
+          description: "Service latency is {{ $value }}s, above SLO target of 500ms."
+          runbook_url: "https://docs.company.com/runbooks/slo-latency-breach"
+
+      - alert: SLOErrorRateBreach
+        expr: hotel_reviews_sli_error_rate > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: slo
+        annotations:
+          summary: "SLO error rate breach"
+          description: "Service error rate is {{ $value | humanizePercentage }}, above SLO target of 1%."
+          runbook_url: "https://docs.company.com/runbooks/slo-error-rate-breach"
+
+  # System resource alerts
+  - name: hotel-reviews-system
+    rules:
+      - alert: HighMemoryUsage
+        expr: hotel_reviews_memory_usage_bytes{type="heap"} / (1024 * 1024 * 1024) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize }}GB."
+          runbook_url: "https://docs.company.com/runbooks/high-memory-usage"
+
+      - alert: HighCPUUsage
+        expr: hotel_reviews_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for {{ $labels.component }}."
+          runbook_url: "https://docs.company.com/runbooks/high-cpu-usage"
+
+      - alert: HighGoroutineCount
+        expr: hotel_reviews_goroutines > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High goroutine count"
+          description: "Goroutine count is {{ $value }} for {{ $labels.component }}."
+          runbook_url: "https://docs.company.com/runbooks/high-goroutine-count"
+
+  # Provider-specific alerts
+  - name: hotel-reviews-providers
+    rules:
+      - alert: ProviderDataLatency
+        expr: hotel_reviews_data_freshness_hours > 24
+        for: 10m
+        labels:
+          severity: warning
+          service: provider
+        annotations:
+          summary: "Provider data is stale"
+          description: "Data from {{ $labels.provider }} is {{ $value }} hours old."
+          runbook_url: "https://docs.company.com/runbooks/provider-data-latency"
+
+      - alert: ProviderResponseTimeHigh
+        expr: histogram_quantile(0.95, rate(hotel_reviews_provider_response_time_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: provider
+        annotations:
+          summary: "Provider response time is high"
+          description: "95th percentile response time for {{ $labels.provider }} is {{ $value }}s."
+          runbook_url: "https://docs.company.com/runbooks/provider-response-time-high"
+
+      - alert: ProviderDown
+        expr: rate(hotel_reviews_provider_errors_total{error_type="connection"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: provider
+        annotations:
+          summary: "Provider appears to be down"
+          description: "High connection error rate for {{ $labels.provider }}."
+          runbook_url: "https://docs.company.com/runbooks/provider-down"

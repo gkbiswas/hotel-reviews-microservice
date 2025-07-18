@@ -52,10 +52,17 @@ services:
       # Security Configuration
       HOTEL_REVIEWS_SECURITY_JWT_SECRET: your-secret-key-change-in-production
       HOTEL_REVIEWS_SECURITY_JWT_EXPIRATION: 24h
+      
+      # Monitoring Configuration
+      HOTEL_REVIEWS_MONITORING_ENABLED: true
+      HOTEL_REVIEWS_TRACING_ENABLED: true
+      HOTEL_REVIEWS_JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      HOTEL_REVIEWS_METRICS_ENABLED: true
     depends_on:
       - postgres
       - redis
       - minio
+      - jaeger
     volumes:
       - ./logs:/app/logs
       - ./tmp:/app/tmp
@@ -156,6 +163,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../monitoring/alerting_rules.yml:/etc/prometheus/alerting_rules.yml
       - prometheus_data:/prometheus
     networks:
       - hotel-reviews-network
@@ -176,13 +184,36 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
     networks:
       - hotel-reviews-network
+    profiles:
+      - monitoring
+
+  # Alertmanager (for alert routing and notifications)
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: hotel-reviews-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    networks:
+      - hotel-reviews-network
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--web.route-prefix=/'
     profiles:
       - monitoring
 
@@ -200,6 +231,74 @@ services:
       - hotel-reviews-network
     profiles:
       - monitoring
+
+  # Node Exporter (for system metrics)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: hotel-reviews-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - hotel-reviews-network
+    profiles:
+      - monitoring
+
+  # Postgres Exporter (for PostgreSQL metrics)
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: hotel-reviews-postgres-exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/hotel_reviews?sslmode=disable"
+    depends_on:
+      - postgres
+    networks:
+      - hotel-reviews-network
+    profiles:
+      - monitoring
+
+  # Redis Exporter (for Redis metrics)
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: hotel-reviews-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    depends_on:
+      - redis
+    networks:
+      - hotel-reviews-network
+    profiles:
+      - monitoring
+
+  # Nginx Exporter (for Nginx metrics)
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: hotel-reviews-nginx-exporter
+    restart: unless-stopped
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx:8080/nginx_status'
+    depends_on:
+      - nginx
+    networks:
+      - hotel-reviews-network
+    profiles:
+      - production
 
   # Nginx (reverse proxy and load balancer)
   nginx:
@@ -230,6 +329,8 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  alertmanager_data:
     driver: local
 
 # Custom network

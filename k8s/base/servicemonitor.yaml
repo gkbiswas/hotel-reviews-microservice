@@ -1,0 +1,376 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hotel-reviews-api-metrics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: api
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'go_.*'
+          action: drop
+        - sourceLabels: [__name__]
+          regex: 'promhttp_.*'
+          action: drop
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hotel-reviews-postgres-metrics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: postgres
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: postgres
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'pg_stat_database_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'pg_stat_activity_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'pg_locks_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'pg_stat_bgwriter_.*'
+          action: keep
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hotel-reviews-redis-metrics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: redis
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: redis
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'redis_connected_clients'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'redis_used_memory_bytes'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'redis_commands_total'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'redis_keyspace_hits_total'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'redis_keyspace_misses_total'
+          action: keep
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hotel-reviews-kafka-metrics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: kafka
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: kafka
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'kafka_topic_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'kafka_consumer_lag_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'kafka_server_.*'
+          action: keep
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hotel-reviews-nginx-metrics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: nginx
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+      app.kubernetes.io/component: controller
+  endpoints:
+    - port: prometheus
+      interval: 30s
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'nginx_ingress_controller_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'nginx_ingress_controller_request_duration_seconds.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'nginx_ingress_controller_requests'
+          action: keep
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hotel-reviews-worker-metrics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: worker
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: worker
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scheme: http
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: 'worker_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'processing_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'file_processing_.*'
+          action: keep
+        - sourceLabels: [__name__]
+          regex: 'review_processing_.*'
+          action: keep
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: instance
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hotel-reviews-alerts
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    monitoring: prometheus
+spec:
+  groups:
+    - name: hotel-reviews.api
+      rules:
+        - alert: HotelReviewsAPIDown
+          expr: up{job="hotel-reviews-api"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "Hotel Reviews API is down"
+            description: "Hotel Reviews API has been down for more than 5 minutes"
+        
+        - alert: HotelReviewsAPIHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="hotel-reviews-api"}[5m])) > 2
+          for: 10m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "Hotel Reviews API high latency"
+            description: "Hotel Reviews API 95th percentile latency is above 2 seconds"
+        
+        - alert: HotelReviewsAPIHighErrorRate
+          expr: rate(http_requests_total{job="hotel-reviews-api",status=~"5.."}[5m]) / rate(http_requests_total{job="hotel-reviews-api"}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+            component: api
+          annotations:
+            summary: "Hotel Reviews API high error rate"
+            description: "Hotel Reviews API error rate is above 10%"
+        
+        - alert: HotelReviewsAPIHighCPU
+          expr: rate(container_cpu_usage_seconds_total{pod=~"hotel-reviews-api-.*"}[5m]) > 0.8
+          for: 10m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "Hotel Reviews API high CPU usage"
+            description: "Hotel Reviews API CPU usage is above 80%"
+        
+        - alert: HotelReviewsAPIHighMemory
+          expr: container_memory_usage_bytes{pod=~"hotel-reviews-api-.*"} / container_spec_memory_limit_bytes{pod=~"hotel-reviews-api-.*"} > 0.9
+          for: 10m
+          labels:
+            severity: warning
+            component: api
+          annotations:
+            summary: "Hotel Reviews API high memory usage"
+            description: "Hotel Reviews API memory usage is above 90%"
+    
+    - name: hotel-reviews.database
+      rules:
+        - alert: HotelReviewsPostgresDown
+          expr: up{job="hotel-reviews-postgres"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: postgres
+          annotations:
+            summary: "Hotel Reviews PostgreSQL is down"
+            description: "Hotel Reviews PostgreSQL has been down for more than 5 minutes"
+        
+        - alert: HotelReviewsPostgresHighConnections
+          expr: pg_stat_database_numbackends{job="hotel-reviews-postgres"} > 80
+          for: 10m
+          labels:
+            severity: warning
+            component: postgres
+          annotations:
+            summary: "Hotel Reviews PostgreSQL high connections"
+            description: "Hotel Reviews PostgreSQL has more than 80 active connections"
+        
+        - alert: HotelReviewsPostgresLowCacheHitRate
+          expr: pg_stat_database_blks_hit{job="hotel-reviews-postgres"} / (pg_stat_database_blks_hit{job="hotel-reviews-postgres"} + pg_stat_database_blks_read{job="hotel-reviews-postgres"}) < 0.9
+          for: 10m
+          labels:
+            severity: warning
+            component: postgres
+          annotations:
+            summary: "Hotel Reviews PostgreSQL low cache hit rate"
+            description: "Hotel Reviews PostgreSQL cache hit rate is below 90%"
+    
+    - name: hotel-reviews.cache
+      rules:
+        - alert: HotelReviewsRedisDown
+          expr: up{job="hotel-reviews-redis"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: redis
+          annotations:
+            summary: "Hotel Reviews Redis is down"
+            description: "Hotel Reviews Redis has been down for more than 5 minutes"
+        
+        - alert: HotelReviewsRedisHighMemory
+          expr: redis_memory_used_bytes{job="hotel-reviews-redis"} / redis_memory_max_bytes{job="hotel-reviews-redis"} > 0.9
+          for: 10m
+          labels:
+            severity: warning
+            component: redis
+          annotations:
+            summary: "Hotel Reviews Redis high memory usage"
+            description: "Hotel Reviews Redis memory usage is above 90%"
+    
+    - name: hotel-reviews.kafka
+      rules:
+        - alert: HotelReviewsKafkaDown
+          expr: up{job="hotel-reviews-kafka"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: kafka
+          annotations:
+            summary: "Hotel Reviews Kafka is down"
+            description: "Hotel Reviews Kafka has been down for more than 5 minutes"
+        
+        - alert: HotelReviewsKafkaHighConsumerLag
+          expr: kafka_consumer_lag_sum{job="hotel-reviews-kafka"} > 10000
+          for: 10m
+          labels:
+            severity: warning
+            component: kafka
+          annotations:
+            summary: "Hotel Reviews Kafka high consumer lag"
+            description: "Hotel Reviews Kafka consumer lag is above 10000 messages"

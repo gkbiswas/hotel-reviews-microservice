@@ -1,0 +1,496 @@
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: hotel-reviews-production-psp
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hotel-reviews-production-psp-role
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+rules:
+  - apiGroups: ['policy']
+    resources: ['podsecuritypolicies']
+    verbs: ['use']
+    resourceNames:
+      - hotel-reviews-production-psp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hotel-reviews-production-psp-binding
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+roleRef:
+  kind: Role
+  name: hotel-reviews-production-psp-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: hotel-reviews-service-account
+    namespace: hotel-reviews-production
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-production-api-secure
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-reviews
+      component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from nginx ingress controller only
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+    
+    # Allow ingress from prometheus for metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+    
+    # Allow health checks from kubelet
+    - from: []
+      ports:
+        - protocol: TCP
+          port: 8080
+  
+  egress:
+    # Allow egress to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Allow egress to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    
+    # Allow egress to Kafka
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+    
+    # Allow egress to DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow egress to AWS services (S3, etc.)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    
+    # Allow egress to external APIs (rate limited)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-reviews-production-security-config
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+data:
+  security.yaml: |
+    # Security configuration for production
+    security:
+      # Authentication
+      authentication:
+        jwt:
+          expiry: 15m
+          refresh_expiry: 7d
+          issuer: "hotel-reviews-production"
+          audience: "hotel-reviews-api"
+        
+        oauth2:
+          enabled: true
+          provider: "auth0"
+          client_id: "production-client-id"
+          
+        rate_limiting:
+          enabled: true
+          requests_per_minute: 100
+          burst_size: 20
+          
+      # Authorization
+      authorization:
+        rbac:
+          enabled: true
+          default_role: "user"
+          
+        permissions:
+          - resource: "reviews"
+            actions: ["read", "create", "update"]
+            roles: ["user", "admin"]
+          - resource: "hotels"
+            actions: ["read"]
+            roles: ["user", "admin"]
+          - resource: "analytics"
+            actions: ["read"]
+            roles: ["admin"]
+            
+      # Encryption
+      encryption:
+        at_rest:
+          enabled: true
+          algorithm: "AES-256-GCM"
+          
+        in_transit:
+          enabled: true
+          tls_version: "1.3"
+          cipher_suites:
+            - "TLS_AES_256_GCM_SHA384"
+            - "TLS_CHACHA20_POLY1305_SHA256"
+            
+      # Audit logging
+      audit:
+        enabled: true
+        log_level: "INFO"
+        include_request_body: false
+        include_response_body: false
+        retention_days: 90
+        
+      # Security headers
+      headers:
+        csp: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        hsts: "max-age=31536000; includeSubDomains"
+        frame_options: "DENY"
+        content_type_options: "nosniff"
+        xss_protection: "1; mode=block"
+        
+      # Input validation
+      validation:
+        max_request_size: "10MB"
+        max_field_length: 1000
+        sanitize_html: true
+        validate_json_schema: true
+        
+      # Session management
+      session:
+        secure: true
+        http_only: true
+        same_site: "Strict"
+        timeout: 30m
+        
+      # CORS
+      cors:
+        enabled: true
+        allowed_origins:
+          - "https://hotel-reviews.com"
+          - "https://admin.hotel-reviews.com"
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+        expose_headers: ["X-Total-Count"]
+        credentials: true
+        max_age: 86400
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hotel-reviews-production-security-secrets
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+type: Opaque
+data:
+  # Encryption keys (base64 encoded)
+  encryption-key: "base64-encoded-encryption-key"
+  signing-key: "base64-encoded-signing-key"
+  
+  # OAuth2 secrets
+  oauth2-client-secret: "base64-encoded-oauth2-client-secret"
+  
+  # API keys for external services
+  auth0-client-secret: "base64-encoded-auth0-client-secret"
+  
+  # TLS certificates
+  ca-cert: "base64-encoded-ca-certificate"
+  client-cert: "base64-encoded-client-certificate"
+  client-key: "base64-encoded-client-private-key"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-reviews-production-falco-rules
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+data:
+  falco_rules.yaml: |
+    # Falco rules for production security monitoring
+    - rule: Unexpected inbound connection
+      desc: Detect unexpected inbound connections to production pods
+      condition: >
+        inbound and
+        container.image.repository contains "hotel-reviews" and
+        k8s.ns.name = "hotel-reviews-production" and
+        not fd.sport in (8080, 9090, 5432, 6379, 9092)
+      output: >
+        Unexpected inbound connection to production pod
+        (connection=%fd.name pod=%k8s.pod.name namespace=%k8s.ns.name image=%container.image.repository)
+      priority: WARNING
+      tags: [network, production]
+    
+    - rule: Unexpected outbound connection
+      desc: Detect unexpected outbound connections from production pods
+      condition: >
+        outbound and
+        container.image.repository contains "hotel-reviews" and
+        k8s.ns.name = "hotel-reviews-production" and
+        not fd.dport in (53, 80, 443, 5432, 6379, 9092, 9093)
+      output: >
+        Unexpected outbound connection from production pod
+        (connection=%fd.name pod=%k8s.pod.name namespace=%k8s.ns.name image=%container.image.repository)
+      priority: WARNING
+      tags: [network, production]
+    
+    - rule: Privilege escalation in production
+      desc: Detect privilege escalation attempts in production
+      condition: >
+        spawned_process and
+        container.image.repository contains "hotel-reviews" and
+        k8s.ns.name = "hotel-reviews-production" and
+        (proc.name in (su, sudo, doas) or
+         proc.pname in (su, sudo, doas))
+      output: >
+        Privilege escalation detected in production pod
+        (process=%proc.name parent=%proc.pname pod=%k8s.pod.name namespace=%k8s.ns.name)
+      priority: CRITICAL
+      tags: [privilege_escalation, production]
+    
+    - rule: Sensitive file access in production
+      desc: Detect access to sensitive files in production
+      condition: >
+        open_read and
+        container.image.repository contains "hotel-reviews" and
+        k8s.ns.name = "hotel-reviews-production" and
+        fd.name in (/etc/passwd, /etc/shadow, /etc/hosts, /etc/ssh/ssh_host_rsa_key)
+      output: >
+        Sensitive file access detected in production pod
+        (file=%fd.name process=%proc.name pod=%k8s.pod.name namespace=%k8s.ns.name)
+      priority: CRITICAL
+      tags: [file_access, production]
+    
+    - rule: Cryptocurrency mining in production
+      desc: Detect cryptocurrency mining in production
+      condition: >
+        spawned_process and
+        container.image.repository contains "hotel-reviews" and
+        k8s.ns.name = "hotel-reviews-production" and
+        (proc.name in (xmrig, minerd, cpuminer) or
+         proc.cmdline contains "stratum+tcp" or
+         proc.cmdline contains "mining.pool")
+      output: >
+        Cryptocurrency mining detected in production pod
+        (process=%proc.name cmdline=%proc.cmdline pod=%k8s.pod.name namespace=%k8s.ns.name)
+      priority: CRITICAL
+      tags: [malware, production]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-production-security-scan
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: security
+    type: scanning
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            environment: production
+            component: security
+            type: scanning
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: security-scan
+              image: aquasec/trivy:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "Starting security scan..."
+                  
+                  # Scan container images
+                  echo "Scanning container images..."
+                  trivy image --exit-code 0 --severity HIGH,CRITICAL --format json \
+                    hotel-reviews-api:v1.0.0 > /tmp/api-scan.json
+                  
+                  trivy image --exit-code 0 --severity HIGH,CRITICAL --format json \
+                    hotel-reviews-worker:v1.0.0 > /tmp/worker-scan.json
+                  
+                  # Generate security report
+                  echo "Generating security report..."
+                  cat > /tmp/security-report.json << EOF
+                  {
+                    "scan_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+                    "environment": "production",
+                    "namespace": "hotel-reviews-production",
+                    "images_scanned": [
+                      "hotel-reviews-api:v1.0.0",
+                      "hotel-reviews-worker:v1.0.0"
+                    ],
+                    "vulnerabilities": {
+                      "api": $(cat /tmp/api-scan.json),
+                      "worker": $(cat /tmp/worker-scan.json)
+                    }
+                  }
+                  EOF
+                  
+                  # Upload security report to S3
+                  aws s3 cp /tmp/security-report.json \
+                    s3://$S3_BUCKET/security/scans/production/$(date +%Y%m%d_%H%M%S)-security-report.json
+                  
+                  echo "Security scan completed successfully!"
+              env:
+                - name: S3_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-secret-access-key
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.region
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              volumeMounts:
+                - name: tmp-volume
+                  mountPath: /tmp
+          volumes:
+            - name: tmp-volume
+              emptyDir:
+                sizeLimit: 1Gi
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800

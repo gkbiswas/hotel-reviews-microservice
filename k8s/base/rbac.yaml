@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hotel-reviews-service-account
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+automountServiceAccountToken: true
+imagePullSecrets:
+  - name: hotel-reviews-registry-secret
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hotel-reviews-role
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hotel-reviews-role-binding
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+subjects:
+  - kind: ServiceAccount
+    name: hotel-reviews-service-account
+    namespace: hotel-reviews
+roleRef:
+  kind: Role
+  name: hotel-reviews-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hotel-reviews-cluster-role
+  labels:
+    app: hotel-reviews
+    component: api
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hotel-reviews-cluster-role-binding
+  labels:
+    app: hotel-reviews
+    component: api
+subjects:
+  - kind: ServiceAccount
+    name: hotel-reviews-service-account
+    namespace: hotel-reviews
+roleRef:
+  kind: ClusterRole
+  name: hotel-reviews-cluster-role
+  apiGroup: rbac.authorization.k8s.io

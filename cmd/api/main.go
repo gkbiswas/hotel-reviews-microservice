@@ -17,6 +17,7 @@ import (
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/application"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure"
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/monitoring"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/config"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
 )
@@ -33,6 +34,7 @@ type Application struct {
 	processingEngine  *application.ProcessingEngine
 	handlers          *application.Handlers
 	server            *http.Server
+	monitoringService *monitoring.Service
 }
 
 // CLI flags
@@ -188,6 +190,28 @@ func initializeApplication() (*Application, error) {
 	// Initialize handlers
 	handlers := application.NewHandlers(reviewService, log)
 	
+	// Initialize monitoring service
+	monitoringConfig := monitoring.GetDefaultConfig()
+	// Override config from environment variables
+	if jaegerEndpoint := os.Getenv("HOTEL_REVIEWS_JAEGER_ENDPOINT"); jaegerEndpoint != "" {
+		monitoringConfig.JaegerEndpoint = jaegerEndpoint
+	}
+	if os.Getenv("HOTEL_REVIEWS_MONITORING_ENABLED") == "false" {
+		monitoringConfig.MetricsEnabled = false
+		monitoringConfig.TracingEnabled = false
+		monitoringConfig.HealthEnabled = false
+		monitoringConfig.BusinessMetricsEnabled = false
+		monitoringConfig.SLOMonitoringEnabled = false
+	}
+	if os.Getenv("HOTEL_REVIEWS_TRACING_ENABLED") == "false" {
+		monitoringConfig.TracingEnabled = false
+	}
+	
+	monitoringService, err := monitoring.NewService(monitoringConfig, log.Logger, database.DB, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize monitoring service: %w", err)
+	}
+	
 	app := &Application{
 		config:            cfg,
 		logger:            log,
@@ -198,6 +222,7 @@ func initializeApplication() (*Application, error) {
 		reviewService:     reviewService,
 		processingEngine:  processingEngine,
 		handlers:          handlers,
+		monitoringService: monitoringService,
 	}
 	
 	return app, nil
@@ -244,6 +269,11 @@ func (app *Application) runServer() error {
 		}
 	}
 	
+	// Start monitoring service
+	if err := app.monitoringService.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start monitoring service: %w", err)
+	}
+	
 	// Start processing engine
 	if err := app.processingEngine.Start(); err != nil {
 		return fmt.Errorf("failed to start processing engine: %w", err)
@@ -252,11 +282,18 @@ func (app *Application) runServer() error {
 	// Setup HTTP server
 	router := mux.NewRouter()
 	
-	// Add middleware
+	// Add monitoring middleware
+	monitoringMiddleware := monitoring.NewHTTPMiddleware(app.monitoringService)
+	router.Use(monitoringMiddleware.CombinedMiddleware)
+	
+	// Add application middleware
 	router.Use(app.handlers.LoggingMiddleware)
 	router.Use(app.handlers.RecoveryMiddleware)
 	router.Use(app.handlers.CORSMiddleware)
 	router.Use(app.handlers.ContentTypeMiddleware)
+	
+	// Register monitoring endpoints
+	app.monitoringService.RegisterHTTPHandlers(router)
 	
 	// Setup routes
 	api := router.PathPrefix("/api/v1").Subrouter()
@@ -544,6 +581,11 @@ func (app *Application) waitForShutdown() error {
 			app.logger.Error("Failed to shutdown HTTP server gracefully", "error", err)
 			return err
 		}
+	}
+	
+	// Stop monitoring service
+	if err := app.monitoringService.Stop(ctx); err != nil {
+		app.logger.Error("Failed to stop monitoring service", "error", err)
 	}
 	
 	// Close database connection

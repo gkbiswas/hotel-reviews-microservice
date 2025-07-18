@@ -1,0 +1,92 @@
+# Code owners for the Hotel Reviews Microservice
+# This file defines individuals or teams that are responsible for code in this repository.
+
+# Global owners (fallback)
+* @ops-team @senior-engineers
+
+# GitHub Actions and CI/CD workflows
+/.github/ @ops-team @devops-team
+/.github/workflows/ @ops-team @devops-team
+/.github/dependabot.yml @ops-team @devops-team
+
+# Docker and infrastructure
+/docker/ @ops-team @devops-team @infrastructure-team
+Dockerfile @ops-team @devops-team @infrastructure-team
+docker-compose.yml @ops-team @devops-team @infrastructure-team
+
+# Go source code
+*.go @senior-engineers @go-team
+go.mod @senior-engineers @go-team
+go.sum @senior-engineers @go-team
+
+# Application code
+/cmd/ @senior-engineers @go-team @backend-team
+/internal/ @senior-engineers @go-team @backend-team
+/pkg/ @senior-engineers @go-team @backend-team
+
+# Database migrations
+/migrations/ @senior-engineers @database-team @backend-team
+
+# Configuration files
+/config/ @senior-engineers @ops-team @backend-team
+config.example.yaml @senior-engineers @ops-team @backend-team
+*.yml @ops-team @devops-team
+*.yaml @ops-team @devops-team
+
+# Documentation
+/docs/ @senior-engineers @technical-writers @product-team
+README.md @senior-engineers @technical-writers @product-team
+*.md @technical-writers @product-team
+
+# Security and compliance
+.golangci.yml @senior-engineers @security-team
+.secrets.baseline @security-team @ops-team
+
+# Testing
+/tests/ @senior-engineers @qa-team @backend-team
+*_test.go @senior-engineers @qa-team @backend-team
+
+# Load testing
+/tests/load/ @ops-team @performance-team @qa-team
+
+# Examples and demos
+/examples/ @senior-engineers @technical-writers @backend-team
+
+# Monitoring and observability
+/monitoring/ @ops-team @sre-team
+/observability/ @ops-team @sre-team
+
+# Kubernetes and deployment
+/k8s/ @ops-team @devops-team @infrastructure-team
+/deploy/ @ops-team @devops-team @infrastructure-team
+/helm/ @ops-team @devops-team @infrastructure-team
+
+# Scripts and automation
+*.sh @ops-team @devops-team
+/scripts/ @ops-team @devops-team
+
+# License and legal
+LICENSE @legal-team @senior-engineers
+NOTICE @legal-team @senior-engineers
+
+# Vulnerability and security reports
+SECURITY.md @security-team @senior-engineers
+
+# Change log and releases
+CHANGELOG.md @senior-engineers @product-team
+RELEASES.md @senior-engineers @product-team
+
+# Package and dependency management
+vendor/ @senior-engineers @go-team
+
+# Environment-specific configurations
+/.github/environments/ @ops-team @devops-team @senior-engineers
+
+# Performance and benchmarking
+/benchmarks/ @senior-engineers @performance-team
+/performance/ @senior-engineers @performance-team
+
+# API documentation
+/api/ @senior-engineers @technical-writers @product-team
+swagger.yml @senior-engineers @technical-writers @product-team
+openapi.yml @senior-engineers @technical-writers @product-team

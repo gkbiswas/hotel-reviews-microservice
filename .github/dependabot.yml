@@ -1,0 +1,144 @@
+# Dependabot configuration for automated dependency updates
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "ops-team"
+      - "senior-engineers"
+    assignees:
+      - "ops-team"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "go"
+      - "security"
+    milestone: "Next Release"
+    target-branch: "develop"
+    
+    # Group updates by type
+    groups:
+      aws-sdk:
+        patterns:
+          - "github.com/aws/aws-sdk-go*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      database:
+        patterns:
+          - "gorm.io/*"
+          - "github.com/lib/pq"
+          - "github.com/jackc/pgx*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      testing:
+        patterns:
+          - "github.com/stretchr/testify"
+          - "github.com/testcontainers/testcontainers-go*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      monitoring:
+        patterns:
+          - "github.com/prometheus/*"
+          - "go.opentelemetry.io/*"
+        update-types:
+          - "minor"
+          - "patch"
+    
+    # Ignore specific dependencies
+    ignore:
+      # Ignore major version updates for critical dependencies
+      - dependency-name: "github.com/gorilla/mux"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "github.com/sirupsen/logrus"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "gorm.io/gorm"
+        update-types: ["version-update:semver-major"]
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ops-team"
+    assignees:
+      - "ops-team"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "github-actions"
+      - "ci-cd"
+    
+    # Group GitHub Actions updates
+    groups:
+      setup-actions:
+        patterns:
+          - "actions/setup-*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      aws-actions:
+        patterns:
+          - "aws-actions/*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      security-actions:
+        patterns:
+          - "github/codeql-action*"
+          - "securecodewarrior/*"
+          - "aquasecurity/*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ops-team"
+    assignees:
+      - "ops-team"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "docker"
+      - "infrastructure"
+    
+    # Ignore specific Docker images
+    ignore:
+      # Pin specific versions of base images
+      - dependency-name: "golang"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "alpine"
+        update-types: ["version-update:semver-major"]

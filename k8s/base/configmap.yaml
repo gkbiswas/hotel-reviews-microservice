@@ -1,0 +1,128 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-reviews-config
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+data:
+  # Server Configuration
+  server.host: "0.0.0.0"
+  server.port: "8080"
+  server.read_timeout: "30s"
+  server.write_timeout: "30s"
+  server.idle_timeout: "60s"
+  server.shutdown_timeout: "30s"
+  server.enable_cors: "true"
+  server.enable_gzip: "true"
+  server.enable_metrics: "true"
+  server.enable_pprof: "false"
+  
+  # Database Configuration
+  database.host: "hotel-reviews-postgres"
+  database.port: "5432"
+  database.name: "hotel_reviews"
+  database.ssl_mode: "require"
+  database.max_open_conns: "25"
+  database.max_idle_conns: "25"
+  database.conn_max_lifetime: "5m"
+  database.conn_max_idle_time: "5m"
+  database.timezone: "UTC"
+  database.log_level: "warn"
+  
+  # Cache Configuration (Redis)
+  cache.type: "redis"
+  cache.host: "hotel-reviews-redis"
+  cache.port: "6379"
+  cache.database: "0"
+  cache.pool_size: "10"
+  cache.min_idle_conns: "5"
+  cache.dial_timeout: "5s"
+  cache.read_timeout: "3s"
+  cache.write_timeout: "3s"
+  cache.ttl: "1h"
+  
+  # S3 Configuration
+  s3.region: "us-east-1"
+  s3.bucket: "hotel-reviews-bucket"
+  s3.use_ssl: "true"
+  s3.timeout: "30s"
+  s3.retry_count: "3"
+  s3.retry_delay: "1s"
+  
+  # Kafka Configuration
+  kafka.brokers: "hotel-reviews-kafka-bootstrap:9092"
+  kafka.review_topic: "hotel-reviews"
+  kafka.processing_topic: "hotel-reviews-processing"
+  kafka.dead_letter_topic: "hotel-reviews-dlq"
+  kafka.consumer_group: "hotel-reviews-consumer"
+  kafka.batch_size: "100"
+  kafka.batch_timeout: "1s"
+  kafka.max_retries: "3"
+  kafka.retry_delay: "1s"
+  kafka.enable_sasl: "false"
+  kafka.enable_tls: "false"
+  kafka.max_message_size: "1048576"
+  kafka.compression_type: "snappy"
+  kafka.producer_flush_timeout: "10s"
+  kafka.consumer_timeout: "10s"
+  kafka.enable_idempotence: "true"
+  kafka.partitions: "3"
+  kafka.replication_factor: "3"
+  
+  # Logging Configuration
+  log.level: "info"
+  log.format: "json"
+  log.output: "stdout"
+  log.enable_caller: "true"
+  log.enable_stacktrace: "false"
+  
+  # Metrics Configuration
+  metrics.enabled: "true"
+  metrics.type: "prometheus"
+  metrics.port: "9090"
+  metrics.path: "/metrics"
+  metrics.namespace: "hotel_reviews"
+  metrics.service_name: "hotel-reviews-api"
+  metrics.version: "1.0.0"
+  
+  # Processing Configuration
+  processing.batch_size: "1000"
+  processing.worker_count: "4"
+  processing.max_file_size: "104857600"
+  processing.processing_timeout: "30m"
+  processing.max_retries: "3"
+  processing.retry_delay: "5s"
+  processing.enable_validation: "true"
+  processing.enable_duplicate_check: "true"
+  processing.temp_directory: "/tmp/hotel-reviews"
+  
+  # Security Configuration
+  security.rate_limit: "1000"
+  security.rate_limit_window: "1h"
+  security.enable_api_key: "false"
+  security.api_key_header: "X-API-Key"
+  security.enable_encryption: "false"
+  
+  # Authentication Configuration
+  auth.jwt_issuer: "hotel-reviews-api"
+  auth.access_token_expiry: "15m"
+  auth.refresh_token_expiry: "7d"
+  auth.max_login_attempts: "5"
+  auth.login_attempt_window: "15m"
+  auth.account_lock_duration: "30m"
+  auth.password_min_length: "8"
+  auth.password_max_length: "128"
+  auth.require_strong_password: "true"
+  auth.enable_two_factor: "false"
+  auth.enable_email_verification: "false"
+  auth.enable_password_reset: "true"
+  auth.enable_session_cleanup: "true"
+  auth.session_cleanup_interval: "1h"
+  auth.enable_audit_logging: "true"
+  auth.enable_rate_limiting: "true"
+  auth.bcrypt_cost: "12"
+  auth.api_key_length: "32"
+  auth.api_key_prefix: "hr_"
+  auth.default_role: "user"

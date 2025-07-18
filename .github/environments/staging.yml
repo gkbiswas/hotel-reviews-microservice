@@ -1,0 +1,245 @@
+# Staging Environment Configuration
+name: staging
+
+# Environment-specific variables
+variables:
+  ENVIRONMENT: staging
+  LOG_LEVEL: debug
+  HEALTH_CHECK_INTERVAL: 30s
+  HEALTH_CHECK_TIMEOUT: 10s
+  HEALTH_CHECK_RETRIES: 3
+  DEPLOYMENT_TIMEOUT: 600s
+  ROLLBACK_TIMEOUT: 300s
+  
+  # Application settings
+  APP_PORT: 8080
+  APP_HOST: 0.0.0.0
+  APP_DEBUG: true
+  APP_METRICS_ENABLED: true
+  APP_PROFILING_ENABLED: true
+  
+  # Database settings
+  DATABASE_MAX_CONNECTIONS: 25
+  DATABASE_CONNECTION_TIMEOUT: 30s
+  DATABASE_IDLE_TIMEOUT: 300s
+  DATABASE_MAX_LIFETIME: 3600s
+  DATABASE_SSL_MODE: prefer
+  
+  # Redis settings
+  REDIS_MAX_CONNECTIONS: 100
+  REDIS_CONNECTION_TIMEOUT: 5s
+  REDIS_READ_TIMEOUT: 3s
+  REDIS_WRITE_TIMEOUT: 3s
+  REDIS_POOL_SIZE: 10
+  
+  # AWS settings
+  AWS_S3_REGION: us-east-1
+  AWS_S3_BUCKET: hotel-reviews-staging
+  AWS_S3_ENDPOINT: ""
+  AWS_S3_FORCE_PATH_STYLE: false
+  
+  # Monitoring and observability
+  PROMETHEUS_METRICS_PATH: /metrics
+  JAEGER_AGENT_HOST: jaeger-agent
+  JAEGER_AGENT_PORT: 6831
+  JAEGER_SAMPLER_TYPE: const
+  JAEGER_SAMPLER_PARAM: 1
+  
+  # Security settings
+  JWT_SECRET_KEY: staging-jwt-secret-key
+  CORS_ALLOWED_ORIGINS: "https://staging.hotel-reviews.com"
+  CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+  CORS_ALLOWED_HEADERS: "Content-Type,Authorization"
+  
+  # Rate limiting
+  RATE_LIMIT_REQUESTS: 100
+  RATE_LIMIT_WINDOW: 60s
+  RATE_LIMIT_BURST: 50
+  
+  # Circuit breaker settings
+  CIRCUIT_BREAKER_TIMEOUT: 60s
+  CIRCUIT_BREAKER_MAX_REQUESTS: 3
+  CIRCUIT_BREAKER_INTERVAL: 30s
+  CIRCUIT_BREAKER_RATIO: 0.6
+  
+  # Retry settings
+  RETRY_MAX_ATTEMPTS: 3
+  RETRY_INITIAL_DELAY: 1s
+  RETRY_MAX_DELAY: 10s
+  RETRY_MULTIPLIER: 2.0
+  
+  # Kafka settings (if applicable)
+  KAFKA_BROKERS: "kafka-staging:9092"
+  KAFKA_CONSUMER_GROUP: hotel-reviews-staging
+  KAFKA_TOPIC_PREFIX: staging
+  
+  # Notification settings
+  NOTIFICATION_SLACK_WEBHOOK: ""
+  NOTIFICATION_EMAIL_ENABLED: true
+  NOTIFICATION_EMAIL_FROM: "noreply@hotel-reviews.com"
+  NOTIFICATION_EMAIL_TO: "dev-team@hotel-reviews.com"
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+    ephemeral-storage: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+    ephemeral-storage: 512Mi
+
+# Scaling configuration
+scaling:
+  min_replicas: 2
+  max_replicas: 10
+  target_cpu_utilization: 70
+  target_memory_utilization: 80
+  scale_up_cooldown: 300s
+  scale_down_cooldown: 600s
+
+# Load balancer configuration
+load_balancer:
+  type: application
+  scheme: internet-facing
+  target_type: ip
+  port: 80
+  protocol: HTTP
+  health_check:
+    path: /api/v1/health
+    interval: 30s
+    timeout: 5s
+    healthy_threshold: 2
+    unhealthy_threshold: 5
+    matcher: 200
+
+# Security configuration
+security:
+  network_policies:
+    ingress:
+      - from: load-balancer
+        ports: [8080]
+      - from: prometheus
+        ports: [8080]
+      - from: jaeger
+        ports: [8080]
+    egress:
+      - to: database
+        ports: [5432]
+      - to: redis
+        ports: [6379]
+      - to: s3
+        ports: [443]
+      - to: external-apis
+        ports: [443]
+  
+  pod_security_context:
+    run_as_non_root: true
+    run_as_user: 1000
+    run_as_group: 1000
+    fs_group: 1000
+    fs_group_change_policy: "Always"
+  
+  container_security_context:
+    allow_privilege_escalation: false
+    read_only_root_filesystem: true
+    drop_capabilities: ["ALL"]
+    add_capabilities: []
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics:
+    - prometheus
+    - datadog
+  logging:
+    level: debug
+    format: json
+    destination: stdout
+  tracing:
+    enabled: true
+    sampler: const
+    sample_rate: 1.0
+  
+  alerts:
+    - name: high-cpu-usage
+      condition: cpu > 80%
+      duration: 5m
+      severity: warning
+    - name: high-memory-usage
+      condition: memory > 85%
+      duration: 3m
+      severity: warning
+    - name: high-error-rate
+      condition: error_rate > 5%
+      duration: 2m
+      severity: critical
+    - name: low-disk-space
+      condition: disk_usage > 90%
+      duration: 1m
+      severity: warning
+
+# Deployment configuration
+deployment:
+  strategy: rolling
+  max_unavailable: 1
+  max_surge: 1
+  revision_history_limit: 10
+  progress_deadline: 600s
+  
+  # Pre-deployment checks
+  pre_deployment_checks:
+    - database_connectivity
+    - redis_connectivity
+    - s3_connectivity
+    - external_apis_connectivity
+  
+  # Post-deployment checks
+  post_deployment_checks:
+    - health_check
+    - smoke_tests
+    - performance_tests
+  
+  # Rollback configuration
+  rollback:
+    enabled: true
+    timeout: 300s
+    auto_rollback_on_failure: true
+    
+# Maintenance windows
+maintenance:
+  windows:
+    - day: sunday
+      start: "02:00"
+      end: "04:00"
+      timezone: UTC
+      description: "Weekly maintenance window"
+  
+  notifications:
+    advance_notice: 24h
+    channels:
+      - slack
+      - email
+
+# Data retention
+data_retention:
+  logs: 7d
+  metrics: 30d
+  traces: 7d
+  backups: 30d
+  
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 7d
+  encryption: true
+  compression: true
+  
+# Disaster recovery
+disaster_recovery:
+  rto: 4h  # Recovery Time Objective
+  rpo: 1h  # Recovery Point Objective
+  backup_frequency: daily
+  cross_region_replication: false

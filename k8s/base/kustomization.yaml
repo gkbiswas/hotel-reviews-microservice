@@ -1,0 +1,213 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hotel-reviews-base
+  namespace: hotel-reviews
+
+# Common labels applied to all resources
+commonLabels:
+  app: hotel-reviews
+  version: v1
+  managed-by: kustomize
+
+# Common annotations applied to all resources
+commonAnnotations:
+  app.kubernetes.io/name: hotel-reviews
+  app.kubernetes.io/instance: hotel-reviews
+  app.kubernetes.io/version: "1.0.0"
+  app.kubernetes.io/component: microservice
+  app.kubernetes.io/part-of: hotel-reviews-system
+  app.kubernetes.io/managed-by: kustomize
+
+# Namespace for all resources
+namespace: hotel-reviews
+
+# Resources to include
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - rbac.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - worker-deployment.yaml
+  - service.yaml
+  - supporting-services.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+  - statefulset.yaml
+  - jobs.yaml
+  - servicemonitor.yaml
+
+# Images to replace
+images:
+  - name: hotel-reviews-api
+    newName: hotel-reviews-api
+    newTag: latest
+  - name: hotel-reviews-worker
+    newName: hotel-reviews-worker
+    newTag: latest
+  - name: postgres
+    newName: postgres
+    newTag: 15-alpine
+  - name: redis
+    newName: redis
+    newTag: 7-alpine
+  - name: confluentinc/cp-kafka
+    newName: confluentinc/cp-kafka
+    newTag: 7.4.0
+  - name: confluentinc/cp-zookeeper
+    newName: confluentinc/cp-zookeeper
+    newTag: 7.4.0
+
+# ConfigMap generator for additional configurations
+configMapGenerator:
+  - name: hotel-reviews-version
+    literals:
+      - version=1.0.0
+      - build-date=2024-01-01
+      - git-commit=main
+      - git-branch=main
+  - name: hotel-reviews-environment
+    literals:
+      - environment=base
+      - cluster=default
+      - region=us-east-1
+      - zone=us-east-1a
+
+# Secret generator for additional secrets
+secretGenerator:
+  - name: hotel-reviews-api-keys
+    literals:
+      - monitoring-key=monitoring-secret-key
+      - webhook-secret=webhook-secret-key
+    type: Opaque
+
+# Patches to apply
+patches:
+  # Patch deployment with additional labels
+  - patch: |-
+      - op: add
+        path: /metadata/labels/deployment.kubernetes.io~1revision
+        value: "1"
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Patch service with additional annotations
+  - patch: |-
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-additional-resource-tags
+        value: "Environment=base,Project=hotel-reviews"
+    target:
+      kind: Service
+      name: hotel-reviews-api-lb
+
+# Replacements for template variables
+replacements:
+  - source:
+      kind: ConfigMap
+      name: hotel-reviews-version
+      fieldPath: data.version
+    targets:
+      - select:
+          kind: Deployment
+        fieldPaths:
+          - metadata.labels.version
+  
+  - source:
+      kind: ConfigMap
+      name: hotel-reviews-environment
+      fieldPath: data.environment
+    targets:
+      - select:
+          kind: Service
+        fieldPaths:
+          - metadata.labels.environment
+
+# Replicas for different components
+replicas:
+  - name: hotel-reviews-api
+    count: 3
+  - name: hotel-reviews-worker
+    count: 2
+  - name: hotel-reviews-postgres
+    count: 1
+  - name: hotel-reviews-redis
+    count: 1
+  - name: hotel-reviews-kafka
+    count: 3
+  - name: hotel-reviews-zookeeper
+    count: 3
+
+# Transformers
+transformers:
+  # Add resource quotas transformer
+  - |-
+    apiVersion: builtin
+    kind: ResourceQuotaTransformer
+    metadata:
+      name: resource-quota-transformer
+    spec:
+      quotas:
+        - name: compute-quota
+          resources:
+            requests.cpu: "4"
+            requests.memory: "8Gi"
+            limits.cpu: "8"
+            limits.memory: "16Gi"
+            persistentvolumeclaims: "10"
+            services: "10"
+            secrets: "10"
+            configmaps: "10"
+
+# Generators
+generators:
+  # Generate NetworkPolicy for default deny
+  - |-
+    apiVersion: generators.kustomize.io/v1beta1
+    kind: NetworkPolicyGenerator
+    metadata:
+      name: default-deny-netpol
+    spec:
+      selector:
+        matchLabels:
+          app: hotel-reviews
+      policyTypes:
+        - Ingress
+        - Egress
+      # Empty ingress/egress rules create default deny
+
+# Validation
+validators:
+  - |-
+    apiVersion: validators.kustomize.io/v1beta1
+    kind: ResourceValidator
+    metadata:
+      name: resource-validator
+    spec:
+      rules:
+        - name: require-resource-limits
+          match:
+            apiVersion: apps/v1
+            kind: Deployment
+          assert:
+            message: "All containers must have resource limits"
+            rule: "spec.template.spec.containers[*].resources.limits"
+        - name: require-security-context
+          match:
+            apiVersion: apps/v1
+            kind: Deployment
+          assert:
+            message: "All containers must have security context"
+            rule: "spec.template.spec.containers[*].securityContext"
+        - name: require-readiness-probe
+          match:
+            apiVersion: apps/v1
+            kind: Deployment
+          assert:
+            message: "All containers must have readiness probe"
+            rule: "spec.template.spec.containers[*].readinessProbe"

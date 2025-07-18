@@ -1,0 +1,218 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hotel-reviews-ingress
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+  annotations:
+    # Ingress class
+    kubernetes.io/ingress.class: nginx
+    
+    # TLS configuration
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "10"
+    
+    # CORS configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY;
+      add_header X-Content-Type-Options nosniff;
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+      add_header Content-Security-Policy "default-src 'self'";
+      add_header Referrer-Policy "strict-origin-when-cross-origin";
+    
+    # Load balancing
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"
+    
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    
+    # Request size
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    
+    # Health checks
+    nginx.ingress.kubernetes.io/health-check-path: "/api/v1/health"
+    nginx.ingress.kubernetes.io/health-check-interval: "10s"
+    nginx.ingress.kubernetes.io/health-check-timeout: "5s"
+    
+    # Monitoring
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /nginx_status {
+        stub_status on;
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+      }
+spec:
+  tls:
+    - hosts:
+        - api.hotel-reviews.com
+        - admin.hotel-reviews.com
+        - metrics.hotel-reviews.com
+      secretName: hotel-reviews-tls
+  rules:
+    # API endpoints
+    - host: api.hotel-reviews.com
+      http:
+        paths:
+          - path: /api/v1/health
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/ready
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/reviews
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/hotels
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/providers
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/upload
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /api/v1/process
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+    
+    # Admin endpoints
+    - host: admin.hotel-reviews.com
+      http:
+        paths:
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+          - path: /dashboard
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 80
+    
+    # Metrics endpoints
+    - host: metrics.hotel-reviews.com
+      http:
+        paths:
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-api
+                port:
+                  number: 9090
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-prometheus
+                port:
+                  number: 9090
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hotel-reviews-monitoring-ingress
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: monitoring
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: hotel-reviews-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Hotel Reviews Monitoring"
+spec:
+  tls:
+    - hosts:
+        - grafana.hotel-reviews.com
+        - prometheus.hotel-reviews.com
+      secretName: hotel-reviews-monitoring-tls
+  rules:
+    - host: grafana.hotel-reviews.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-grafana
+                port:
+                  number: 3000
+    - host: prometheus.hotel-reviews.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hotel-reviews-prometheus
+                port:
+                  number: 9090

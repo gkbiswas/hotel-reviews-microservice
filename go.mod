@@ -55,8 +55,15 @@ require (
 
 	// JSON processing
 	github.com/tidwall/gjson v1.18.0
+	
+	// OpenTelemetry and Jaeger tracing
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0
+	go.opentelemetry.io/otel/exporters/jaeger v1.17.0
+	go.opentelemetry.io/otel/sdk v1.35.0
+	go.opentelemetry.io/otel/instrumentation/net/http/otelhttp v0.54.0
+	go.opentelemetry.io/otel/instrumentation/github.com/gorilla/mux/otelmux v0.54.0
+	go.opentelemetry.io/otel/instrumentation/gorm.io/driver/postgres/otelgorm v0.54.0
 	golang.org/x/crypto v0.37.0
 
 	// Synchronization and concurrency

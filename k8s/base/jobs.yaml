@@ -1,0 +1,553 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hotel-reviews-db-migration
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: migration
+    type: database
+spec:
+  template:
+    metadata:
+      labels:
+        app: hotel-reviews
+        component: migration
+        type: database
+    spec:
+      serviceAccountName: hotel-reviews-service-account
+      restartPolicy: OnFailure
+      containers:
+        - name: db-migration
+          image: hotel-reviews-api:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting database migration..."
+              
+              # Wait for database to be ready
+              until pg_isready -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              
+              # Run migrations
+              echo "Running database migrations..."
+              # Add your actual migration commands here
+              # Example: ./migrate up
+              
+              echo "Database migration completed successfully!"
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.name
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-password
+            - name: DATABASE_SSL_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.ssl_mode
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hotel-reviews-seed-data
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: seed
+    type: database
+spec:
+  template:
+    metadata:
+      labels:
+        app: hotel-reviews
+        component: seed
+        type: database
+    spec:
+      serviceAccountName: hotel-reviews-service-account
+      restartPolicy: OnFailure
+      containers:
+        - name: seed-data
+          image: hotel-reviews-api:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting data seeding..."
+              
+              # Wait for database to be ready
+              until pg_isready -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER; do
+                echo "Waiting for database..."
+                sleep 2
+              done
+              
+              # Seed initial data
+              echo "Seeding initial data..."
+              # Add your actual seeding commands here
+              # Example: ./seed-data
+              
+              echo "Data seeding completed successfully!"
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.name
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-password
+            - name: ENVIRONMENT
+              value: "production"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-backup
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: backup
+    type: database
+spec:
+  schedule: "0 2 * * *"  # Run daily at 2 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            component: backup
+            type: database
+        spec:
+          serviceAccountName: hotel-reviews-service-account
+          restartPolicy: OnFailure
+          containers:
+            - name: db-backup
+              image: postgres:15-alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "Starting database backup..."
+                  
+                  # Create backup filename with timestamp
+                  BACKUP_FILE="hotel-reviews-backup-$(date +%Y%m%d_%H%M%S).sql"
+                  
+                  # Create database backup
+                  pg_dump -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER -d $DATABASE_NAME \
+                    --no-password --clean --if-exists --create > /tmp/$BACKUP_FILE
+                  
+                  # Compress backup
+                  gzip /tmp/$BACKUP_FILE
+                  
+                  # Upload to S3 (assuming AWS CLI is available)
+                  aws s3 cp /tmp/$BACKUP_FILE.gz s3://$S3_BUCKET/backups/database/$BACKUP_FILE.gz
+                  
+                  echo "Database backup completed: $BACKUP_FILE.gz"
+              env:
+                - name: DATABASE_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.host
+                - name: DATABASE_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.port
+                - name: DATABASE_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.name
+                - name: DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-user
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-password
+                - name: S3_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-secret-access-key
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.region
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp-volume
+                  mountPath: /tmp
+          volumes:
+            - name: tmp-volume
+              emptyDir: {}
+      backoffLimit: 3
+      activeDeadlineSeconds: 1800
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-cleanup
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: cleanup
+    type: maintenance
+spec:
+  schedule: "0 3 * * 0"  # Run weekly on Sunday at 3 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            component: cleanup
+            type: maintenance
+        spec:
+          serviceAccountName: hotel-reviews-service-account
+          restartPolicy: OnFailure
+          containers:
+            - name: cleanup
+              image: hotel-reviews-api:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "Starting cleanup tasks..."
+                  
+                  # Clean up old audit logs
+                  echo "Cleaning up old audit logs..."
+                  # Add your cleanup commands here
+                  
+                  # Clean up temporary files
+                  echo "Cleaning up temporary files..."
+                  # Add your cleanup commands here
+                  
+                  # Clean up old processed files
+                  echo "Cleaning up old processed files..."
+                  # Add your cleanup commands here
+                  
+                  # Vacuum database
+                  echo "Running database maintenance..."
+                  # Add your database maintenance commands here
+                  
+                  echo "Cleanup completed successfully!"
+              env:
+                - name: DATABASE_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.host
+                - name: DATABASE_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.port
+                - name: DATABASE_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.name
+                - name: DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-user
+                - name: DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-password
+                - name: REDIS_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: cache.host
+                - name: REDIS_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: cache.port
+                - name: S3_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-secret-access-key
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 1Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp-volume
+                  mountPath: /tmp
+          volumes:
+            - name: tmp-volume
+              emptyDir: {}
+      backoffLimit: 3
+      activeDeadlineSeconds: 3600
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-analytics
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: analytics
+    type: processing
+spec:
+  schedule: "0 4 * * *"  # Run daily at 4 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            component: analytics
+            type: processing
+        spec:
+          serviceAccountName: hotel-reviews-service-account
+          restartPolicy: OnFailure
+          containers:
+            - name: analytics
+              image: hotel-reviews-api:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "Starting analytics processing..."
+                  
+                  # Generate daily analytics
+                  echo "Generating daily analytics..."
+                  # Add your analytics commands here
+                  
+                  # Update hotel ratings
+                  echo "Updating hotel ratings..."
+                  # Add your rating update commands here
+                  
+                  # Generate reports
+                  echo "Generating reports..."
+                  # Add your report generation commands here
+                  
+                  echo "Analytics processing completed successfully!"
+              env:
+                - name: DATABASE_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.host
+                - name: DATABASE_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.port
+                - name: DATABASE_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.name
+                - name: DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-user
+                - name: DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-password
+                - name: REDIS_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: cache.host
+                - name: REDIS_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: cache.port
+                - name: KAFKA_BROKERS
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: kafka.brokers
+                - name: PROCESSING_BATCH_SIZE
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: processing.batch_size
+                - name: PROCESSING_WORKER_COUNT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: processing.worker_count
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 1000m
+                  memory: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp-volume
+                  mountPath: /tmp
+          volumes:
+            - name: tmp-volume
+              emptyDir: {}
+      backoffLimit: 3
+      activeDeadlineSeconds: 7200

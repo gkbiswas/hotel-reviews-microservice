@@ -1,0 +1,733 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>domain: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/gkbiswas/hotel-reviews-microservice/internal/domain/services.go (79.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package domain
+
+import (
+        "context"
+        "fmt"
+        "log/slog"
+        "strings"
+        "time"
+
+        "github.com/google/uuid"
+)
+
+// ReviewServiceImpl implements the ReviewService interface
+type ReviewServiceImpl struct {
+        reviewRepo          ReviewRepository
+        s3Client            S3Client
+        jsonProcessor       JSONProcessor
+        notificationService NotificationService
+        cacheService        CacheService
+        metricsService      MetricsService
+        eventPublisher      EventPublisher
+        logger              *slog.Logger
+}
+
+// NewReviewService creates a new ReviewService instance
+func NewReviewService(
+        reviewRepo ReviewRepository,
+        s3Client S3Client,
+        jsonProcessor JSONProcessor,
+        notificationService NotificationService,
+        cacheService CacheService,
+        metricsService MetricsService,
+        eventPublisher EventPublisher,
+        logger *slog.Logger,
+) ReviewService <span class="cov8" title="1">{
+        return &amp;ReviewServiceImpl{
+                reviewRepo:          reviewRepo,
+                s3Client:            s3Client,
+                jsonProcessor:       jsonProcessor,
+                notificationService: notificationService,
+                cacheService:        cacheService,
+                metricsService:      metricsService,
+                eventPublisher:      eventPublisher,
+                logger:              logger,
+        }
+}</span>
+
+// Review operations
+func (s *ReviewServiceImpl) CreateReview(ctx context.Context, review *Review) error <span class="cov8" title="1">{
+        if err := s.ValidateReviewData(ctx, review); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.EnrichReviewData(ctx, review); err != nil </span><span class="cov0" title="0">{
+                s.logger.Warn("Failed to enrich review data", "error", err, "review_id", review.ID)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.CreateBatch(ctx, []Review{*review}); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to create review: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishReviewCreated(ctx, review); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish review created event", "error", err, "review_id", review.ID)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.cacheService.InvalidateReviewSummary(ctx, review.HotelID); err != nil </span><span class="cov0" title="0">{
+                s.logger.Warn("Failed to invalidate review summary cache", "error", err, "hotel_id", review.HotelID)
+        }</span>
+
+        <span class="cov8" title="1">s.metricsService.IncrementCounter(ctx, "reviews_created", map[string]string{
+                "provider_id": review.ProviderID.String(),
+                "hotel_id":    review.HotelID.String(),
+        })
+
+        return nil</span>
+}
+
+func (s *ReviewServiceImpl) GetReviewByID(ctx context.Context, id uuid.UUID) (*Review, error) <span class="cov8" title="1">{
+        review, err := s.reviewRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get review: %w", err)
+        }</span>
+        <span class="cov8" title="1">return review, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetReviewsByHotel(ctx context.Context, hotelID uuid.UUID, limit, offset int) ([]Review, error) <span class="cov8" title="1">{
+        reviews, err := s.reviewRepo.GetByHotel(ctx, hotelID, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get reviews by hotel: %w", err)
+        }</span>
+        <span class="cov8" title="1">return reviews, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetReviewsByProvider(ctx context.Context, providerID uuid.UUID, limit, offset int) ([]Review, error) <span class="cov8" title="1">{
+        reviews, err := s.reviewRepo.GetByProvider(ctx, providerID, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get reviews by provider: %w", err)
+        }</span>
+        <span class="cov8" title="1">return reviews, nil</span>
+}
+
+func (s *ReviewServiceImpl) UpdateReview(ctx context.Context, review *Review) error <span class="cov8" title="1">{
+        if err := s.ValidateReviewData(ctx, review); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">existingReview, err := s.reviewRepo.GetByID(ctx, review.ID)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to get existing review: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.CreateBatch(ctx, []Review{*review}); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to update review: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishReviewUpdated(ctx, review); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish review updated event", "error", err, "review_id", review.ID)
+        }</span>
+
+        <span class="cov8" title="1">if existingReview.HotelID != review.HotelID </span><span class="cov8" title="1">{
+                s.cacheService.InvalidateReviewSummary(ctx, existingReview.HotelID)
+        }</span>
+        <span class="cov8" title="1">s.cacheService.InvalidateReviewSummary(ctx, review.HotelID)
+
+        return nil</span>
+}
+
+func (s *ReviewServiceImpl) DeleteReview(ctx context.Context, id uuid.UUID) error <span class="cov8" title="1">{
+        review, err := s.reviewRepo.GetByID(ctx, id)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to get review: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.DeleteByID(ctx, id); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to delete review: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishReviewDeleted(ctx, id); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish review deleted event", "error", err, "review_id", id)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.cacheService.InvalidateReviewSummary(ctx, review.HotelID); err != nil </span><span class="cov0" title="0">{
+                s.logger.Warn("Failed to invalidate review summary cache", "error", err, "hotel_id", review.HotelID)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) SearchReviews(ctx context.Context, query string, filters map[string]interface{}, limit, offset int) ([]Review, error) <span class="cov8" title="1">{
+        reviews, err := s.reviewRepo.Search(ctx, query, filters, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to search reviews: %w", err)
+        }</span>
+        <span class="cov8" title="1">return reviews, nil</span>
+}
+
+// Hotel operations
+func (s *ReviewServiceImpl) CreateHotel(ctx context.Context, hotel *Hotel) error <span class="cov8" title="1">{
+        if err := s.validateHotel(ctx, hotel); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.CreateHotel(ctx, hotel); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create hotel: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishHotelCreated(ctx, hotel); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish hotel created event", "error", err, "hotel_id", hotel.ID)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) GetHotelByID(ctx context.Context, id uuid.UUID) (*Hotel, error) <span class="cov8" title="1">{
+        hotel, err := s.reviewRepo.GetHotelByID(ctx, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get hotel: %w", err)
+        }</span>
+        <span class="cov8" title="1">return hotel, nil</span>
+}
+
+func (s *ReviewServiceImpl) UpdateHotel(ctx context.Context, hotel *Hotel) error <span class="cov8" title="1">{
+        if err := s.validateHotel(ctx, hotel); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.UpdateHotel(ctx, hotel); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to update hotel: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishHotelUpdated(ctx, hotel); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish hotel updated event", "error", err, "hotel_id", hotel.ID)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) DeleteHotel(ctx context.Context, id uuid.UUID) error <span class="cov8" title="1">{
+        if err := s.reviewRepo.DeleteHotel(ctx, id); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to delete hotel: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.cacheService.InvalidateReviewSummary(ctx, id); err != nil </span><span class="cov0" title="0">{
+                s.logger.Warn("Failed to invalidate review summary cache", "error", err, "hotel_id", id)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) ListHotels(ctx context.Context, limit, offset int) ([]Hotel, error) <span class="cov8" title="1">{
+        hotels, err := s.reviewRepo.ListHotels(ctx, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list hotels: %w", err)
+        }</span>
+        <span class="cov8" title="1">return hotels, nil</span>
+}
+
+// Provider operations
+func (s *ReviewServiceImpl) CreateProvider(ctx context.Context, provider *Provider) error <span class="cov8" title="1">{
+        if err := s.validateProvider(ctx, provider); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.CreateProvider(ctx, provider); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create provider: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) GetProviderByID(ctx context.Context, id uuid.UUID) (*Provider, error) <span class="cov8" title="1">{
+        provider, err := s.reviewRepo.GetProviderByID(ctx, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get provider: %w", err)
+        }</span>
+        <span class="cov8" title="1">return provider, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetProviderByName(ctx context.Context, name string) (*Provider, error) <span class="cov8" title="1">{
+        provider, err := s.reviewRepo.GetProviderByName(ctx, name)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get provider by name: %w", err)
+        }</span>
+        <span class="cov8" title="1">return provider, nil</span>
+}
+
+func (s *ReviewServiceImpl) UpdateProvider(ctx context.Context, provider *Provider) error <span class="cov8" title="1">{
+        if err := s.validateProvider(ctx, provider); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("validation failed: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.reviewRepo.UpdateProvider(ctx, provider); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to update provider: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) DeleteProvider(ctx context.Context, id uuid.UUID) error <span class="cov8" title="1">{
+        if err := s.reviewRepo.DeleteProvider(ctx, id); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to delete provider: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) ListProviders(ctx context.Context, limit, offset int) ([]Provider, error) <span class="cov8" title="1">{
+        providers, err := s.reviewRepo.ListProviders(ctx, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to list providers: %w", err)
+        }</span>
+        <span class="cov8" title="1">return providers, nil</span>
+}
+
+// File processing operations
+func (s *ReviewServiceImpl) ProcessReviewFile(ctx context.Context, fileURL string, providerID uuid.UUID) (*ReviewProcessingStatus, error) <span class="cov8" title="1">{
+        processingID := uuid.New()
+        
+        processingStatus := &amp;ReviewProcessingStatus{
+                ID:               processingID,
+                ProviderID:       providerID,
+                Status:           "pending",
+                FileURL:          fileURL,
+                RecordsProcessed: 0,
+                RecordsTotal:     0,
+        }
+
+        if err := s.reviewRepo.CreateProcessingStatus(ctx, processingStatus); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create processing status: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">go s.processFileAsync(context.Background(), processingID, fileURL, providerID)
+
+        return processingStatus, nil</span>
+}
+
+func (s *ReviewServiceImpl) processFileAsync(ctx context.Context, processingID uuid.UUID, fileURL string, providerID uuid.UUID) <span class="cov8" title="1">{
+        startTime := time.Now()
+        
+        if err := s.reviewRepo.UpdateProcessingStatus(ctx, processingID, "processing", 0, ""); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to update processing status", "error", err, "processing_id", processingID)
+                return
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishProcessingStarted(ctx, processingID, providerID); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish processing started event", "error", err, "processing_id", processingID)
+        }</span>
+
+        <span class="cov8" title="1">bucket, key, err := s.parseS3URL(fileURL)
+        if err != nil </span><span class="cov0" title="0">{
+                s.handleProcessingError(ctx, processingID, fmt.Sprintf("Invalid S3 URL: %v", err))
+                return
+        }</span>
+
+        <span class="cov8" title="1">reader, err := s.s3Client.DownloadFile(ctx, bucket, key)
+        if err != nil </span><span class="cov8" title="1">{
+                s.handleProcessingError(ctx, processingID, fmt.Sprintf("Failed to download file: %v", err))
+                return
+        }</span>
+        <span class="cov0" title="0">defer reader.Close()
+
+        if err := s.jsonProcessor.ProcessFile(ctx, reader, providerID, processingID); err != nil </span><span class="cov0" title="0">{
+                s.handleProcessingError(ctx, processingID, fmt.Sprintf("Failed to process file: %v", err))
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := s.reviewRepo.UpdateProcessingStatus(ctx, processingID, "completed", 0, ""); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to update processing status to completed", "error", err, "processing_id", processingID)
+                return
+        }</span>
+
+        <span class="cov0" title="0">if err := s.eventPublisher.PublishProcessingCompleted(ctx, processingID, 0); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish processing completed event", "error", err, "processing_id", processingID)
+        }</span>
+
+        <span class="cov0" title="0">if err := s.notificationService.SendProcessingComplete(ctx, processingID, "completed", 0); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to send processing complete notification", "error", err, "processing_id", processingID)
+        }</span>
+
+        <span class="cov0" title="0">s.metricsService.RecordProcessingTime(ctx, processingID, time.Since(startTime))</span>
+}
+
+func (s *ReviewServiceImpl) handleProcessingError(ctx context.Context, processingID uuid.UUID, errorMsg string) <span class="cov8" title="1">{
+        s.logger.Error("Processing failed", "processing_id", processingID, "error", errorMsg)
+        
+        if err := s.reviewRepo.UpdateProcessingStatus(ctx, processingID, "failed", 0, errorMsg); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to update processing status to failed", "error", err, "processing_id", processingID)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.eventPublisher.PublishProcessingFailed(ctx, processingID, errorMsg); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to publish processing failed event", "error", err, "processing_id", processingID)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.notificationService.SendProcessingFailed(ctx, processingID, errorMsg); err != nil </span><span class="cov0" title="0">{
+                s.logger.Error("Failed to send processing failed notification", "error", err, "processing_id", processingID)
+        }</span>
+
+        <span class="cov8" title="1">s.metricsService.IncrementCounter(ctx, "processing_errors", map[string]string{
+                "processing_id": processingID.String(),
+        })</span>
+}
+
+func (s *ReviewServiceImpl) GetProcessingStatus(ctx context.Context, id uuid.UUID) (*ReviewProcessingStatus, error) <span class="cov8" title="1">{
+        status, err := s.reviewRepo.GetProcessingStatusByID(ctx, id)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get processing status: %w", err)
+        }</span>
+        <span class="cov8" title="1">return status, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetProcessingHistory(ctx context.Context, providerID uuid.UUID, limit, offset int) ([]ReviewProcessingStatus, error) <span class="cov8" title="1">{
+        history, err := s.reviewRepo.GetProcessingStatusByProvider(ctx, providerID, limit, offset)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get processing history: %w", err)
+        }</span>
+        <span class="cov8" title="1">return history, nil</span>
+}
+
+func (s *ReviewServiceImpl) CancelProcessing(ctx context.Context, id uuid.UUID) error <span class="cov8" title="1">{
+        if err := s.reviewRepo.UpdateProcessingStatus(ctx, id, "cancelled", 0, "Processing cancelled by user"); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to cancel processing: %w", err)
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// Analytics operations
+func (s *ReviewServiceImpl) GetReviewSummary(ctx context.Context, hotelID uuid.UUID) (*ReviewSummary, error) <span class="cov8" title="1">{
+        if summary, err := s.cacheService.GetReviewSummary(ctx, hotelID); err == nil </span><span class="cov8" title="1">{
+                return summary, nil
+        }</span>
+
+        <span class="cov8" title="1">summary, err := s.reviewRepo.GetReviewSummaryByHotelID(ctx, hotelID)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get review summary: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if err := s.cacheService.SetReviewSummary(ctx, hotelID, summary, 1*time.Hour); err != nil </span><span class="cov0" title="0">{
+                s.logger.Warn("Failed to cache review summary", "error", err, "hotel_id", hotelID)
+        }</span>
+
+        <span class="cov8" title="1">return summary, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetReviewStatsByProvider(ctx context.Context, providerID uuid.UUID, startDate, endDate time.Time) (map[string]interface{}, error) <span class="cov8" title="1">{
+        reviews, err := s.reviewRepo.GetByDateRange(ctx, startDate, endDate, 1000, 0)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get reviews by date range: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">stats := make(map[string]interface{})
+        var totalReviews int
+        var totalRating float64
+
+        for _, review := range reviews </span><span class="cov8" title="1">{
+                if review.ProviderID == providerID </span><span class="cov8" title="1">{
+                        totalReviews++
+                        totalRating += review.Rating
+                }</span>
+        }
+
+        <span class="cov8" title="1">if totalReviews &gt; 0 </span><span class="cov8" title="1">{
+                stats["total_reviews"] = totalReviews
+                stats["average_rating"] = totalRating / float64(totalReviews)
+        }</span>
+
+        <span class="cov8" title="1">return stats, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetReviewStatsByHotel(ctx context.Context, hotelID uuid.UUID, startDate, endDate time.Time) (map[string]interface{}, error) <span class="cov8" title="1">{
+        reviews, err := s.reviewRepo.GetByHotel(ctx, hotelID, 1000, 0)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get reviews by hotel: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">stats := make(map[string]interface{})
+        var totalReviews int
+        var totalRating float64
+
+        for _, review := range reviews </span><span class="cov8" title="1">{
+                if review.ReviewDate.After(startDate) &amp;&amp; review.ReviewDate.Before(endDate) </span><span class="cov8" title="1">{
+                        totalReviews++
+                        totalRating += review.Rating
+                }</span>
+        }
+
+        <span class="cov8" title="1">if totalReviews &gt; 0 </span><span class="cov8" title="1">{
+                stats["total_reviews"] = totalReviews
+                stats["average_rating"] = totalRating / float64(totalReviews)
+        }</span>
+
+        <span class="cov8" title="1">return stats, nil</span>
+}
+
+func (s *ReviewServiceImpl) GetTopRatedHotels(ctx context.Context, limit int) ([]Hotel, error) <span class="cov8" title="1">{
+        hotels, err := s.reviewRepo.ListHotels(ctx, limit*2, 0)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("failed to get hotels: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if len(hotels) &lt; limit </span><span class="cov8" title="1">{
+                return hotels, nil
+        }</span>
+        <span class="cov0" title="0">return hotels[:limit], nil</span>
+}
+
+func (s *ReviewServiceImpl) GetRecentReviews(ctx context.Context, limit int) ([]Review, error) <span class="cov8" title="1">{
+        reviews, err := s.reviewRepo.GetByDateRange(ctx, time.Now().AddDate(0, 0, -30), time.Now(), limit, 0)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get recent reviews: %w", err)
+        }</span>
+        <span class="cov8" title="1">return reviews, nil</span>
+}
+
+// Review validation and enrichment
+func (s *ReviewServiceImpl) ValidateReviewData(ctx context.Context, review *Review) error <span class="cov8" title="1">{
+        if review.Rating &lt; 1.0 || review.Rating &gt; 5.0 </span><span class="cov8" title="1">{
+                return fmt.Errorf("rating must be between 1.0 and 5.0")
+        }</span>
+
+        <span class="cov8" title="1">if review.Comment == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("comment cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">if review.ReviewDate.IsZero() </span><span class="cov0" title="0">{
+                return fmt.Errorf("review date cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">if review.ReviewDate.After(time.Now()) </span><span class="cov8" title="1">{
+                return fmt.Errorf("review date cannot be in the future")
+        }</span>
+
+        <span class="cov8" title="1">if review.ProviderID == uuid.Nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("provider ID cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">if review.HotelID == uuid.Nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("hotel ID cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) EnrichReviewData(ctx context.Context, review *Review) error <span class="cov8" title="1">{
+        if review.Language == "" </span><span class="cov8" title="1">{
+                review.Language = "en"
+        }</span>
+
+        <span class="cov8" title="1">if review.Sentiment == "" </span><span class="cov8" title="1">{
+                review.Sentiment = s.detectSentiment(review.Comment)
+        }</span>
+
+        <span class="cov8" title="1">if review.ProcessingHash == "" </span><span class="cov8" title="1">{
+                review.ProcessingHash = s.generateProcessingHash(review)
+        }</span>
+
+        <span class="cov8" title="1">now := time.Now()
+        review.ProcessedAt = &amp;now
+
+        return nil</span>
+}
+
+func (s *ReviewServiceImpl) DetectDuplicateReviews(ctx context.Context, review *Review) ([]Review, error) <span class="cov8" title="1">{
+        filters := map[string]interface{}{
+                "hotel_id":    review.HotelID,
+                "provider_id": review.ProviderID,
+                "rating":      review.Rating,
+        }
+
+        duplicates, err := s.reviewRepo.Search(ctx, review.Comment, filters, 10, 0)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to search for duplicates: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return duplicates, nil</span>
+}
+
+// Batch operations
+func (s *ReviewServiceImpl) ProcessReviewBatch(ctx context.Context, reviews []Review) error <span class="cov8" title="1">{
+        for i := range reviews </span><span class="cov8" title="1">{
+                if err := s.ValidateReviewData(ctx, &amp;reviews[i]); err != nil </span><span class="cov8" title="1">{
+                        return fmt.Errorf("validation failed for review %d: %w", i, err)
+                }</span>
+
+                <span class="cov8" title="1">if err := s.EnrichReviewData(ctx, &amp;reviews[i]); err != nil </span><span class="cov0" title="0">{
+                        s.logger.Warn("Failed to enrich review data", "error", err, "review_index", i)
+                }</span>
+        }
+
+        <span class="cov8" title="1">if err := s.reviewRepo.CreateBatch(ctx, reviews); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("failed to create review batch: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, review := range reviews </span><span class="cov8" title="1">{
+                if err := s.eventPublisher.PublishReviewCreated(ctx, &amp;review); err != nil </span><span class="cov0" title="0">{
+                        s.logger.Error("Failed to publish review created event", "error", err, "review_id", review.ID)
+                }</span>
+        }
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) ImportReviewsFromFile(ctx context.Context, fileURL string, providerID uuid.UUID) error <span class="cov8" title="1">{
+        _, err := s.ProcessReviewFile(ctx, fileURL, providerID)
+        return err
+}</span>
+
+func (s *ReviewServiceImpl) ExportReviewsToFile(ctx context.Context, filters map[string]interface{}, format string) (string, error) <span class="cov8" title="1">{
+        return "", fmt.Errorf("export functionality not implemented yet")
+}</span>
+
+// Helper methods
+func (s *ReviewServiceImpl) validateHotel(ctx context.Context, hotel *Hotel) error <span class="cov8" title="1">{
+        if hotel.Name == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("hotel name cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">if hotel.StarRating &lt; 1 || hotel.StarRating &gt; 5 </span><span class="cov0" title="0">{
+                return fmt.Errorf("star rating must be between 1 and 5")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) validateProvider(ctx context.Context, provider *Provider) error <span class="cov8" title="1">{
+        if provider.Name == "" </span><span class="cov8" title="1">{
+                return fmt.Errorf("provider name cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+func (s *ReviewServiceImpl) parseS3URL(url string) (bucket, key string, err error) <span class="cov8" title="1">{
+        parts := strings.Split(strings.TrimPrefix(url, "s3://"), "/")
+        if len(parts) &lt; 2 </span><span class="cov8" title="1">{
+                return "", "", fmt.Errorf("invalid S3 URL format")
+        }</span>
+        <span class="cov8" title="1">return parts[0], strings.Join(parts[1:], "/"), nil</span>
+}
+
+func (s *ReviewServiceImpl) detectSentiment(comment string) string <span class="cov8" title="1">{
+        comment = strings.ToLower(comment)
+        
+        positiveWords := []string{"good", "great", "excellent", "amazing", "wonderful", "perfect", "love", "fantastic"}
+        negativeWords := []string{"bad", "terrible", "awful", "horrible", "worst", "hate", "disappointing", "poor"}
+        
+        positiveCount := 0
+        negativeCount := 0
+        
+        for _, word := range positiveWords </span><span class="cov8" title="1">{
+                if strings.Contains(comment, word) </span><span class="cov8" title="1">{
+                        positiveCount++
+                }</span>
+        }
+        
+        <span class="cov8" title="1">for _, word := range negativeWords </span><span class="cov8" title="1">{
+                if strings.Contains(comment, word) </span><span class="cov8" title="1">{
+                        negativeCount++
+                }</span>
+        }
+        
+        <span class="cov8" title="1">if positiveCount &gt; negativeCount </span><span class="cov8" title="1">{
+                return "positive"
+        }</span> else<span class="cov8" title="1"> if negativeCount &gt; positiveCount </span><span class="cov8" title="1">{
+                return "negative"
+        }</span>
+        
+        <span class="cov8" title="1">return "neutral"</span>
+}
+
+func (s *ReviewServiceImpl) generateProcessingHash(review *Review) string <span class="cov8" title="1">{
+        return fmt.Sprintf("%x", review.ID)[0:32] // Take first 32 characters
+}</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

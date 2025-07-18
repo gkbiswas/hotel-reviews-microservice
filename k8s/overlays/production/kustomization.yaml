@@ -1,0 +1,500 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hotel-reviews-production
+  namespace: hotel-reviews-production
+
+# Base resources
+resources:
+  - ../../base
+
+# Production-specific namespace
+namespace: hotel-reviews-production
+
+# Production-specific labels
+commonLabels:
+  environment: production
+  tier: production
+
+# Production-specific annotations
+commonAnnotations:
+  app.kubernetes.io/environment: production
+  config.kubernetes.io/origin: production
+  backup.kubernetes.io/required: "true"
+  monitoring.kubernetes.io/critical: "true"
+
+# Production-specific images
+images:
+  - name: hotel-reviews-api
+    newName: hotel-reviews-api
+    newTag: v1.0.0
+  - name: hotel-reviews-worker
+    newName: hotel-reviews-worker
+    newTag: v1.0.0
+
+# Production-specific replicas
+replicas:
+  - name: hotel-reviews-api
+    count: 5
+  - name: hotel-reviews-worker
+    count: 3
+  - name: hotel-reviews-postgres
+    count: 3
+  - name: hotel-reviews-redis
+    count: 3
+  - name: hotel-reviews-kafka
+    count: 3
+  - name: hotel-reviews-zookeeper
+    count: 3
+
+# Production-specific ConfigMap
+configMapGenerator:
+  - name: hotel-reviews-production-config
+    literals:
+      - environment=production
+      - debug=false
+      - log_level=info
+      - metrics_enabled=true
+      - rate_limit=2000
+      - rate_limit_window=1h
+      - enable_profiling=false
+      - enable_tracing=true
+      - cache_ttl=2h
+      - session_timeout=4h
+      - max_file_size=200MB
+      - processing_timeout=60m
+      - backup_retention_days=30
+      - health_check_interval=30s
+      - circuit_breaker_enabled=true
+      - circuit_breaker_threshold=10
+      - circuit_breaker_timeout=60s
+      - retry_max_attempts=5
+      - retry_backoff_multiplier=2
+      - connection_pool_size=50
+      - connection_pool_timeout=30s
+      - ssl_verify=true
+      - audit_logging=true
+      - data_retention_days=365
+    behavior: merge
+
+# Production-specific Secret
+secretGenerator:
+  - name: hotel-reviews-production-secrets
+    files:
+      - database-password=secrets/database-password
+      - jwt-secret=secrets/jwt-secret
+      - redis-password=secrets/redis-password
+      - s3-access-key-id=secrets/s3-access-key-id
+      - s3-secret-access-key=secrets/s3-secret-access-key
+      - kafka-sasl-username=secrets/kafka-sasl-username
+      - kafka-sasl-password=secrets/kafka-sasl-password
+      - slack-webhook-url=secrets/slack-webhook-url
+      - email-password=secrets/email-password
+      - tls-cert=secrets/tls-cert
+      - tls-key=secrets/tls-key
+      - monitoring-key=secrets/monitoring-key
+    type: Opaque
+    behavior: merge
+
+# Production-specific patches
+patches:
+  # Increase resource limits for production
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "1Gi"
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Increase resource limits for worker
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "300m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+    target:
+      kind: Deployment
+      name: hotel-reviews-worker
+  
+  # Increase PVC sizes for production
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "100Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: hotel-reviews-postgres-pvc
+  
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "20Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: hotel-reviews-redis-pvc
+  
+  - patch: |-
+      - op: replace
+        path: /spec/resources/requests/storage
+        value: "50Gi"
+    target:
+      kind: PersistentVolumeClaim
+      name: hotel-reviews-kafka-pvc
+  
+  # Update HPA for production
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 5
+      - op: replace
+        path: /spec/maxReplicas
+        value: 50
+      - op: replace
+        path: /spec/metrics/0/resource/target/averageUtilization
+        value: 70
+      - op: replace
+        path: /spec/metrics/1/resource/target/averageUtilization
+        value: 80
+    target:
+      kind: HorizontalPodAutoscaler
+      name: hotel-reviews-api-hpa
+  
+  # Update PDB for production
+  - patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 3
+    target:
+      kind: PodDisruptionBudget
+      name: hotel-reviews-api-pdb
+  
+  # Update ingress for production
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: "api.hotel-reviews.com"
+      - op: replace
+        path: /spec/rules/1/host
+        value: "admin.hotel-reviews.com"
+      - op: replace
+        path: /spec/rules/2/host
+        value: "metrics.hotel-reviews.com"
+      - op: replace
+        path: /spec/tls/0/hosts
+        value: 
+          - "api.hotel-reviews.com"
+          - "admin.hotel-reviews.com"
+          - "metrics.hotel-reviews.com"
+    target:
+      kind: Ingress
+      name: hotel-reviews-ingress
+  
+  # Update service annotations for production
+  - patch: |-
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-additional-resource-tags
+        value: "Environment=production,CostCenter=operations,Critical=true"
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-cross-zone-load-balancing-enabled
+        value: "true"
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-connection-draining-enabled
+        value: "true"
+      - op: add
+        path: /metadata/annotations/service.beta.kubernetes.io~1aws-load-balancer-connection-draining-timeout
+        value: "60"
+    target:
+      kind: Service
+      name: hotel-reviews-api-lb
+  
+  # Add production-specific environment variables
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENVIRONMENT
+          value: production
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: DEBUG
+          value: "false"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: ENABLE_PROFILING
+          value: "false"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: RATE_LIMIT
+          value: "2000"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: CIRCUIT_BREAKER_ENABLED
+          value: "true"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: AUDIT_LOGGING
+          value: "true"
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: SSL_VERIFY
+          value: "true"
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Update StatefulSet resources for production
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "1000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "4Gi"
+    target:
+      kind: StatefulSet
+      name: hotel-reviews-postgres
+  
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+    target:
+      kind: StatefulSet
+      name: hotel-reviews-redis
+  
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "4Gi"
+    target:
+      kind: StatefulSet
+      name: hotel-reviews-kafka
+  
+  # Update backup schedule for production
+  - patch: |-
+      - op: replace
+        path: /spec/schedule
+        value: "0 2 * * *"
+    target:
+      kind: CronJob
+      name: hotel-reviews-backup
+  
+  # Update cleanup schedule for production
+  - patch: |-
+      - op: replace
+        path: /spec/schedule
+        value: "0 3 * * 0"
+    target:
+      kind: CronJob
+      name: hotel-reviews-cleanup
+  
+  # Add node affinity for production
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/affinity/nodeAffinity
+        value:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - production
+              - key: instance-type
+                operator: In
+                values:
+                - m5.large
+                - m5.xlarge
+                - m5.2xlarge
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: availability-zone
+                operator: In
+                values:
+                - us-east-1a
+                - us-east-1b
+                - us-east-1c
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Add tolerations for production nodes
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/tolerations/-
+        value:
+          key: "node-role.kubernetes.io/production"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      - op: add
+        path: /spec/template/spec/tolerations/-
+        value:
+          key: "dedicated"
+          operator: "Equal"
+          value: "production"
+          effect: "NoSchedule"
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Update security context for production
+  - patch: |-
+      - op: add
+        path: /spec/template/spec/securityContext/runAsNonRoot
+        value: true
+      - op: add
+        path: /spec/template/spec/securityContext/runAsUser
+        value: 1000
+      - op: add
+        path: /spec/template/spec/securityContext/runAsGroup
+        value: 1000
+      - op: add
+        path: /spec/template/spec/securityContext/fsGroup
+        value: 1000
+      - op: add
+        path: /spec/template/spec/securityContext/fsGroupChangePolicy
+        value: "OnRootMismatch"
+      - op: add
+        path: /spec/template/spec/securityContext/seccompProfile
+        value:
+          type: RuntimeDefault
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+  
+  # Update probes for production
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/initialDelaySeconds
+        value: 60
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/periodSeconds
+        value: 30
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/timeoutSeconds
+        value: 10
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/failureThreshold
+        value: 5
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/initialDelaySeconds
+        value: 10
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/periodSeconds
+        value: 10
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/timeoutSeconds
+        value: 5
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/failureThreshold
+        value: 3
+    target:
+      kind: Deployment
+      name: hotel-reviews-api
+
+# Production-specific resources
+resources:
+  - production-namespace.yaml
+  - production-monitoring.yaml
+  - production-backup.yaml
+  - production-security.yaml
+
+# Production-specific transformers
+transformers:
+  - |-
+    apiVersion: builtin
+    kind: AnnotationsTransformer
+    metadata:
+      name: production-annotations
+    annotations:
+      environment: production
+      cost-center: operations
+      team: sre
+      contact: sre-team@hotel-reviews.com
+      backup.kubernetes.io/required: "true"
+      monitoring.kubernetes.io/critical: "true"
+      security.kubernetes.io/scan-required: "true"
+      compliance.kubernetes.io/soc2: "true"
+      compliance.kubernetes.io/gdpr: "true"
+    fieldSpecs:
+      - path: metadata/annotations
+        create: true
+
+# Production-specific generators
+generators:
+  - |-
+    apiVersion: generators.kustomize.io/v1beta1
+    kind: SecurityPolicyGenerator
+    metadata:
+      name: production-security-policies
+    spec:
+      podSecurityPolicy:
+        name: hotel-reviews-production-psp
+        spec:
+          privileged: false
+          allowPrivilegeEscalation: false
+          requiredDropCapabilities:
+            - ALL
+          volumes:
+            - configMap
+            - secret
+            - emptyDir
+            - persistentVolumeClaim
+          runAsUser:
+            rule: MustRunAsNonRoot
+          seLinux:
+            rule: RunAsAny
+          fsGroup:
+            rule: RunAsAny

@@ -1,0 +1,425 @@
+# Authentication Middleware Configuration Example
+# Copy this file to auth_middleware.yaml and customize for your environment
+
+auth_middleware:
+  # JWT Configuration
+  jwt:
+    secret: "${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}"
+    issuer: "${JWT_ISSUER:-hotel-reviews-service}"
+    expiry: "${JWT_EXPIRY:-15m}"
+    refresh_expiry: "${JWT_REFRESH_EXPIRY:-168h}" # 7 days
+    
+  # Rate Limiting Configuration
+  rate_limit:
+    enabled: true
+    requests: 100              # Requests per window
+    window: "1m"               # Time window
+    burst: 10                  # Burst allowance
+    cleanup_interval: "10m"    # Cleanup interval for expired entries
+    
+  # Session Configuration
+  session:
+    timeout: "30m"             # Session timeout
+    cleanup_interval: "5m"     # Cleanup interval
+    max_active_sessions: 10    # Maximum active sessions per user
+    cookie_name: "hotel_reviews_session"
+    secure: true               # Use secure cookies (HTTPS only)
+    http_only: true            # HttpOnly cookies
+    same_site: "strict"        # SameSite policy: strict, lax, none
+    
+  # Security Configuration
+  security:
+    # Blacklist Configuration
+    blacklist:
+      enabled: true
+      check_interval: "5m"     # Check interval for cleanup
+      
+    # Whitelist Configuration
+    whitelist:
+      enabled: false
+      ips:
+        - "127.0.0.1"
+        - "::1"
+        - "192.168.1.0/24"     # CIDR notation supported
+        
+    # Trusted Proxies
+    trusted_proxies:
+      - "127.0.0.1"
+      - "::1"
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+      
+  # API Key Configuration
+  api_key:
+    enabled: true
+    headers:
+      - "X-API-Key"
+      - "Authorization"
+    query_param: "api_key"
+    hash_algorithm: "sha256"
+    
+  # Audit Configuration
+  audit:
+    enabled: true
+    log_sensitive_data: false  # Set to true only in development
+    buffer_size: 1000
+    flush_interval: "30s"
+    
+  # Circuit Breaker Configuration
+  circuit_breaker:
+    enabled: true
+    threshold: 5               # Failure threshold
+    timeout: "30s"             # Timeout before half-open
+    reset: "60s"               # Reset timeout
+    
+  # Metrics Configuration
+  metrics:
+    enabled: true
+    collection_interval: "30s"
+    retention_period: "24h"
+    
+  # CORS Configuration
+  cors:
+    enabled: true
+    allowed_origins:
+      - "https://yourapp.com"
+      - "https://admin.yourapp.com"
+      - "https://api.yourapp.com"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    allowed_headers:
+      - "Content-Type"
+      - "Authorization"
+      - "X-API-Key"
+      - "X-Request-ID"
+    exposed_headers:
+      - "X-Total-Count"
+      - "X-Request-ID"
+      - "X-RateLimit-Limit"
+      - "X-RateLimit-Remaining"
+    allow_credentials: true
+    max_age: "24h"
+    
+  # Security Headers
+  security_headers:
+    # Standard security headers
+    "X-Frame-Options": "DENY"
+    "X-Content-Type-Options": "nosniff"
+    "X-XSS-Protection": "1; mode=block"
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), speaker=(), fullscreen=(), sync-xhr=()"
+    
+  # Content Security Policy
+  csp:
+    enabled: true
+    directives:
+      "default-src": "'self'"
+      "script-src": "'self' 'unsafe-inline' 'unsafe-eval'"
+      "style-src": "'self' 'unsafe-inline'"
+      "img-src": "'self' data: https:"
+      "font-src": "'self' https://fonts.gstatic.com"
+      "connect-src": "'self' https://api.yourapp.com"
+      "frame-src": "'none'"
+      "object-src": "'none'"
+      "base-uri": "'self'"
+      "form-action": "'self'"
+      "frame-ancestors": "'none'"
+      "upgrade-insecure-requests": true
+      
+  # HTTP Strict Transport Security
+  hsts:
+    enabled: true
+    max_age: "31536000"        # 1 year
+    include_subdomains: true
+    preload: true
+
+# Environment-specific overrides
+development:
+  auth_middleware:
+    jwt:
+      secret: "dev-secret-key"
+      expiry: "1h"             # Longer expiry for development
+      
+    rate_limit:
+      requests: 1000           # Higher rate limit for development
+      
+    security:
+      blacklist:
+        enabled: false         # Disable blacklisting in dev
+        
+    audit:
+      log_sensitive_data: true # Enable for debugging
+      
+    cors:
+      allowed_origins:
+        - "http://localhost:3000"
+        - "http://localhost:3001"
+        - "http://127.0.0.1:3000"
+        
+    csp:
+      enabled: false           # Disable CSP in development
+      
+    hsts:
+      enabled: false           # Disable HSTS in development
+
+staging:
+  auth_middleware:
+    jwt:
+      secret: "${STAGING_JWT_SECRET}"
+      
+    cors:
+      allowed_origins:
+        - "https://staging.yourapp.com"
+        - "https://staging-admin.yourapp.com"
+        
+    security:
+      blacklist:
+        enabled: true
+        
+    audit:
+      log_sensitive_data: false
+
+production:
+  auth_middleware:
+    jwt:
+      secret: "${PRODUCTION_JWT_SECRET}"
+      expiry: "15m"            # Short expiry in production
+      
+    rate_limit:
+      requests: 50             # Lower rate limit in production
+      burst: 5
+      
+    security:
+      blacklist:
+        enabled: true
+      whitelist:
+        enabled: true
+        
+    audit:
+      log_sensitive_data: false
+      
+    cors:
+      allowed_origins:
+        - "https://yourapp.com"
+        - "https://admin.yourapp.com"
+        
+    csp:
+      enabled: true
+      
+    hsts:
+      enabled: true
+
+# Rate Limiting Profiles
+rate_limit_profiles:
+  strict:
+    requests: 10
+    window: "1m"
+    burst: 2
+    
+  normal:
+    requests: 100
+    window: "1m"
+    burst: 10
+    
+  relaxed:
+    requests: 1000
+    window: "1m"
+    burst: 50
+    
+  premium:
+    requests: 5000
+    window: "1m"
+    burst: 100
+
+# Permission Definitions
+permissions:
+  reviews:
+    - name: "reviews:read"
+      description: "Read reviews"
+      resource: "reviews"
+      action: "read"
+      
+    - name: "reviews:create"
+      description: "Create new reviews"
+      resource: "reviews"
+      action: "create"
+      
+    - name: "reviews:update"
+      description: "Update existing reviews"
+      resource: "reviews"
+      action: "update"
+      
+    - name: "reviews:delete"
+      description: "Delete reviews"
+      resource: "reviews"
+      action: "delete"
+      
+    - name: "reviews:moderate"
+      description: "Moderate reviews"
+      resource: "reviews"
+      action: "moderate"
+      
+  hotels:
+    - name: "hotels:read"
+      description: "Read hotel information"
+      resource: "hotels"
+      action: "read"
+      
+    - name: "hotels:create"
+      description: "Create new hotels"
+      resource: "hotels"
+      action: "create"
+      
+    - name: "hotels:update"
+      description: "Update hotel information"
+      resource: "hotels"
+      action: "update"
+      
+    - name: "hotels:delete"
+      description: "Delete hotels"
+      resource: "hotels"
+      action: "delete"
+      
+  users:
+    - name: "users:read"
+      description: "Read user information"
+      resource: "users"
+      action: "read"
+      
+    - name: "users:create"
+      description: "Create new users"
+      resource: "users"
+      action: "create"
+      
+    - name: "users:update"
+      description: "Update user information"
+      resource: "users"
+      action: "update"
+      
+    - name: "users:delete"
+      description: "Delete users"
+      resource: "users"
+      action: "delete"
+      
+  admin:
+    - name: "admin:read"
+      description: "Read admin information"
+      resource: "admin"
+      action: "read"
+      
+    - name: "admin:manage"
+      description: "Manage system settings"
+      resource: "admin"
+      action: "manage"
+
+# Role Definitions
+roles:
+  - name: "guest"
+    description: "Guest user with limited access"
+    permissions:
+      - "reviews:read"
+      - "hotels:read"
+      
+  - name: "user"
+    description: "Regular authenticated user"
+    permissions:
+      - "reviews:read"
+      - "reviews:create"
+      - "hotels:read"
+      
+  - name: "verified_user"
+    description: "Verified user with additional privileges"
+    permissions:
+      - "reviews:read"
+      - "reviews:create"
+      - "reviews:update"
+      - "hotels:read"
+      
+  - name: "moderator"
+    description: "Content moderator"
+    permissions:
+      - "reviews:read"
+      - "reviews:create"
+      - "reviews:update"
+      - "reviews:moderate"
+      - "hotels:read"
+      - "hotels:update"
+      
+  - name: "admin"
+    description: "System administrator"
+    permissions:
+      - "reviews:read"
+      - "reviews:create"
+      - "reviews:update"
+      - "reviews:delete"
+      - "reviews:moderate"
+      - "hotels:read"
+      - "hotels:create"
+      - "hotels:update"
+      - "hotels:delete"
+      - "users:read"
+      - "users:create"
+      - "users:update"
+      - "users:delete"
+      - "admin:read"
+      - "admin:manage"
+
+# API Key Scopes
+api_key_scopes:
+  - name: "read"
+    description: "Read-only access"
+    permissions:
+      - "reviews:read"
+      - "hotels:read"
+      
+  - name: "write"
+    description: "Read and write access"
+    permissions:
+      - "reviews:read"
+      - "reviews:create"
+      - "reviews:update"
+      - "hotels:read"
+      - "hotels:create"
+      - "hotels:update"
+      
+  - name: "admin"
+    description: "Full administrative access"
+    permissions:
+      - "*"
+
+# Monitoring Configuration
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    
+  health:
+    enabled: true
+    endpoint: "/health"
+    detailed_endpoint: "/health/detailed"
+    
+  audit:
+    enabled: true
+    endpoint: "/audit"
+    
+# Logging Configuration
+logging:
+  level: "info"              # debug, info, warn, error
+  format: "json"             # json, text
+  
+  fields:
+    service: "hotel-reviews"
+    component: "auth-middleware"
+    version: "1.0.0"
+    
+  sensitive_fields:
+    - "password"
+    - "token"
+    - "secret"
+    - "key"
+    - "authorization"

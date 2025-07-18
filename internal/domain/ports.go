@@ -200,3 +200,168 @@ type EventPublisher interface {
 	PublishHotelCreated(ctx context.Context, hotel *Hotel) error
 	PublishHotelUpdated(ctx context.Context, hotel *Hotel) error
 }
+
+// AuthRepository defines the interface for authentication data persistence
+type AuthRepository interface {
+	// User operations
+	CreateUser(ctx context.Context, user *User) error
+	GetUserByID(ctx context.Context, id uuid.UUID) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	UpdateUser(ctx context.Context, user *User) error
+	DeleteUser(ctx context.Context, id uuid.UUID) error
+	ListUsers(ctx context.Context, limit, offset int) ([]User, error)
+	UpdateUserLastLogin(ctx context.Context, userID uuid.UUID) error
+	IncrementFailedAttempts(ctx context.Context, userID uuid.UUID) error
+	ResetFailedAttempts(ctx context.Context, userID uuid.UUID) error
+	LockUser(ctx context.Context, userID uuid.UUID, until time.Time) error
+	
+	// Role operations
+	CreateRole(ctx context.Context, role *Role) error
+	GetRoleByID(ctx context.Context, id uuid.UUID) (*Role, error)
+	GetRoleByName(ctx context.Context, name string) (*Role, error)
+	UpdateRole(ctx context.Context, role *Role) error
+	DeleteRole(ctx context.Context, id uuid.UUID) error
+	ListRoles(ctx context.Context, limit, offset int) ([]Role, error)
+	
+	// Permission operations
+	CreatePermission(ctx context.Context, permission *Permission) error
+	GetPermissionByID(ctx context.Context, id uuid.UUID) (*Permission, error)
+	GetPermissionByName(ctx context.Context, name string) (*Permission, error)
+	UpdatePermission(ctx context.Context, permission *Permission) error
+	DeletePermission(ctx context.Context, id uuid.UUID) error
+	ListPermissions(ctx context.Context, limit, offset int) ([]Permission, error)
+	
+	// User-Role assignments
+	AssignRoleToUser(ctx context.Context, userID, roleID uuid.UUID) error
+	RemoveRoleFromUser(ctx context.Context, userID, roleID uuid.UUID) error
+	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]Role, error)
+	GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]User, error)
+	
+	// Role-Permission assignments
+	AssignPermissionToRole(ctx context.Context, roleID, permissionID uuid.UUID) error
+	RemovePermissionFromRole(ctx context.Context, roleID, permissionID uuid.UUID) error
+	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]Permission, error)
+	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]Permission, error)
+	
+	// Session operations
+	CreateSession(ctx context.Context, session *Session) error
+	GetSessionByID(ctx context.Context, id uuid.UUID) (*Session, error)
+	GetSessionByAccessToken(ctx context.Context, accessToken string) (*Session, error)
+	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*Session, error)
+	UpdateSession(ctx context.Context, session *Session) error
+	DeleteSession(ctx context.Context, id uuid.UUID) error
+	DeleteUserSessions(ctx context.Context, userID uuid.UUID) error
+	CleanupExpiredSessions(ctx context.Context) error
+	
+	// API Key operations
+	CreateApiKey(ctx context.Context, apiKey *ApiKey) error
+	GetApiKeyByID(ctx context.Context, id uuid.UUID) (*ApiKey, error)
+	GetApiKeyByKey(ctx context.Context, key string) (*ApiKey, error)
+	UpdateApiKey(ctx context.Context, apiKey *ApiKey) error
+	DeleteApiKey(ctx context.Context, id uuid.UUID) error
+	ListApiKeys(ctx context.Context, userID uuid.UUID, limit, offset int) ([]ApiKey, error)
+	UpdateApiKeyUsage(ctx context.Context, apiKeyID uuid.UUID) error
+	
+	// Audit Log operations
+	CreateAuditLog(ctx context.Context, auditLog *AuditLog) error
+	GetAuditLogByID(ctx context.Context, id uuid.UUID) (*AuditLog, error)
+	ListAuditLogs(ctx context.Context, userID *uuid.UUID, limit, offset int) ([]AuditLog, error)
+	
+	// Login Attempt operations
+	CreateLoginAttempt(ctx context.Context, attempt *LoginAttempt) error
+	GetLoginAttempts(ctx context.Context, email string, ipAddress string, since time.Time) ([]LoginAttempt, error)
+	CleanupOldLoginAttempts(ctx context.Context, before time.Time) error
+}
+
+// AuthService defines the interface for authentication business logic
+type AuthService interface {
+	// Authentication operations
+	Register(ctx context.Context, user *User, password string) error
+	Login(ctx context.Context, email, password string, ipAddress, userAgent string) (*LoginResponse, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*LoginResponse, error)
+	Logout(ctx context.Context, accessToken string) error
+	LogoutAll(ctx context.Context, userID uuid.UUID) error
+	
+	// User management
+	CreateUser(ctx context.Context, user *User, password string) error
+	GetUser(ctx context.Context, id uuid.UUID) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	UpdateUser(ctx context.Context, user *User) error
+	DeleteUser(ctx context.Context, id uuid.UUID) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
+	ResetPassword(ctx context.Context, email string) error
+	VerifyEmail(ctx context.Context, token string) error
+	
+	// Role management
+	CreateRole(ctx context.Context, role *Role) error
+	GetRole(ctx context.Context, id uuid.UUID) (*Role, error)
+	UpdateRole(ctx context.Context, role *Role) error
+	DeleteRole(ctx context.Context, id uuid.UUID) error
+	ListRoles(ctx context.Context, limit, offset int) ([]Role, error)
+	
+	// Permission management
+	CreatePermission(ctx context.Context, permission *Permission) error
+	GetPermission(ctx context.Context, id uuid.UUID) (*Permission, error)
+	UpdatePermission(ctx context.Context, permission *Permission) error
+	DeletePermission(ctx context.Context, id uuid.UUID) error
+	ListPermissions(ctx context.Context, limit, offset int) ([]Permission, error)
+	
+	// RBAC operations
+	AssignRole(ctx context.Context, userID, roleID uuid.UUID) error
+	RemoveRole(ctx context.Context, userID, roleID uuid.UUID) error
+	AssignPermission(ctx context.Context, roleID, permissionID uuid.UUID) error
+	RemovePermission(ctx context.Context, roleID, permissionID uuid.UUID) error
+	CheckPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
+	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]Permission, error)
+	
+	// API Key management
+	CreateApiKey(ctx context.Context, userID uuid.UUID, name string, scopes []string, expiresAt *time.Time) (*ApiKey, error)
+	ValidateApiKey(ctx context.Context, key string) (*ApiKey, error)
+	DeleteApiKey(ctx context.Context, id uuid.UUID) error
+	ListApiKeys(ctx context.Context, userID uuid.UUID, limit, offset int) ([]ApiKey, error)
+	
+	// Security operations
+	ValidateToken(ctx context.Context, token string) (*User, error)
+	IsRateLimited(ctx context.Context, email, ipAddress string) (bool, error)
+	RecordLoginAttempt(ctx context.Context, email, ipAddress, userAgent string, success bool, failureReason string) error
+	AuditAction(ctx context.Context, userID *uuid.UUID, action, resource string, resourceID *uuid.UUID, oldValues, newValues map[string]interface{}, ipAddress, userAgent string) error
+}
+
+// JWTService defines the interface for JWT operations
+type JWTService interface {
+	GenerateAccessToken(ctx context.Context, user *User) (string, error)
+	GenerateRefreshToken(ctx context.Context, user *User) (string, error)
+	ValidateAccessToken(ctx context.Context, tokenString string) (*JWTClaims, error)
+	ValidateRefreshToken(ctx context.Context, tokenString string) (*JWTClaims, error)
+	ExtractUserFromToken(ctx context.Context, tokenString string) (*User, error)
+}
+
+// PasswordService defines the interface for password operations
+type PasswordService interface {
+	HashPassword(password string) (string, error)
+	ComparePassword(hashedPassword, password string) error
+	GenerateRandomPassword(length int) (string, error)
+	ValidatePasswordStrength(password string) error
+}
+
+// LoginResponse represents the response after successful login
+type LoginResponse struct {
+	User         *User  `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
+}
+
+// JWTClaims represents JWT claims
+type JWTClaims struct {
+	UserID    uuid.UUID `json:"user_id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Roles     []string  `json:"roles"`
+	TokenType string    `json:"token_type"`
+	ExpiresAt int64     `json:"exp"`
+	IssuedAt  int64     `json:"iat"`
+	Issuer    string    `json:"iss"`
+	Subject   string    `json:"sub"`
+}

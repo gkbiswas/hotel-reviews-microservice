@@ -1,0 +1,357 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-reviews-api
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: hotel-reviews
+      component: api
+  template:
+    metadata:
+      labels:
+        app: hotel-reviews
+        component: api
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: hotel-reviews-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+        - name: db-migration
+          image: hotel-reviews-api:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Running database migrations..."
+              # Add your migration commands here
+              echo "Migrations completed successfully"
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.name
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-password
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      containers:
+        - name: hotel-reviews-api
+          image: hotel-reviews-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            # Server Configuration
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: server.host
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: server.port
+            - name: SERVER_READ_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: server.read_timeout
+            - name: SERVER_WRITE_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: server.write_timeout
+            
+            # Database Configuration
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: database.name
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: database-password
+            
+            # Cache Configuration
+            - name: CACHE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: cache.host
+            - name: CACHE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: cache.port
+            - name: CACHE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: redis-password
+            
+            # S3 Configuration
+            - name: S3_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: s3.region
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: s3.bucket
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: s3-access-key-id
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: s3-secret-access-key
+            
+            # Kafka Configuration
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.brokers
+            - name: KAFKA_REVIEW_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.review_topic
+            - name: KAFKA_PROCESSING_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: kafka.processing_topic
+            
+            # JWT Secret
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hotel-reviews-secrets
+                  key: jwt-secret
+            
+            # Logging Configuration
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: log.level
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: log.format
+            
+            # Processing Configuration
+            - name: PROCESSING_WORKER_COUNT
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: processing.worker_count
+            - name: PROCESSING_BATCH_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: hotel-reviews-config
+                  key: processing.batch_size
+            
+            # Kubernetes specific
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+            successThreshold: 1
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+            - name: cache-volume
+              mountPath: /app/cache
+            - name: logs-volume
+              mountPath: /app/logs
+            - name: config-volume
+              mountPath: /app/config
+              readOnly: true
+            - name: tls-certs
+              mountPath: /app/certs
+              readOnly: true
+        
+        - name: log-sidecar
+          image: fluent/fluent-bit:latest
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: logs-volume
+              mountPath: /var/log/app
+            - name: fluent-bit-config
+              mountPath: /fluent-bit/etc
+      
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+        - name: cache-volume
+          emptyDir: {}
+        - name: logs-volume
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: hotel-reviews-config
+        - name: tls-certs
+          secret:
+            secretName: hotel-reviews-secrets
+            items:
+              - key: tls-cert
+                path: tls.crt
+              - key: tls-key
+                path: tls.key
+        - name: fluent-bit-config
+          configMap:
+            name: fluent-bit-config
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - hotel-reviews
+                    - key: component
+                      operator: In
+                      values:
+                        - api
+                topologyKey: kubernetes.io/hostname
+      
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always

@@ -1,0 +1,407 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-api-netpol
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: api
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-reviews
+      component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from nginx ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+    
+    # Allow ingress from prometheus for metrics
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+    
+    # Allow ingress from same namespace pods
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: hotel-reviews
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+    
+    # Allow ingress from monitoring namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
+  
+  egress:
+    # Allow egress to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Allow egress to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    
+    # Allow egress to Kafka
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+    
+    # Allow egress to DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow egress to external services (AWS S3, etc.)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-postgres-netpol
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: postgres
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-reviews
+      component: postgres
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from API pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: api
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Allow ingress from worker pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: worker
+      ports:
+        - protocol: TCP
+          port: 5432
+    
+    # Allow ingress from migration jobs
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: migration
+      ports:
+        - protocol: TCP
+          port: 5432
+  
+  egress:
+    # Allow egress to DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow egress for replication (if using PostgreSQL streaming replication)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-redis-netpol
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: redis
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-reviews
+      component: redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from API pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: api
+      ports:
+        - protocol: TCP
+          port: 6379
+    
+    # Allow ingress from worker pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: worker
+      ports:
+        - protocol: TCP
+          port: 6379
+  
+  egress:
+    # Allow egress to DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow egress for Redis clustering (if using Redis Cluster)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 16379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-kafka-netpol
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: kafka
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-reviews
+      component: kafka
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from API pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: api
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+    
+    # Allow ingress from worker pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: worker
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+    
+    # Allow ingress from zookeeper
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: zookeeper
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+    
+    # Allow inter-kafka communication
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+        - protocol: TCP
+          port: 9094
+  
+  egress:
+    # Allow egress to DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow egress to ZooKeeper
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: zookeeper
+      ports:
+        - protocol: TCP
+          port: 2181
+        - protocol: TCP
+          port: 2888
+        - protocol: TCP
+          port: 3888
+    
+    # Allow inter-kafka communication
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+        - protocol: TCP
+          port: 9094
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-monitoring-netpol
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app: hotel-reviews
+      component: prometheus
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow ingress from grafana
+    - from:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+              component: grafana
+      ports:
+        - protocol: TCP
+          port: 9090
+    
+    # Allow ingress from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 9090
+  
+  egress:
+    # Allow egress to DNS
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    
+    # Allow egress to scrape metrics from all pods
+    - to:
+        - podSelector:
+            matchLabels:
+              app: hotel-reviews
+      ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-default-deny
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    component: security
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  # This policy denies all traffic by default
+  # Explicit allow rules should be added in other NetworkPolicies

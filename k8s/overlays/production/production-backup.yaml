@@ -1,0 +1,416 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-production-backup-database
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: backup
+    type: database
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 7
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            environment: production
+            component: backup
+            type: database
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: postgres-backup
+              image: postgres:15-alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  echo "Starting PostgreSQL backup..."
+                  
+                  # Create backup directory
+                  mkdir -p /backup
+                  
+                  # Create backup filename with timestamp
+                  BACKUP_FILE="hotel-reviews-production-$(date +%Y%m%d_%H%M%S).sql"
+                  
+                  # Create database backup
+                  pg_dump -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER -d $DATABASE_NAME \
+                    --no-password --clean --if-exists --create \
+                    --verbose --format=custom --compress=9 > /backup/$BACKUP_FILE
+                  
+                  # Verify backup
+                  if [ -f "/backup/$BACKUP_FILE" ] && [ -s "/backup/$BACKUP_FILE" ]; then
+                    echo "Backup created successfully: $BACKUP_FILE"
+                    echo "Backup size: $(du -h /backup/$BACKUP_FILE | cut -f1)"
+                  else
+                    echo "ERROR: Backup file is empty or does not exist"
+                    exit 1
+                  fi
+                  
+                  # Upload to S3
+                  aws s3 cp /backup/$BACKUP_FILE s3://$S3_BUCKET/backups/database/production/$BACKUP_FILE \
+                    --storage-class STANDARD_IA \
+                    --metadata "environment=production,component=database,type=backup"
+                  
+                  # Verify S3 upload
+                  if aws s3 ls s3://$S3_BUCKET/backups/database/production/$BACKUP_FILE; then
+                    echo "Backup uploaded to S3 successfully"
+                  else
+                    echo "ERROR: Failed to upload backup to S3"
+                    exit 1
+                  fi
+                  
+                  # Clean up local backup
+                  rm -f /backup/$BACKUP_FILE
+                  
+                  # Create backup metadata
+                  cat > /backup/metadata.json << EOF
+                  {
+                    "backup_file": "$BACKUP_FILE",
+                    "backup_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+                    "database_host": "$DATABASE_HOST",
+                    "database_name": "$DATABASE_NAME",
+                    "environment": "production",
+                    "component": "database",
+                    "s3_location": "s3://$S3_BUCKET/backups/database/production/$BACKUP_FILE",
+                    "retention_days": 30
+                  }
+                  EOF
+                  
+                  # Upload metadata
+                  aws s3 cp /backup/metadata.json s3://$S3_BUCKET/backups/database/production/metadata/$(date +%Y%m%d_%H%M%S).json
+                  
+                  echo "Database backup completed successfully!"
+              env:
+                - name: DATABASE_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.host
+                - name: DATABASE_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.port
+                - name: DATABASE_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.name
+                - name: DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-user
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-password
+                - name: S3_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-secret-access-key
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.region
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 1000m
+                  memory: 2Gi
+              volumeMounts:
+                - name: backup-volume
+                  mountPath: /backup
+          volumes:
+            - name: backup-volume
+              emptyDir:
+                sizeLimit: 10Gi
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-production-backup-cleanup
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: backup
+    type: cleanup
+spec:
+  schedule: "0 6 * * 0"  # Weekly on Sunday at 6 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            environment: production
+            component: backup
+            type: cleanup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup-cleanup
+              image: amazon/aws-cli:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  echo "Starting backup cleanup..."
+                  
+                  # Clean up database backups older than 30 days
+                  echo "Cleaning up database backups older than 30 days..."
+                  aws s3 ls s3://$S3_BUCKET/backups/database/production/ --recursive | \
+                    awk '{print $4}' | \
+                    while read file; do
+                      if [[ -n "$file" ]]; then
+                        last_modified=$(aws s3 ls s3://$S3_BUCKET/$file --recursive | awk '{print $1, $2}')
+                        if [[ -n "$last_modified" ]]; then
+                          last_modified_epoch=$(date -d "$last_modified" +%s)
+                          current_epoch=$(date +%s)
+                          age_days=$(((current_epoch - last_modified_epoch) / 86400))
+                          
+                          if [[ $age_days -gt 30 ]]; then
+                            echo "Deleting backup older than 30 days: $file"
+                            aws s3 rm s3://$S3_BUCKET/$file
+                          fi
+                        fi
+                      fi
+                    done
+                  
+                  # Clean up metadata files older than 30 days
+                  echo "Cleaning up metadata files older than 30 days..."
+                  aws s3 ls s3://$S3_BUCKET/backups/database/production/metadata/ --recursive | \
+                    awk '{print $4}' | \
+                    while read file; do
+                      if [[ -n "$file" ]]; then
+                        last_modified=$(aws s3 ls s3://$S3_BUCKET/$file --recursive | awk '{print $1, $2}')
+                        if [[ -n "$last_modified" ]]; then
+                          last_modified_epoch=$(date -d "$last_modified" +%s)
+                          current_epoch=$(date +%s)
+                          age_days=$(((current_epoch - last_modified_epoch) / 86400))
+                          
+                          if [[ $age_days -gt 30 ]]; then
+                            echo "Deleting metadata older than 30 days: $file"
+                            aws s3 rm s3://$S3_BUCKET/$file
+                          fi
+                        fi
+                      fi
+                    done
+                  
+                  echo "Backup cleanup completed successfully!"
+              env:
+                - name: S3_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-secret-access-key
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.region
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hotel-reviews-production-disaster-recovery-test
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    environment: production
+    component: backup
+    type: disaster-recovery
+spec:
+  schedule: "0 4 1 * *"  # Monthly on 1st at 4 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: hotel-reviews
+            environment: production
+            component: backup
+            type: disaster-recovery
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: disaster-recovery-test
+              image: postgres:15-alpine
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -e
+                  echo "Starting disaster recovery test..."
+                  
+                  # Get the latest backup
+                  LATEST_BACKUP=$(aws s3 ls s3://$S3_BUCKET/backups/database/production/ --recursive | sort | tail -n 1 | awk '{print $4}')
+                  
+                  if [[ -z "$LATEST_BACKUP" ]]; then
+                    echo "ERROR: No backup found"
+                    exit 1
+                  fi
+                  
+                  echo "Testing backup: $LATEST_BACKUP"
+                  
+                  # Download the latest backup
+                  aws s3 cp s3://$S3_BUCKET/$LATEST_BACKUP /tmp/test_backup.sql
+                  
+                  # Verify backup file
+                  if [[ ! -f "/tmp/test_backup.sql" ]] || [[ ! -s "/tmp/test_backup.sql" ]]; then
+                    echo "ERROR: Downloaded backup is empty or corrupted"
+                    exit 1
+                  fi
+                  
+                  # Test backup integrity (dry run)
+                  echo "Testing backup integrity..."
+                  pg_restore --list /tmp/test_backup.sql > /tmp/backup_contents.txt
+                  
+                  if [[ -s "/tmp/backup_contents.txt" ]]; then
+                    echo "Backup integrity test passed"
+                    echo "Backup contains $(wc -l < /tmp/backup_contents.txt) objects"
+                  else
+                    echo "ERROR: Backup integrity test failed"
+                    exit 1
+                  fi
+                  
+                  # Create test database and restore (if test database is available)
+                  if [[ "$DR_TEST_DATABASE" != "disabled" ]]; then
+                    echo "Creating test database for restoration test..."
+                    createdb -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER $DR_TEST_DATABASE || true
+                    
+                    echo "Restoring backup to test database..."
+                    pg_restore -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER -d $DR_TEST_DATABASE --clean --if-exists /tmp/test_backup.sql
+                    
+                    # Verify restoration
+                    TABLE_COUNT=$(psql -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER -d $DR_TEST_DATABASE -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';")
+                    
+                    if [[ $TABLE_COUNT -gt 0 ]]; then
+                      echo "Disaster recovery test passed - $TABLE_COUNT tables restored"
+                    else
+                      echo "ERROR: Disaster recovery test failed - no tables found"
+                      exit 1
+                    fi
+                    
+                    # Clean up test database
+                    dropdb -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER $DR_TEST_DATABASE || true
+                  fi
+                  
+                  # Clean up
+                  rm -f /tmp/test_backup.sql /tmp/backup_contents.txt
+                  
+                  echo "Disaster recovery test completed successfully!"
+              env:
+                - name: DATABASE_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.host
+                - name: DATABASE_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: database.port
+                - name: DATABASE_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-user
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: database-password
+                - name: S3_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.bucket
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-access-key-id
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: hotel-reviews-secrets
+                      key: s3-secret-access-key
+                - name: AWS_DEFAULT_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: hotel-reviews-config
+                      key: s3.region
+                - name: DR_TEST_DATABASE
+                  value: "hotel_reviews_dr_test"
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 500m
+                  memory: 1Gi
+              volumeMounts:
+                - name: temp-volume
+                  mountPath: /tmp
+          volumes:
+            - name: temp-volume
+              emptyDir:
+                sizeLimit: 5Gi
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600

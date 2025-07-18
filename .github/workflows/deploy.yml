@@ -1,0 +1,489 @@
+name: Production Deployment with Blue-Green Strategy
+
+on:
+  push:
+    branches:
+      - main
+      - release/*
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      deployment_type:
+        description: 'Deployment type'
+        required: true
+        default: 'blue-green'
+        type: choice
+        options:
+          - blue-green
+          - canary
+          - rolling
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: hotel-reviews-cluster
+  ECS_SERVICE: hotel-reviews-service
+  CONTAINER_NAME: hotel-reviews-api
+
+jobs:
+  # Security and Vulnerability Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Run security scan
+        uses: securecodewarrior/github-action-add-sarif@v1
+        with:
+          sarif-file: 'security-scan.sarif'
+        continue-on-error: true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Build and Test
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: security-scan
+    if: always() && (needs.security-scan.result == 'success' || needs.security-scan.result == 'skipped')
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run tests
+        if: github.event_name != 'workflow_dispatch' || !inputs.skip_tests
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v3
+        if: github.event_name != 'workflow_dispatch' || !inputs.skip_tests
+        with:
+          files: ./coverage.out
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+
+  # Infrastructure Validation
+  infrastructure-validation:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          cd terraform/environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd terraform/environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        run: |
+          cd terraform/environments/${{ github.event.inputs.environment || 'staging' }}
+          terraform apply -auto-approve tfplan
+
+  # Pre-deployment Health Checks
+  pre-deployment-checks:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, infrastructure-validation]
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run database connectivity check
+        run: |
+          chmod +x scripts/health-checks/database-check.sh
+          scripts/health-checks/database-check.sh
+
+      - name: Check external dependencies
+        run: |
+          chmod +x scripts/health-checks/dependency-check.sh
+          scripts/health-checks/dependency-check.sh
+
+      - name: Validate infrastructure readiness
+        run: |
+          chmod +x scripts/health-checks/infrastructure-check.sh
+          scripts/health-checks/infrastructure-check.sh
+
+  # Database Migration
+  database-migration:
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create migration backup
+        run: |
+          chmod +x scripts/migrations/backup-database.sh
+          scripts/migrations/backup-database.sh
+
+      - name: Run database migrations
+        run: |
+          chmod +x scripts/migrations/migrate.sh
+          scripts/migrations/migrate.sh
+
+      - name: Verify migration success
+        run: |
+          chmod +x scripts/migrations/verify-migration.sh
+          scripts/migrations/verify-migration.sh
+
+  # Production Deployment Approval
+  production-approval:
+    runs-on: ubuntu-latest
+    needs: [database-migration]
+    if: github.event.inputs.environment == 'production' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
+    environment: production-approval
+    steps:
+      - name: Wait for approval
+        run: |
+          echo "Waiting for manual approval for production deployment..."
+          echo "Deployment will proceed after approval."
+
+  # Blue-Green Deployment
+  blue-green-deployment:
+    runs-on: ubuntu-latest
+    needs: [database-migration, production-approval]
+    if: always() && (needs.production-approval.result == 'success' || needs.production-approval.result == 'skipped')
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    outputs:
+      deployment-id: ${{ steps.deploy.outputs.deployment-id }}
+      current-color: ${{ steps.deploy.outputs.current-color }}
+      target-color: ${{ steps.deploy.outputs.target-color }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to Blue-Green Environment
+        id: deploy
+        run: |
+          chmod +x scripts/deployment/blue-green-deploy.sh
+          scripts/deployment/blue-green-deploy.sh \
+            --image "${{ needs.build-and-test.outputs.image-tag }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}" \
+            --deployment-type "${{ github.event.inputs.deployment_type || 'blue-green' }}"
+
+      - name: Wait for deployment rollout
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}-${{ steps.deploy.outputs.target-color }}
+
+  # Post-deployment Health Checks
+  post-deployment-checks:
+    runs-on: ubuntu-latest
+    needs: blue-green-deployment
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run health checks
+        run: |
+          chmod +x scripts/health-checks/post-deployment-check.sh
+          scripts/health-checks/post-deployment-check.sh \
+            --target-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Run smoke tests
+        run: |
+          chmod +x scripts/health-checks/smoke-tests.sh
+          scripts/health-checks/smoke-tests.sh \
+            --target-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Performance baseline check
+        run: |
+          chmod +x scripts/health-checks/performance-check.sh
+          scripts/health-checks/performance-check.sh \
+            --target-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+  # Traffic Switching
+  traffic-switching:
+    runs-on: ubuntu-latest
+    needs: [blue-green-deployment, post-deployment-checks]
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Switch traffic to new deployment
+        run: |
+          chmod +x scripts/deployment/traffic-switch.sh
+          scripts/deployment/traffic-switch.sh \
+            --target-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --current-color "${{ needs.blue-green-deployment.outputs.current-color }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}" \
+            --deployment-type "${{ github.event.inputs.deployment_type || 'blue-green' }}"
+
+      - name: Monitor traffic switch
+        run: |
+          chmod +x scripts/deployment/monitor-traffic.sh
+          scripts/deployment/monitor-traffic.sh \
+            --target-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+  # Post-deployment Validation
+  post-deployment-validation:
+    runs-on: ubuntu-latest
+    needs: traffic-switching
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run acceptance tests
+        run: |
+          chmod +x scripts/health-checks/acceptance-tests.sh
+          scripts/health-checks/acceptance-tests.sh \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Monitor application metrics
+        run: |
+          chmod +x scripts/health-checks/metrics-validation.sh
+          scripts/health-checks/metrics-validation.sh \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Validate deployment success
+        run: |
+          chmod +x scripts/health-checks/deployment-validation.sh
+          scripts/health-checks/deployment-validation.sh \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+  # Cleanup and Finalization
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [blue-green-deployment, post-deployment-validation]
+    if: always()
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Cleanup old deployments
+        run: |
+          chmod +x scripts/deployment/cleanup.sh
+          scripts/deployment/cleanup.sh \
+            --current-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Update deployment status
+        run: |
+          chmod +x scripts/deployment/update-status.sh
+          scripts/deployment/update-status.sh \
+            --deployment-id "${{ needs.blue-green-deployment.outputs.deployment-id }}" \
+            --status "completed" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+  # Rollback on Failure
+  rollback:
+    runs-on: ubuntu-latest
+    needs: [blue-green-deployment, post-deployment-checks, traffic-switching, post-deployment-validation]
+    if: failure()
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Rollback deployment
+        run: |
+          chmod +x scripts/deployment/rollback.sh
+          scripts/deployment/rollback.sh \
+            --current-color "${{ needs.blue-green-deployment.outputs.current-color }}" \
+            --target-color "${{ needs.blue-green-deployment.outputs.target-color }}" \
+            --deployment-id "${{ needs.blue-green-deployment.outputs.deployment-id }}" \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Rollback database migrations
+        run: |
+          chmod +x scripts/migrations/rollback.sh
+          scripts/migrations/rollback.sh \
+            --environment "${{ github.event.inputs.environment || 'staging' }}"
+
+      - name: Notify rollback completion
+        run: |
+          chmod +x scripts/deployment/notify-rollback.sh
+          scripts/deployment/notify-rollback.sh \
+            --environment "${{ github.event.inputs.environment || 'staging' }}" \
+            --deployment-id "${{ needs.blue-green-deployment.outputs.deployment-id }}"
+
+  # Notification
+  notification:
+    runs-on: ubuntu-latest
+    needs: [cleanup, rollback]
+    if: always()
+    steps:
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+          text: |
+            Deployment Status: ${{ job.status }}
+            Environment: ${{ github.event.inputs.environment || 'staging' }}
+            Deployment Type: ${{ github.event.inputs.deployment_type || 'blue-green' }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
