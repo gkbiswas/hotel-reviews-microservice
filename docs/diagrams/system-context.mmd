@@ -1,0 +1,49 @@
+graph TB
+    %% System Context Diagram
+    %% Shows the hotel reviews microservice and its external dependencies
+    
+    subgraph "External Users"
+        Client[Client Applications<br/>Web/Mobile Apps]
+        Admin[Admin Dashboard<br/>Management Interface]
+        DevOps[DevOps Team<br/>Monitoring & Ops]
+    end
+    
+    subgraph "Hotel Reviews Microservice System"
+        HRM[Hotel Reviews<br/>Microservice<br/>Go Application]
+    end
+    
+    subgraph "External Systems"
+        Providers[Review Providers<br/>Booking.com, Expedia<br/>Agoda, Hotels.com]
+        S3[AWS S3<br/>File Storage<br/>JSON Data Files]
+        DB[(PostgreSQL<br/>Primary Database<br/>Reviews & Hotels)]
+        Cache[(Redis<br/>Cache Layer<br/>Session & Analytics)]
+        Monitoring[Monitoring Stack<br/>Prometheus, Grafana<br/>Jaeger Tracing]
+        Notifications[Notification Services<br/>Email, Slack<br/>Processing Alerts]
+    end
+    
+    %% User Interactions
+    Client -->|HTTP REST API<br/>Search Reviews<br/>Get Analytics| HRM
+    Admin -->|HTTP REST API<br/>Manage Hotels<br/>Process Files| HRM
+    DevOps -->|Monitoring<br/>Health Checks<br/>Metrics| HRM
+    
+    %% External System Interactions
+    Providers -->|Upload Review Files<br/>JSON Format| S3
+    HRM -->|Download Files<br/>Process Reviews| S3
+    HRM -->|Store Reviews<br/>Query Data| DB
+    HRM -->|Cache Results<br/>Session Data| Cache
+    HRM -->|Metrics & Traces<br/>Performance Data| Monitoring
+    HRM -->|Processing Status<br/>Error Alerts| Notifications
+    
+    %% Return Flows
+    HRM -->|Review Data<br/>Analytics Results| Client
+    HRM -->|Management Data<br/>Status Updates| Admin
+    HRM -->|Health Status<br/>Metrics Data| DevOps
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef systemClass fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef externalClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    
+    class Client,Admin,DevOps userClass
+    class HRM systemClass
+    class Providers,S3,DB,Cache,Monitoring,Notifications externalClass

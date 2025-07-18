@@ -1,0 +1,168 @@
+graph TB
+    %% Component Diagram
+    %% Shows the internal components and their relationships
+    
+    subgraph "HTTP Layer"
+        Router[Gin Router<br/>HTTP Routing<br/>Middleware Chain]
+        
+        subgraph "Middleware"
+            CORS[CORS Middleware<br/>Cross-Origin<br/>Request Handling]
+            Auth[Auth Middleware<br/>JWT Validation<br/>API Key Check]
+            RateLimit[Rate Limiter<br/>Request Throttling<br/>DDoS Protection]
+            Logging[Request Logger<br/>Access Logs<br/>Request Tracing]
+            Recovery[Recovery Middleware<br/>Panic Recovery<br/>Error Handling]
+        end
+        
+        subgraph "HTTP Handlers"
+            ReviewHandler[Review Handler<br/>CRUD Operations<br/>Search & Filter]
+            HotelHandler[Hotel Handler<br/>Hotel Management<br/>Analytics]
+            ProviderHandler[Provider Handler<br/>Provider CRUD<br/>Configuration]
+            ProcessingHandler[Processing Handler<br/>File Upload<br/>Status Tracking]
+            HealthHandler[Health Handler<br/>System Status<br/>Readiness Check]
+        end
+    end
+    
+    subgraph "Application Layer"
+        subgraph "Business Services"
+            ReviewService[Review Service<br/>Business Logic<br/>Validation Rules]
+            ProcessingEngine[Processing Engine<br/>Async Processing<br/>Job Management]
+            ValidationService[Validation Service<br/>Data Validation<br/>Business Rules]
+            AnalyticsService[Analytics Service<br/>Data Aggregation<br/>Reporting]
+        end
+        
+        subgraph "Processing Components"
+            JobQueue[Job Queue<br/>Async Task Queue<br/>Priority Handling]
+            WorkerPool[Worker Pool<br/>Goroutine Pool<br/>Concurrent Processing]
+            StatusTracker[Status Tracker<br/>Job Progress<br/>State Management]
+            BackpressureController[Backpressure Controller<br/>Load Management<br/>Resource Control]
+        end
+    end
+    
+    subgraph "Domain Layer"
+        subgraph "Domain Services"
+            ReviewDomain[Review Domain<br/>Core Business Logic<br/>Entity Operations]
+            HotelDomain[Hotel Domain<br/>Hotel Business Rules<br/>Validation]
+            ProviderDomain[Provider Domain<br/>Provider Logic<br/>Configuration]
+        end
+        
+        subgraph "Domain Entities"
+            Review[Review Entity<br/>Review Data Model<br/>Business Rules]
+            Hotel[Hotel Entity<br/>Hotel Data Model<br/>Validation]
+            Provider[Provider Entity<br/>Provider Model<br/>Configuration]
+            ProcessingStatus[Processing Status<br/>Job State Model<br/>Tracking]
+        end
+    end
+    
+    subgraph "Infrastructure Layer"
+        subgraph "Data Access"
+            ReviewRepo[Review Repository<br/>Database Operations<br/>Query Optimization]
+            HotelRepo[Hotel Repository<br/>Hotel Data Access<br/>Caching]
+            ProviderRepo[Provider Repository<br/>Provider Data<br/>Configuration]
+            ProcessingRepo[Processing Repository<br/>Job Status<br/>History]
+        end
+        
+        subgraph "External Clients"
+            S3Client[S3 Client<br/>File Operations<br/>AWS SDK]
+            CacheClient[Cache Client<br/>Redis Operations<br/>Session Management]
+            MetricsClient[Metrics Client<br/>Prometheus<br/>Performance Tracking]
+            NotificationClient[Notification Client<br/>Email/Slack<br/>Alert System]
+        end
+        
+        subgraph "File Processing"
+            JSONProcessor[JSON Processor<br/>File Parsing<br/>Data Extraction]
+            FileValidator[File Validator<br/>Schema Validation<br/>Data Quality]
+            DataEnricher[Data Enricher<br/>Sentiment Analysis<br/>Data Enhancement]
+        end
+    end
+    
+    subgraph "Configuration & Utils"
+        ConfigManager[Config Manager<br/>Environment Config<br/>Settings Management]
+        Logger[Logger<br/>Structured Logging<br/>Context Logging]
+        ErrorHandler[Error Handler<br/>Error Processing<br/>Recovery Logic]
+    end
+    
+    %% HTTP Layer Connections
+    Router --> CORS
+    Router --> Auth
+    Router --> RateLimit
+    Router --> Logging
+    Router --> Recovery
+    
+    Router --> ReviewHandler
+    Router --> HotelHandler
+    Router --> ProviderHandler
+    Router --> ProcessingHandler
+    Router --> HealthHandler
+    
+    %% Handler to Service Connections
+    ReviewHandler --> ReviewService
+    HotelHandler --> ReviewService
+    ProviderHandler --> ReviewService
+    ProcessingHandler --> ProcessingEngine
+    HealthHandler --> ReviewService
+    
+    %% Service to Domain Connections
+    ReviewService --> ReviewDomain
+    ReviewService --> HotelDomain
+    ReviewService --> ProviderDomain
+    
+    ProcessingEngine --> ReviewDomain
+    ProcessingEngine --> JobQueue
+    ProcessingEngine --> WorkerPool
+    ProcessingEngine --> StatusTracker
+    ProcessingEngine --> BackpressureController
+    
+    ValidationService --> ReviewDomain
+    ValidationService --> HotelDomain
+    ValidationService --> ProviderDomain
+    
+    AnalyticsService --> ReviewDomain
+    AnalyticsService --> HotelDomain
+    
+    %% Domain to Entity Connections
+    ReviewDomain --> Review
+    HotelDomain --> Hotel
+    ProviderDomain --> Provider
+    ReviewDomain --> ProcessingStatus
+    
+    %% Domain to Repository Connections
+    ReviewDomain --> ReviewRepo
+    HotelDomain --> HotelRepo
+    ProviderDomain --> ProviderRepo
+    ReviewDomain --> ProcessingRepo
+    
+    %% Repository to External Connections
+    ReviewRepo --> CacheClient
+    HotelRepo --> CacheClient
+    
+    %% Processing to External Connections
+    ProcessingEngine --> S3Client
+    ProcessingEngine --> JSONProcessor
+    ProcessingEngine --> FileValidator
+    ProcessingEngine --> DataEnricher
+    ProcessingEngine --> NotificationClient
+    
+    %% Cross-cutting Concerns
+    ReviewService --> MetricsClient
+    ProcessingEngine --> MetricsClient
+    ReviewService --> Logger
+    ProcessingEngine --> Logger
+    
+    ReviewService --> ErrorHandler
+    ProcessingEngine --> ErrorHandler
+    
+    ReviewService --> ConfigManager
+    ProcessingEngine --> ConfigManager
+    
+    %% Styling
+    classDef httpClass fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef appClass fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef domainClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef infraClass fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef configClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    class Router,CORS,Auth,RateLimit,Logging,Recovery,ReviewHandler,HotelHandler,ProviderHandler,ProcessingHandler,HealthHandler httpClass
+    class ReviewService,ProcessingEngine,ValidationService,AnalyticsService,JobQueue,WorkerPool,StatusTracker,BackpressureController appClass
+    class ReviewDomain,HotelDomain,ProviderDomain,Review,Hotel,Provider,ProcessingStatus domainClass
+    class ReviewRepo,HotelRepo,ProviderRepo,ProcessingRepo,S3Client,CacheClient,MetricsClient,NotificationClient,JSONProcessor,FileValidator,DataEnricher infraClass
+    class ConfigManager,Logger,ErrorHandler configClass

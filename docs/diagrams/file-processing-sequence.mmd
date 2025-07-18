@@ -1,0 +1,141 @@
+sequenceDiagram
+    %% File Processing Sequence Diagram
+    %% Shows the complete flow of file processing from upload to completion
+    
+    participant Client as Client Application
+    participant API as API Handler
+    participant Engine as Processing Engine
+    participant Queue as Job Queue
+    participant Worker as Worker Pool
+    participant S3 as AWS S3
+    participant Parser as JSON Parser
+    participant Validator as Data Validator
+    participant Enricher as Data Enricher
+    participant DB as PostgreSQL
+    participant Cache as Redis Cache
+    participant Events as Event Publisher
+    participant Notifier as Notification Service
+    
+    %% File Processing Initiation
+    Client->>+API: POST /process-file
+    Note over Client,API: {fileURL, providerID}
+    
+    API->>+Engine: ProcessReviewFile(fileURL, providerID)
+    Engine->>Engine: Generate Processing ID
+    Engine->>DB: CreateProcessingStatus(PENDING)
+    Engine->>-API: ProcessingStatus{ID, Status: PENDING}
+    
+    API->>-Client: 202 Accepted
+    Note over API,Client: {processingID, status: "pending"}
+    
+    %% Async Processing Begins
+    Engine->>+Queue: SubmitJob(processingID, fileURL)
+    Queue->>+Worker: AssignJob(processingID)
+    
+    Worker->>DB: UpdateStatus(PROCESSING)
+    Worker->>Events: PublishProcessingStarted(processingID)
+    
+    %% File Download and Parsing
+    Worker->>+S3: DownloadFile(fileURL)
+    S3->>-Worker: FileStream
+    
+    Worker->>+Parser: ParseJSONLines(fileStream)
+    Parser->>Parser: Parse line by line
+    Parser->>-Worker: ParsedRecords[]
+    
+    %% Data Validation
+    loop For each batch of records
+        Worker->>+Validator: ValidateReviews(batch)
+        Validator->>Validator: Business rule validation
+        Validator->>-Worker: ValidationResults
+        
+        alt Validation Success
+            Worker->>+Enricher: EnrichReviews(batch)
+            Enricher->>Enricher: Sentiment analysis
+            Enricher->>Enricher: Data enhancement
+            Enricher->>-Worker: EnrichedReviews
+            
+            Worker->>+DB: BatchInsert(enrichedReviews)
+            DB->>-Worker: InsertResults
+            
+            Worker->>Cache: InvalidateReviewSummary(hotelIDs)
+            Worker->>Events: PublishReviewsCreated(reviews)
+            
+        else Validation Failure
+            Worker->>Worker: Log validation errors
+            Worker->>Events: PublishValidationErrors(errors)
+        end
+        
+        Worker->>DB: UpdateProgress(processedCount)
+    end
+    
+    %% Processing Completion
+    Worker->>DB: UpdateStatus(COMPLETED)
+    Worker->>Events: PublishProcessingCompleted(processingID)
+    Worker->>+Notifier: SendCompletionNotification(processingID)
+    Notifier->>-Worker: NotificationSent
+    
+    Worker->>-Queue: JobCompleted(processingID)
+    Queue->>-Engine: ProcessingComplete
+    
+    %% Client Status Check
+    Client->>+API: GET /processing-status/{processingID}
+    API->>+DB: GetProcessingStatus(processingID)
+    DB->>-API: ProcessingStatus{COMPLETED}
+    API->>-Client: Status Response
+    
+    %% Error Handling Flow
+    Note over Worker,Notifier: Error Handling (Alternative Flow)
+    
+    alt Processing Error
+        Worker->>Worker: Handle Error
+        Worker->>DB: UpdateStatus(FAILED, errorMessage)
+        Worker->>Events: PublishProcessingFailed(processingID, error)
+        Worker->>Notifier: SendErrorNotification(processingID, error)
+        Worker->>Queue: JobFailed(processingID)
+    end
+    
+    %% Background Monitoring
+    Note over Engine,Cache: Background Monitoring
+    
+    loop Every 30 seconds
+        Engine->>DB: GetActiveJobs()
+        Engine->>Engine: CheckJobHealth()
+        alt Job Timeout
+            Engine->>Worker: CancelJob(processingID)
+            Engine->>DB: UpdateStatus(TIMEOUT)
+            Engine->>Events: PublishJobTimeout(processingID)
+        end
+    end
+    
+    %% Cache Updates
+    Note over DB,Cache: Cache Management
+    
+    DB->>Cache: UpdateReviewSummary(hotelID)
+    Cache->>Cache: SetTTL(1 hour)
+    
+    %% Metrics Collection
+    Note over Engine,Events: Metrics Collection
+    
+    Engine->>Events: RecordProcessingMetrics(duration, recordCount)
+    Events->>Events: Update Prometheus metrics
+    
+    %% Cleanup
+    Note over Worker,DB: Cleanup Operations
+    
+    Worker->>S3: CleanupTempFiles()
+    Worker->>Worker: ReleaseResources()
+    Engine->>DB: ArchiveOldProcessingRecords()
+    
+    %% Status Summary
+    rect rgb(240, 248, 255)
+        Note over Client,Notifier: Processing Complete
+        Note over Client,Notifier: - File downloaded from S3
+        Note over Client,Notifier: - JSON parsed and validated
+        Note over Client,Notifier: - Data enriched with sentiment
+        Note over Client,Notifier: - Reviews stored in database
+        Note over Client,Notifier: - Cache updated
+        Note over Client,Notifier: - Events published
+        Note over Client,Notifier: - Notifications sent
+        Note over Client,Notifier: - Metrics recorded
+    end

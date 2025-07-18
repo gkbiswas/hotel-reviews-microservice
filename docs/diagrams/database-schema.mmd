@@ -1,0 +1,191 @@
+erDiagram
+    %% Database Schema ERD
+    %% Shows the complete database schema with relationships
+    
+    %% Core Entities
+    PROVIDER {
+        uuid id PK "Primary Key"
+        varchar name UK "Unique provider name"
+        varchar base_url "Provider website URL"
+        boolean is_active "Active status"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Last update time"
+        timestamp deleted_at "Soft delete timestamp"
+    }
+    
+    HOTEL {
+        uuid id PK "Primary Key"
+        varchar name "Hotel name"
+        text address "Full address"
+        varchar city "City name"
+        varchar country "Country name"
+        varchar postal_code "Postal/ZIP code"
+        varchar phone "Contact phone"
+        varchar email "Contact email"
+        integer star_rating "Star rating (1-5)"
+        text description "Hotel description"
+        jsonb amenities "Hotel amenities array"
+        decimal latitude "GPS latitude"
+        decimal longitude "GPS longitude"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Last update time"
+        timestamp deleted_at "Soft delete timestamp"
+    }
+    
+    REVIEWER_INFO {
+        uuid id PK "Primary Key"
+        varchar name "Reviewer name"
+        varchar email "Reviewer email"
+        varchar country "Reviewer country"
+        boolean is_verified "Verified reviewer"
+        integer total_reviews "Total reviews count"
+        decimal average_rating "Average rating given"
+        timestamp member_since "Member since date"
+        varchar profile_image_url "Profile image URL"
+        text bio "Reviewer bio"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Last update time"
+        timestamp deleted_at "Soft delete timestamp"
+    }
+    
+    REVIEW {
+        uuid id PK "Primary Key"
+        uuid provider_id FK "Provider reference"
+        uuid hotel_id FK "Hotel reference"
+        uuid reviewer_info_id FK "Reviewer reference"
+        varchar external_id "External review ID"
+        decimal rating "Review rating (1.0-5.0)"
+        varchar title "Review title"
+        text comment "Review comment"
+        timestamp review_date "Review date"
+        timestamp stay_date "Stay date"
+        varchar trip_type "Trip type"
+        varchar room_type "Room type"
+        boolean is_verified "Verified review"
+        integer helpful_votes "Helpful votes count"
+        integer total_votes "Total votes count"
+        varchar language "Review language"
+        varchar sentiment "Sentiment analysis"
+        varchar source "Review source"
+        decimal service_rating "Service rating"
+        decimal cleanliness_rating "Cleanliness rating"
+        decimal location_rating "Location rating"
+        decimal value_rating "Value rating"
+        decimal comfort_rating "Comfort rating"
+        decimal facilities_rating "Facilities rating"
+        jsonb metadata "Additional metadata"
+        timestamp processed_at "Processing timestamp"
+        varchar processing_hash "Processing hash"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Last update time"
+        timestamp deleted_at "Soft delete timestamp"
+    }
+    
+    REVIEW_SUMMARY {
+        uuid id PK "Primary Key"
+        uuid hotel_id FK "Hotel reference"
+        integer total_reviews "Total reviews count"
+        decimal average_rating "Average rating"
+        decimal service_avg "Average service rating"
+        decimal cleanliness_avg "Average cleanliness rating"
+        decimal location_avg "Average location rating"
+        decimal value_avg "Average value rating"
+        decimal comfort_avg "Average comfort rating"
+        decimal facilities_avg "Average facilities rating"
+        jsonb rating_distribution "Rating distribution"
+        jsonb sentiment_distribution "Sentiment distribution"
+        timestamp last_updated "Last update time"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Last update time"
+    }
+    
+    REVIEW_PROCESSING_STATUS {
+        uuid id PK "Primary Key"
+        uuid provider_id FK "Provider reference"
+        varchar status "Processing status"
+        varchar file_url "Source file URL"
+        integer records_processed "Records processed"
+        integer records_total "Total records"
+        integer records_failed "Failed records"
+        text error_message "Error message"
+        timestamp started_at "Processing start time"
+        timestamp completed_at "Processing completion time"
+        jsonb metadata "Processing metadata"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Last update time"
+    }
+    
+    %% Indexes and Constraints
+    REVIEW_INDEX {
+        varchar index_name "Index name"
+        varchar table_name "Table name"
+        varchar columns "Indexed columns"
+        varchar index_type "Index type"
+    }
+    
+    %% Relationships
+    PROVIDER ||--o{ REVIEW : "provides"
+    HOTEL ||--o{ REVIEW : "has_reviews"
+    REVIEWER_INFO ||--o{ REVIEW : "writes"
+    HOTEL ||--|| REVIEW_SUMMARY : "summarized_by"
+    PROVIDER ||--o{ REVIEW_PROCESSING_STATUS : "processes"
+    
+    %% Additional Constraints and Notes
+    REVIEW {
+        constraint rating_check "CHECK (rating >= 1.0 AND rating <= 5.0)"
+        constraint service_rating_check "CHECK (service_rating >= 1.0 AND service_rating <= 5.0)"
+        constraint cleanliness_rating_check "CHECK (cleanliness_rating >= 1.0 AND cleanliness_rating <= 5.0)"
+        constraint location_rating_check "CHECK (location_rating >= 1.0 AND location_rating <= 5.0)"
+        constraint value_rating_check "CHECK (value_rating >= 1.0 AND value_rating <= 5.0)"
+        constraint comfort_rating_check "CHECK (comfort_rating >= 1.0 AND comfort_rating <= 5.0)"
+        constraint facilities_rating_check "CHECK (facilities_rating >= 1.0 AND facilities_rating <= 5.0)"
+        index idx_review_hotel_id "INDEX ON hotel_id"
+        index idx_review_provider_id "INDEX ON provider_id"
+        index idx_review_date "INDEX ON review_date"
+        index idx_review_rating "INDEX ON rating"
+        index idx_review_sentiment "INDEX ON sentiment"
+        index idx_review_processed "INDEX ON processed_at"
+        index idx_review_composite "INDEX ON (hotel_id, provider_id, review_date)"
+    }
+    
+    HOTEL {
+        constraint star_rating_check "CHECK (star_rating >= 1 AND star_rating <= 5)"
+        constraint coordinates_check "CHECK (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)"
+        index idx_hotel_name "INDEX ON name"
+        index idx_hotel_city "INDEX ON city"
+        index idx_hotel_country "INDEX ON country"
+        index idx_hotel_star_rating "INDEX ON star_rating"
+        index idx_hotel_location "INDEX ON (latitude, longitude)"
+        index idx_hotel_composite "INDEX ON (city, country, star_rating)"
+    }
+    
+    PROVIDER {
+        constraint unique_provider_name "UNIQUE (name)"
+        index idx_provider_name "INDEX ON name"
+        index idx_provider_active "INDEX ON is_active"
+    }
+    
+    REVIEWER_INFO {
+        constraint unique_reviewer_email "UNIQUE (email)"
+        constraint rating_range_check "CHECK (average_rating >= 1.0 AND average_rating <= 5.0)"
+        index idx_reviewer_email "INDEX ON email"
+        index idx_reviewer_country "INDEX ON country"
+        index idx_reviewer_verified "INDEX ON is_verified"
+        index idx_reviewer_total_reviews "INDEX ON total_reviews"
+    }
+    
+    REVIEW_SUMMARY {
+        constraint unique_hotel_summary "UNIQUE (hotel_id)"
+        constraint avg_rating_check "CHECK (average_rating >= 1.0 AND average_rating <= 5.0)"
+        index idx_summary_hotel_id "INDEX ON hotel_id"
+        index idx_summary_avg_rating "INDEX ON average_rating"
+        index idx_summary_total_reviews "INDEX ON total_reviews"
+    }
+    
+    REVIEW_PROCESSING_STATUS {
+        constraint valid_status "CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled'))"
+        index idx_processing_provider_id "INDEX ON provider_id"
+        index idx_processing_status "INDEX ON status"
+        index idx_processing_created_at "INDEX ON created_at"
+        index idx_processing_composite "INDEX ON (provider_id, status, created_at)"
+    }

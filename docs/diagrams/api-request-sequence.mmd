@@ -1,0 +1,155 @@
+sequenceDiagram
+    %% API Request Sequence Diagram
+    %% Shows the flow of a typical API request through the system
+    
+    participant Client as Client App
+    participant LB as Load Balancer
+    participant API as API Handler
+    participant Auth as Auth Middleware
+    participant RateLimit as Rate Limiter
+    participant Service as Review Service
+    participant Cache as Redis Cache
+    participant DB as PostgreSQL
+    participant Events as Event Publisher
+    participant Metrics as Metrics Collector
+    
+    %% Request Flow
+    Client->>+LB: GET /api/v1/reviews?hotel_id=123
+    Note over Client,LB: HTTP Request with JWT token
+    
+    LB->>+API: Route to available instance
+    
+    %% Middleware Chain
+    API->>+Auth: ValidateToken(jwt)
+    Auth->>Auth: Verify JWT signature
+    Auth->>Auth: Check token expiration
+    Auth->>-API: User context
+    
+    API->>+RateLimit: CheckRateLimit(userID)
+    RateLimit->>RateLimit: Check request count
+    RateLimit->>-API: Rate limit OK
+    
+    API->>API: Parse query parameters
+    API->>API: Validate input data
+    
+    %% Service Layer
+    API->>+Service: GetReviewsByHotel(hotelID, limit, offset)
+    
+    %% Cache Check
+    Service->>+Cache: Get("reviews:hotel:123:page:1")
+    Cache->>-Service: Cache miss
+    
+    %% Database Query
+    Service->>+DB: SELECT * FROM reviews WHERE hotel_id = $1
+    DB->>DB: Execute query with index
+    DB->>-Service: Review records
+    
+    %% Data Processing
+    Service->>Service: Apply business rules
+    Service->>Service: Format response data
+    
+    %% Cache Update
+    Service->>Cache: Set("reviews:hotel:123:page:1", data, TTL=1h)
+    
+    %% Event Publishing
+    Service->>Events: PublishReviewsQueried(hotelID, count)
+    
+    %% Metrics Collection
+    Service->>Metrics: RecordAPICall(endpoint, duration, status)
+    
+    Service->>-API: ReviewsResponse
+    
+    %% Response Flow
+    API->>API: Set response headers
+    API->>API: Format JSON response
+    API->>-LB: 200 OK with review data
+    
+    LB->>-Client: HTTP Response
+    
+    %% Error Handling Flow
+    Note over Client,Metrics: Error Handling (Alternative Flow)
+    
+    alt Authentication Error
+        Auth->>API: Unauthorized error
+        API->>Metrics: RecordError(401, "auth_failed")
+        API->>Client: 401 Unauthorized
+    else Rate Limit Exceeded
+        RateLimit->>API: Rate limit exceeded
+        API->>Metrics: RecordError(429, "rate_limit")
+        API->>Client: 429 Too Many Requests
+    else Database Error
+        DB->>Service: Database connection error
+        Service->>Metrics: RecordError(500, "db_error")
+        Service->>API: Internal server error
+        API->>Client: 500 Internal Server Error
+    end
+    
+    %% Caching Flow (Alternative)
+    Note over Service,Cache: Cache Hit (Alternative Flow)
+    
+    alt Cache Hit
+        Service->>Cache: Get("reviews:hotel:123:page:1")
+        Cache->>Service: Cached data
+        Service->>API: ReviewsResponse (from cache)
+        Note over Service,Cache: Database query skipped
+    end
+    
+    %% Monitoring and Logging
+    Note over API,Metrics: Cross-cutting Concerns
+    
+    API->>Metrics: LogRequest(method, path, userID, duration)
+    API->>Metrics: RecordLatency(endpoint, responseTime)
+    Service->>Metrics: RecordCacheHitRate(endpoint, hitRate)
+    
+    %% Background Operations
+    Note over Cache,Events: Background Processing
+    
+    loop Every 5 minutes
+        Cache->>Cache: EvictExpiredKeys()
+        Events->>Events: ProcessEventQueue()
+        Metrics->>Metrics: AggregateMetrics()
+    end
+    
+    %% Health Check Flow
+    rect rgb(245, 255, 245)
+        Note over Client,Metrics: Health Check Flow
+        Client->>API: GET /health
+        API->>DB: SELECT 1
+        API->>Cache: PING
+        API->>Client: 200 OK {"status": "healthy"}
+    end
+    
+    %% Complex Query Flow
+    rect rgb(255, 245, 245)
+        Note over Client,Metrics: Complex Search Query
+        Client->>API: POST /api/v1/reviews/search
+        Note over Client,API: {query, filters, pagination}
+        
+        API->>Service: SearchReviews(query, filters)
+        Service->>DB: Full-text search with filters
+        Service->>Service: Apply ranking algorithm
+        Service->>Service: Aggregate results
+        Service->>API: SearchResults
+        API->>Client: Paginated search results
+    end
+    
+    %% Performance Optimization
+    Note over Service,DB: Performance Considerations
+    
+    Service->>DB: Use connection pooling
+    Service->>Cache: Implement cache warming
+    Service->>Service: Batch database operations
+    Service->>Events: Async event processing
+    
+    %% Summary
+    rect rgb(248, 248, 255)
+        Note over Client,Metrics: Request Summary
+        Note over Client,Metrics: - Authentication validated
+        Note over Client,Metrics: - Rate limiting enforced
+        Note over Client,Metrics: - Cache checked (miss/hit)
+        Note over Client,Metrics: - Database query executed
+        Note over Client,Metrics: - Business logic applied
+        Note over Client,Metrics: - Response formatted
+        Note over Client,Metrics: - Events published
+        Note over Client,Metrics: - Metrics recorded
+    end

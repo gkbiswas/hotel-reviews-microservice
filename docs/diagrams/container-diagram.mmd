@@ -1,0 +1,117 @@
+graph TB
+    %% Container Diagram
+    %% Shows the internal structure of the hotel reviews microservice
+    
+    subgraph "Load Balancer"
+        LB[Nginx/HAProxy<br/>Load Balancer<br/>SSL Termination]
+    end
+    
+    subgraph "Hotel Reviews Microservice"
+        subgraph "API Layer"
+            API1[API Instance 1<br/>Port 8080<br/>HTTP Server]
+            API2[API Instance 2<br/>Port 8081<br/>HTTP Server]
+            API3[API Instance 3<br/>Port 8082<br/>HTTP Server]
+        end
+        
+        subgraph "Processing Layer"
+            Worker1[Processing Worker 1<br/>Async File Processing<br/>Goroutine Pool]
+            Worker2[Processing Worker 2<br/>Async File Processing<br/>Goroutine Pool]
+            Worker3[Processing Worker 3<br/>Async File Processing<br/>Goroutine Pool]
+        end
+        
+        subgraph "Background Services"
+            Scheduler[Job Scheduler<br/>Cron Jobs<br/>Maintenance Tasks]
+            Monitor[Health Monitor<br/>System Metrics<br/>Alerting]
+        end
+    end
+    
+    subgraph "Data Layer"
+        subgraph "Primary Storage"
+            DB[(PostgreSQL<br/>Primary Database<br/>ACID Transactions)]
+            DBReplica[(PostgreSQL<br/>Read Replica<br/>Query Optimization)]
+        end
+        
+        subgraph "Cache Layer"
+            Redis[(Redis Cluster<br/>Session Store<br/>Query Cache)]
+            RedisReplica[(Redis Replica<br/>Failover<br/>Read Scaling)]
+        end
+        
+        subgraph "File Storage"
+            S3[AWS S3<br/>Object Storage<br/>Review Files]
+            S3Backup[AWS S3<br/>Backup Bucket<br/>Disaster Recovery]
+        end
+    end
+    
+    subgraph "External Services"
+        Prometheus[Prometheus<br/>Metrics Collection<br/>Time Series DB]
+        Grafana[Grafana<br/>Visualization<br/>Dashboards]
+        Jaeger[Jaeger<br/>Distributed Tracing<br/>Performance Monitoring]
+        Notifications[Notification Service<br/>Email/Slack<br/>Alert Processing]
+    end
+    
+    %% Load Balancer to API
+    LB -->|HTTP/HTTPS<br/>Round Robin| API1
+    LB -->|HTTP/HTTPS<br/>Round Robin| API2
+    LB -->|HTTP/HTTPS<br/>Round Robin| API3
+    
+    %% API to Processing
+    API1 -.->|Async Jobs<br/>Processing Queue| Worker1
+    API2 -.->|Async Jobs<br/>Processing Queue| Worker2
+    API3 -.->|Async Jobs<br/>Processing Queue| Worker3
+    
+    %% API to Data Layer
+    API1 -->|SQL Queries<br/>GORM ORM| DB
+    API2 -->|SQL Queries<br/>GORM ORM| DB
+    API3 -->|SQL Queries<br/>GORM ORM| DB
+    
+    API1 -->|Cache Operations<br/>Redis Protocol| Redis
+    API2 -->|Cache Operations<br/>Redis Protocol| Redis
+    API3 -->|Cache Operations<br/>Redis Protocol| Redis
+    
+    %% Processing to Data Layer
+    Worker1 -->|Batch Insert<br/>Review Data| DB
+    Worker2 -->|Batch Insert<br/>Review Data| DB
+    Worker3 -->|Batch Insert<br/>Review Data| DB
+    
+    Worker1 -->|Download Files<br/>AWS SDK| S3
+    Worker2 -->|Download Files<br/>AWS SDK| S3
+    Worker3 -->|Download Files<br/>AWS SDK| S3
+    
+    %% Background Services
+    Scheduler -->|Maintenance<br/>Cleanup Jobs| DB
+    Monitor -->|Health Metrics<br/>System Stats| Prometheus
+    
+    %% Data Replication
+    DB -.->|Streaming<br/>Replication| DBReplica
+    Redis -.->|Async<br/>Replication| RedisReplica
+    S3 -.->|Cross-Region<br/>Replication| S3Backup
+    
+    %% Monitoring
+    API1 -->|Metrics<br/>Traces| Prometheus
+    API2 -->|Metrics<br/>Traces| Prometheus
+    API3 -->|Metrics<br/>Traces| Prometheus
+    
+    Worker1 -->|Processing<br/>Metrics| Prometheus
+    Worker2 -->|Processing<br/>Metrics| Prometheus
+    Worker3 -->|Processing<br/>Metrics| Prometheus
+    
+    Prometheus -->|Query API<br/>Metrics Data| Grafana
+    
+    API1 -->|Distributed<br/>Traces| Jaeger
+    API2 -->|Distributed<br/>Traces| Jaeger
+    API3 -->|Distributed<br/>Traces| Jaeger
+    
+    Monitor -->|Alert<br/>Notifications| Notifications
+    
+    %% Styling
+    classDef apiClass fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef processingClass fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef dataClass fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef monitoringClass fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef lbClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    class API1,API2,API3 apiClass
+    class Worker1,Worker2,Worker3,Scheduler,Monitor processingClass
+    class DB,DBReplica,Redis,RedisReplica,S3,S3Backup dataClass
+    class Prometheus,Grafana,Jaeger,Notifications monitoringClass
+    class LB lbClass
