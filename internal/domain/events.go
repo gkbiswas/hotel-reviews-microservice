@@ -24,30 +24,30 @@ type EventType string
 
 const (
 	// File Processing Events
-	FileProcessingStartedEvent   EventType = "FileProcessingStarted"
-	FileProcessingProgressEvent  EventType = "FileProcessingProgress"
-	FileProcessingCompletedEvent EventType = "FileProcessingCompleted"
-	FileProcessingFailedEvent    EventType = "FileProcessingFailed"
-	FileProcessingCancelledEvent EventType = "FileProcessingCancelled"
-	FileProcessingRetryEvent     EventType = "FileProcessingRetry"
+	FileProcessingStartedEventType   EventType = "FileProcessingStarted"
+	FileProcessingProgressEventType  EventType = "FileProcessingProgress"
+	FileProcessingCompletedEventType EventType = "FileProcessingCompleted"
+	FileProcessingFailedEventType    EventType = "FileProcessingFailed"
+	FileProcessingCancelledEventType EventType = "FileProcessingCancelled"
+	FileProcessingRetryEventType     EventType = "FileProcessingRetry"
 
 	// Review Processing Events
-	ReviewProcessedEvent        EventType = "ReviewProcessed"
-	ReviewValidatedEvent        EventType = "ReviewValidated"
-	ReviewEnrichedEvent         EventType = "ReviewEnriched"
-	ReviewBatchProcessedEvent   EventType = "ReviewBatchProcessed"
-	ReviewProcessingFailedEvent EventType = "ReviewProcessingFailed"
-	ReviewDuplicateDetectedEvent EventType = "ReviewDuplicateDetected"
+	ReviewProcessedEventType        EventType = "ReviewProcessed"
+	ReviewValidatedEventType        EventType = "ReviewValidated"
+	ReviewEnrichedEventType         EventType = "ReviewEnriched"
+	ReviewBatchProcessedEventType   EventType = "ReviewBatchProcessed"
+	ReviewProcessingFailedEventType EventType = "ReviewProcessingFailed"
+	ReviewDuplicateDetectedEventType EventType = "ReviewDuplicateDetected"
 
 	// Hotel Events
-	HotelCreatedEvent         EventType = "HotelCreated"
-	HotelUpdatedEvent         EventType = "HotelUpdated"
-	HotelSummaryUpdatedEvent  EventType = "HotelSummaryUpdated"
-	HotelAnalyticsUpdatedEvent EventType = "HotelAnalyticsUpdated"
+	HotelCreatedEventType         EventType = "HotelCreated"
+	HotelUpdatedEventType         EventType = "HotelUpdated"
+	HotelSummaryUpdatedEventType  EventType = "HotelSummaryUpdated"
+	HotelAnalyticsUpdatedEventType EventType = "HotelAnalyticsUpdated"
 
 	// Provider Events
-	ProviderActivatedEvent   EventType = "ProviderActivated"
-	ProviderDeactivatedEvent EventType = "ProviderDeactivated"
+	ProviderActivatedEventType   EventType = "ProviderActivated"
+	ProviderDeactivatedEventType EventType = "ProviderDeactivated"
 	ProviderErrorEvent       EventType = "ProviderError"
 	ProviderSyncedEvent      EventType = "ProviderSynced"
 
@@ -263,7 +263,7 @@ func NewFileProcessingStartedEvent(
 	return &FileProcessingStartedEvent{
 		BaseEvent: BaseEvent{
 			ID:             uuid.New(),
-			Type:           FileProcessingStartedEvent,
+			Type:           FileProcessingStartedEventType,
 			Version:        EventVersionV1,
 			AggregateID:    aggregateID,
 			AggregateType:  "FileProcessingJob",
@@ -346,7 +346,7 @@ func NewFileProcessingProgressEvent(
 	return &FileProcessingProgressEvent{
 		BaseEvent: BaseEvent{
 			ID:             uuid.New(),
-			Type:           FileProcessingProgressEvent,
+			Type:           FileProcessingProgressEventType,
 			Version:        EventVersionV1,
 			AggregateID:    aggregateID,
 			AggregateType:  "FileProcessingJob",
@@ -408,7 +408,7 @@ func NewFileProcessingCompletedEvent(
 	return &FileProcessingCompletedEvent{
 		BaseEvent: BaseEvent{
 			ID:             uuid.New(),
-			Type:           FileProcessingCompletedEvent,
+			Type:           FileProcessingCompletedEventType,
 			Version:        EventVersionV1,
 			AggregateID:    aggregateID,
 			AggregateType:  "FileProcessingJob",
@@ -476,7 +476,7 @@ func NewFileProcessingFailedEvent(
 	return &FileProcessingFailedEvent{
 		BaseEvent: BaseEvent{
 			ID:             uuid.New(),
-			Type:           FileProcessingFailedEvent,
+			Type:           FileProcessingFailedEventType,
 			Version:        EventVersionV1,
 			AggregateID:    aggregateID,
 			AggregateType:  "FileProcessingJob",
@@ -551,7 +551,7 @@ func NewReviewProcessedEvent(
 	return &ReviewProcessedEvent{
 		BaseEvent: BaseEvent{
 			ID:             uuid.New(),
-			Type:           ReviewProcessedEvent,
+			Type:           ReviewProcessedEventType,
 			Version:        EventVersionV1,
 			AggregateID:    aggregateID,
 			AggregateType:  "Review",
@@ -621,7 +621,7 @@ func NewReviewBatchProcessedEvent(
 	return &ReviewBatchProcessedEvent{
 		BaseEvent: BaseEvent{
 			ID:             uuid.New(),
-			Type:           ReviewBatchProcessedEvent,
+			Type:           ReviewBatchProcessedEventType,
 			Version:        EventVersionV1,
 			AggregateID:    aggregateID,
 			AggregateType:  "ReviewBatch",
@@ -691,20 +691,6 @@ type Snapshot struct {
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// EventPublisher represents the interface for publishing events
-type EventPublisher interface {
-	// PublishEvent publishes a single event
-	PublishEvent(ctx context.Context, event DomainEvent) error
-	
-	// PublishEvents publishes multiple events
-	PublishEvents(ctx context.Context, events []DomainEvent) error
-	
-	// PublishEventAsync publishes an event asynchronously
-	PublishEventAsync(ctx context.Context, event DomainEvent) error
-	
-	// Close closes the publisher
-	Close() error
-}
 
 // EventHandler represents the interface for handling events
 type EventHandler interface {

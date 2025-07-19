@@ -560,64 +560,6 @@ func (cac *ConsoleAlertChannel) createConsoleOutput(alert *Alert) string {
 	var output strings.Builder
 	
 	// Add header
-	output.WriteString("=" * 80 + "\n")
-	output.WriteString(fmt.Sprintf("ALERT: %s\n", alert.Title))
-	output.WriteString("=" * 80 + "\n")
-	
-	// Add details
-	output.WriteString(fmt.Sprintf("Level: %s\n", alert.Level))
-	output.WriteString(fmt.Sprintf("Type: %s\n", alert.Type))
-	output.WriteString(fmt.Sprintf("Time: %s\n", alert.Timestamp.Format(time.RFC3339)))
-	output.WriteString(fmt.Sprintf("Message: %s\n", alert.Message))
-	
-	if len(alert.Details) > 0 {
-		output.WriteString("\nDetails:\n")
-		for key, value := range alert.Details {
-			output.WriteString(fmt.Sprintf("  %s: %v\n", key, value))
-		}
-	}
-	
-	if len(alert.Actions) > 0 {
-		output.WriteString("\nSuggested Actions:\n")
-		for _, action := range alert.Actions {
-			output.WriteString(fmt.Sprintf("  - %s\n", action))
-		}
-	}
-	
-	if alert.Runbook != "" {
-		output.WriteString(fmt.Sprintf("\nRunbook: %s\n", alert.Runbook))
-	}
-	
-	output.WriteString("=" * 80 + "\n\n")
-	
-	return output.String()
-}
-
-// Name returns the channel name
-func (cac *ConsoleAlertChannel) Name() string {
-	return "console"
-}
-
-// IsEnabled returns true if the channel is enabled
-func (cac *ConsoleAlertChannel) IsEnabled() bool {
-	return cac.enabled
-}
-
-// SetEnabled sets the channel enabled state
-func (cac *ConsoleAlertChannel) SetEnabled(enabled bool) {
-	cac.enabled = enabled
-}
-
-// Helper function to repeat string
-func repeat(s string, count int) string {
-	return strings.Repeat(s, count)
-}
-
-// Fix the repeat function call
-func (cac *ConsoleAlertChannel) createConsoleOutputFixed(alert *Alert) string {
-	var output strings.Builder
-	
-	// Add header
 	output.WriteString(repeat("=", 80) + "\n")
 	output.WriteString(fmt.Sprintf("ALERT: %s\n", alert.Title))
 	output.WriteString(repeat("=", 80) + "\n")
@@ -651,17 +593,24 @@ func (cac *ConsoleAlertChannel) createConsoleOutputFixed(alert *Alert) string {
 	return output.String()
 }
 
-// Update the method to use the fixed version
-func (cac *ConsoleAlertChannel) Send(ctx context.Context, alert *Alert) error {
-	if !cac.enabled {
-		return nil
-	}
-	
-	// Create console output
-	output := cac.createConsoleOutputFixed(alert)
-	
-	// Print to console
-	fmt.Print(output)
-	
-	return nil
+// Name returns the channel name
+func (cac *ConsoleAlertChannel) Name() string {
+	return "console"
 }
+
+// IsEnabled returns true if the channel is enabled
+func (cac *ConsoleAlertChannel) IsEnabled() bool {
+	return cac.enabled
+}
+
+// SetEnabled sets the channel enabled state
+func (cac *ConsoleAlertChannel) SetEnabled(enabled bool) {
+	cac.enabled = enabled
+}
+
+// Helper function to repeat string
+func repeat(s string, count int) string {
+	return strings.Repeat(s, count)
+}
+
+

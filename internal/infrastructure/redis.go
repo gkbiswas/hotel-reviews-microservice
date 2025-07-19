@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -44,12 +42,16 @@ type RedisConfig struct {
 type CacheConfig struct {
 	ReviewTTL          time.Duration `mapstructure:"review_ttl" json:"review_ttl"`
 	HotelTTL           time.Duration `mapstructure:"hotel_ttl" json:"hotel_ttl"`
+	ProviderTTL        time.Duration `mapstructure:"provider_ttl" json:"provider_ttl"`
+	StatisticsTTL      time.Duration `mapstructure:"statistics_ttl" json:"statistics_ttl"`
+	SearchTTL          time.Duration `mapstructure:"search_ttl" json:"search_ttl"`
 	ProcessingTTL      time.Duration `mapstructure:"processing_ttl" json:"processing_ttl"`
 	AnalyticsTTL       time.Duration `mapstructure:"analytics_ttl" json:"analytics_ttl"`
 	DefaultTTL         time.Duration `mapstructure:"default_ttl" json:"default_ttl"`
 	MaxKeyLength       int           `mapstructure:"max_key_length" json:"max_key_length"`
 	EnableCompression  bool          `mapstructure:"enable_compression" json:"enable_compression"`
 	CompressionLevel   int           `mapstructure:"compression_level" json:"compression_level"`
+	PrefixSeparator    string        `mapstructure:"prefix_separator" json:"prefix_separator"`
 	InvalidationBatch  int           `mapstructure:"invalidation_batch" json:"invalidation_batch"`
 	WarmupConcurrency  int           `mapstructure:"warmup_concurrency" json:"warmup_concurrency"`
 }
@@ -519,7 +521,7 @@ func (c *ReviewCache) GetReview(ctx context.Context, reviewID uuid.UUID) (*domai
 	}
 
 	// Get from database
-	review, err := c.reviewService.GetByID(ctx, reviewID)
+	review, err := c.reviewService.GetReviewByID(ctx, reviewID)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +557,7 @@ func (c *ReviewCache) GetReviewsByHotel(ctx context.Context, hotelID uuid.UUID, 
 	}
 
 	// Get from database
-	reviews, err := c.reviewService.GetByHotelID(ctx, hotelID, limit, offset)
+	reviews, err := c.reviewService.GetReviewsByHotel(ctx, hotelID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -567,7 +569,13 @@ func (c *ReviewCache) GetReviewsByHotel(ctx context.Context, hotelID uuid.UUID, 
 		}
 	}
 
-	return reviews, nil
+	// Convert []domain.Review to []*domain.Review
+	reviewPtrs := make([]*domain.Review, len(reviews))
+	for i := range reviews {
+		reviewPtrs[i] = &reviews[i]
+	}
+	
+	return reviewPtrs, nil
 }
 
 // InvalidateReview removes a review from cache

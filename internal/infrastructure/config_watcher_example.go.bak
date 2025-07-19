@@ -1,0 +1,514 @@
+package infrastructure
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/monitoring"
+)
+
+// Example application configuration
+type AppConfig struct {
+	Server   ServerConfig   `json:"server" validate:"required"`
+	Database DatabaseConfig `json:"database" validate:"required"`
+	Redis    RedisConfig    `json:"redis" validate:"required"`
+	Auth     AuthConfig     `json:"auth" validate:"required"`
+	Logging  LoggingConfig  `json:"logging" validate:"required"`
+}
+
+type ServerConfig struct {
+	Host         string        `json:"host" validate:"required"`
+	Port         int           `json:"port" validate:"min=1,max=65535"`
+	ReadTimeout  time.Duration `json:"read_timeout" validate:"min=1s"`
+	WriteTimeout time.Duration `json:"write_timeout" validate:"min=1s"`
+	IdleTimeout  time.Duration `json:"idle_timeout" validate:"min=1s"`
+}
+
+type AuthConfig struct {
+	JWTSecret    string        `json:"jwt_secret" validate:"required,min=32"`
+	TokenExpiry  time.Duration `json:"token_expiry" validate:"min=1m"`
+	RefreshExpiry time.Duration `json:"refresh_expiry" validate:"min=1h"`
+}
+
+type LoggingConfig struct {
+	Level      string `json:"level" validate:"required,oneof=debug info warn error"`
+	Format     string `json:"format" validate:"oneof=json text"`
+	Output     string `json:"output" validate:"oneof=stdout stderr file"`
+	Filename   string `json:"filename"`
+	MaxSize    int    `json:"max_size" validate:"min=1"`
+	MaxBackups int    `json:"max_backups" validate:"min=0"`
+}
+
+// Example service that uses configuration hot-reloading
+type ConfigurableService struct {
+	watcher    *ConfigWatcher
+	config     *AppConfig
+	logger     monitoring.Logger
+	ctx        context.Context
+	cancel     context.CancelFunc
+	
+	// Service components that need reconfiguration
+	server     *HTTPServer
+	dbPool     *DatabasePool
+	redisClient *ExampleRedisClient
+	authService *AuthService
+}
+
+// HTTPServer represents a configurable HTTP server
+type HTTPServer struct {
+	config ServerConfig
+	logger monitoring.Logger
+}
+
+// DatabasePool represents a configurable database connection pool
+type DatabasePool struct {
+	config DatabaseConfig
+	logger monitoring.Logger
+}
+
+// ExampleRedisClient represents a configurable Redis client
+type ExampleRedisClient struct {
+	config RedisConfig
+	logger monitoring.Logger
+}
+
+// AuthService represents a configurable authentication service
+type AuthService struct {
+	config AuthConfig
+	logger monitoring.Logger
+}
+
+// NewConfigurableService creates a new service with configuration hot-reloading
+func NewConfigurableService(logger monitoring.Logger) (*ConfigurableService, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	// Create configuration watcher with custom options
+	options := &ConfigWatcherOptions{
+		WatchIntervalSec:    2,
+		FileChecksum:        true,
+		EnvCheckIntervalSec: 30,
+		EnvVarPrefix:        "APP_",
+		ValidateOnLoad:      true,
+		EnableRollback:      true,
+		MaxHistorySize:      20,
+		MaxRetries:          3,
+		RetryDelaySec:       5,
+		FailOnValidation:    false,
+		BatchUpdates:        true,
+		BatchIntervalMs:     1000,
+		EnableDebugLogging:  true,
+		LogConfigChanges:    true,
+	}
+	
+	watcher, err := NewConfigWatcher(logger, options)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create config watcher: %w", err)
+	}
+	
+	service := &ConfigurableService{
+		watcher: watcher,
+		logger:  logger,
+		ctx:     ctx,
+		cancel:  cancel,
+	}
+	
+	// Setup configuration monitoring
+	if err := service.setupConfigurationWatching(); err != nil {
+		cancel()
+		watcher.Stop()
+		return nil, fmt.Errorf("failed to setup configuration watching: %w", err)
+	}
+	
+	return service, nil
+}
+
+// setupConfigurationWatching configures all the configuration monitoring
+func (s *ConfigurableService) setupConfigurationWatching() error {
+	// Register change callbacks for different configuration sections
+	s.watcher.RegisterChangeCallback("app_config", s.handleAppConfigChange)
+	s.watcher.RegisterChangeCallback("env:APP_LOG_LEVEL", s.handleLogLevelChange)
+	s.watcher.RegisterChangeCallback("env:APP_JWT_SECRET", s.handleJWTSecretChange)
+	
+	// Register custom validators
+	s.watcher.RegisterValidator("app_config", s.validateAppConfig)
+	
+	// Watch main configuration file
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "./config/app.json"
+	}
+	
+	if _, err := os.Stat(configPath); err == nil {
+		if err := s.watcher.WatchFile("app_config", configPath); err != nil {
+			return fmt.Errorf("failed to watch config file: %w", err)
+		}
+		s.logger.Info("Watching configuration file", "path", configPath)
+	} else {
+		s.logger.Warn("Configuration file not found, using defaults", "path", configPath)
+		
+		// Register default configuration
+		defaultConfig := s.getDefaultConfig()
+		if err := s.watcher.RegisterConfig("app_config", defaultConfig); err != nil {
+			return fmt.Errorf("failed to register default config: %w", err)
+		}
+	}
+	
+	// Watch environment variables
+	envVars := []string{
+		"APP_LOG_LEVEL",
+		"APP_JWT_SECRET",
+		"APP_DB_HOST",
+		"APP_DB_PORT",
+		"APP_REDIS_HOST",
+		"APP_REDIS_PORT",
+		"APP_SERVER_PORT",
+	}
+	
+	for _, envVar := range envVars {
+		if err := s.watcher.WatchEnvVar("env_config", envVar); err != nil {
+			s.logger.Warn("Failed to watch environment variable", "var", envVar, "error", err)
+		}
+	}
+	
+	return nil
+}
+
+// handleAppConfigChange handles changes to the main application configuration
+func (s *ConfigurableService) handleAppConfigChange(configName string, oldConfig, newConfig interface{}) error {
+	s.logger.Info("Application configuration changed", "config", configName)
+	
+	// Convert to AppConfig
+	var appConfig AppConfig
+	if configMap, ok := newConfig.(map[string]interface{}); ok {
+		if err := mapToStruct(configMap, &appConfig); err != nil {
+			return fmt.Errorf("failed to convert config: %w", err)
+		}
+	} else {
+		return fmt.Errorf("invalid config format")
+	}
+	
+	// Update service configuration
+	s.config = &appConfig
+	
+	// Reconfigure components
+	if err := s.reconfigureComponents(); err != nil {
+		return fmt.Errorf("failed to reconfigure components: %w", err)
+	}
+	
+	s.logger.Info("Application successfully reconfigured")
+	return nil
+}
+
+// handleLogLevelChange handles log level changes from environment variables
+func (s *ConfigurableService) handleLogLevelChange(configName string, oldConfig, newConfig interface{}) error {
+	newLevel := newConfig.(string)
+	s.logger.Info("Log level changed", "old", oldConfig, "new", newLevel)
+	
+	// Update logging configuration in current config
+	if s.config != nil {
+		s.config.Logging.Level = newLevel
+		
+		// Reconfigure logger (implementation depends on your logging library)
+		if err := s.reconfigureLogger(newLevel); err != nil {
+			return fmt.Errorf("failed to reconfigure logger: %w", err)
+		}
+	}
+	
+	return nil
+}
+
+// handleJWTSecretChange handles JWT secret changes from environment variables
+func (s *ConfigurableService) handleJWTSecretChange(configName string, oldConfig, newConfig interface{}) error {
+	newSecret := newConfig.(string)
+	
+	// Validate secret length
+	if len(newSecret) < 32 {
+		return fmt.Errorf("JWT secret must be at least 32 characters long")
+	}
+	
+	s.logger.Info("JWT secret changed (length)", "length", len(newSecret))
+	
+	// Update auth configuration
+	if s.config != nil {
+		s.config.Auth.JWTSecret = newSecret
+		
+		// Reconfigure auth service
+		if err := s.reconfigureAuthService(); err != nil {
+			return fmt.Errorf("failed to reconfigure auth service: %w", err)
+		}
+	}
+	
+	return nil
+}
+
+// validateAppConfig provides custom validation for application configuration
+func (s *ConfigurableService) validateAppConfig(config interface{}) error {
+	configMap, ok := config.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid config format")
+	}
+	
+	// Custom business logic validation
+	if server, exists := configMap["server"].(map[string]interface{}); exists {
+		if port, exists := server["port"].(float64); exists {
+			if port < 1024 && os.Getuid() != 0 {
+				return fmt.Errorf("non-root user cannot bind to port %d", int(port))
+			}
+		}
+	}
+	
+	// Validate database connection
+	if db, exists := configMap["database"].(map[string]interface{}); exists {
+		if host, exists := db["host"].(string); exists && host == "" {
+			return fmt.Errorf("database host cannot be empty")
+		}
+	}
+	
+	return nil
+}
+
+// reconfigureComponents reconfigures all service components with new configuration
+func (s *ConfigurableService) reconfigureComponents() error {
+	if s.config == nil {
+		return fmt.Errorf("no configuration available")
+	}
+	
+	// Reconfigure HTTP server
+	if s.server != nil {
+		if err := s.server.Reconfigure(s.config.Server); err != nil {
+			return fmt.Errorf("failed to reconfigure HTTP server: %w", err)
+		}
+	}
+	
+	// Reconfigure database pool
+	if s.dbPool != nil {
+		if err := s.dbPool.Reconfigure(s.config.Database); err != nil {
+			return fmt.Errorf("failed to reconfigure database pool: %w", err)
+		}
+	}
+	
+	// Reconfigure Redis client
+	if s.redisClient != nil {
+		if err := s.redisClient.Reconfigure(s.config.Redis); err != nil {
+			return fmt.Errorf("failed to reconfigure Redis client: %w", err)
+		}
+	}
+	
+	// Reconfigure auth service
+	if s.authService != nil {
+		if err := s.authService.Reconfigure(s.config.Auth); err != nil {
+			return fmt.Errorf("failed to reconfigure auth service: %w", err)
+		}
+	}
+	
+	return nil
+}
+
+// reconfigureLogger reconfigures the logging system
+func (s *ConfigurableService) reconfigureLogger(level string) error {
+	s.logger.Info("Reconfiguring logger", "level", level)
+	// Implementation depends on your logging library
+	// This is a placeholder for the actual reconfiguration logic
+	return nil
+}
+
+// reconfigureAuthService reconfigures the authentication service
+func (s *ConfigurableService) reconfigureAuthService() error {
+	if s.authService != nil && s.config != nil {
+		return s.authService.Reconfigure(s.config.Auth)
+	}
+	return nil
+}
+
+// GetCurrentConfig returns the current configuration
+func (s *ConfigurableService) GetCurrentConfig() *AppConfig {
+	return s.config
+}
+
+// GetConfigHistory returns the configuration change history
+func (s *ConfigurableService) GetConfigHistory() []ConfigSnapshot {
+	return s.watcher.GetConfigHistory("app_config")
+}
+
+// RollbackToConfig rolls back to a previous configuration
+func (s *ConfigurableService) RollbackToConfig(targetHash string) error {
+	s.logger.Info("Rolling back configuration", "target_hash", targetHash)
+	
+	if err := s.watcher.RollbackConfig("app_config", targetHash); err != nil {
+		return fmt.Errorf("rollback failed: %w", err)
+	}
+	
+	s.logger.Info("Configuration rollback completed", "target_hash", targetHash)
+	return nil
+}
+
+// GetMetrics returns configuration watcher metrics
+func (s *ConfigurableService) GetMetrics() map[string]interface{} {
+	return s.watcher.GetMetrics()
+}
+
+// Stop gracefully stops the service
+func (s *ConfigurableService) Stop() error {
+	s.logger.Info("Stopping configurable service")
+	
+	s.cancel()
+	
+	if s.watcher != nil {
+		return s.watcher.Stop()
+	}
+	
+	return nil
+}
+
+// getDefaultConfig returns the default application configuration
+func (s *ConfigurableService) getDefaultConfig() AppConfig {
+	return AppConfig{
+		Server: ServerConfig{
+			Host:         "localhost",
+			Port:         8080,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		},
+		Database: DatabaseConfig{
+			Host:     "localhost",
+			Port:     5432,
+			Database: "hotel_reviews",
+			Username: "postgres",
+			Password: "",
+			SSLMode:  "disable",
+			MaxConns: 25,
+			MinConns: 5,
+			ConnTTL:  time.Hour,
+		},
+		Redis: RedisConfig{
+			Host:               "localhost",
+			Port:               6379,
+			Password:           "",
+			Database:           0,
+			MaxRetries:         3,
+			MinRetryBackoff:    8 * time.Millisecond,
+			MaxRetryBackoff:    512 * time.Millisecond,
+			DialTimeout:        5 * time.Second,
+			ReadTimeout:        3 * time.Second,
+			WriteTimeout:       3 * time.Second,
+			PoolSize:           10,
+			MinIdleConns:       5,
+			MaxConnAge:         time.Hour,
+			PoolTimeout:        4 * time.Second,
+			IdleTimeout:        5 * time.Minute,
+			IdleCheckFrequency: time.Minute,
+		},
+		Auth: AuthConfig{
+			JWTSecret:     "your-super-secret-jwt-key-min-32-chars",
+			TokenExpiry:   time.Hour,
+			RefreshExpiry: 24 * time.Hour,
+		},
+		Logging: LoggingConfig{
+			Level:      "info",
+			Format:     "json",
+			Output:     "stdout",
+			MaxSize:    100,
+			MaxBackups: 3,
+		},
+	}
+}
+
+// Component reconfiguration methods (placeholders)
+
+func (h *HTTPServer) Reconfigure(config ServerConfig) error {
+	h.config = config
+	h.logger.Info("HTTP server reconfigured", 
+		"host", config.Host, 
+		"port", config.Port)
+	// Actual implementation would reconfigure the HTTP server
+	return nil
+}
+
+func (d *DatabasePool) Reconfigure(config DatabaseConfig) error {
+	d.config = config
+	d.logger.Info("Database pool reconfigured", 
+		"host", config.Host, 
+		"port", config.Port,
+		"max_conns", config.MaxConns)
+	// Actual implementation would reconfigure the database connection pool
+	return nil
+}
+
+func (r *ExampleRedisClient) Reconfigure(config RedisConfig) error {
+	r.config = config
+	r.logger.Info("Redis client reconfigured", 
+		"host", config.Host, 
+		"port", config.Port,
+		"pool_size", config.PoolSize)
+	// Actual implementation would reconfigure the Redis client
+	return nil
+}
+
+func (a *AuthService) Reconfigure(config AuthConfig) error {
+	a.config = config
+	a.logger.Info("Auth service reconfigured", 
+		"token_expiry", config.TokenExpiry,
+		"refresh_expiry", config.RefreshExpiry)
+	// Actual implementation would reconfigure the authentication service
+	return nil
+}
+
+// Helper function to convert map to struct (simplified implementation)
+func mapToStruct(m map[string]interface{}, v interface{}) error {
+	// This is a simplified implementation
+	// In practice, you would use a library like mapstructure
+	log.Printf("Converting map to struct: %+v", m)
+	return nil
+}
+
+// Example usage function
+func ExampleUsage() {
+	// Create a logger (implementation depends on your logging library)
+	logger := createExampleLogger()
+	
+	// Create the configurable service
+	service, err := NewConfigurableService(logger)
+	if err != nil {
+		log.Fatalf("Failed to create service: %v", err)
+	}
+	defer service.Stop()
+	
+	// The service is now monitoring configuration changes
+	logger.Info("Service started with configuration hot-reloading")
+	
+	// Get current configuration
+	config := service.GetCurrentConfig()
+	if config != nil {
+		logger.Info("Current configuration loaded", 
+			"server_port", config.Server.Port,
+			"log_level", config.Logging.Level)
+	}
+	
+	// Get configuration metrics
+	metrics := service.GetMetrics()
+	logger.Info("Configuration metrics", "metrics", metrics)
+	
+	// Example: rollback to a previous configuration
+	history := service.GetConfigHistory()
+	if len(history) > 1 {
+		// Rollback to the previous configuration
+		targetHash := history[len(history)-2].Hash
+		if err := service.RollbackToConfig(targetHash); err != nil {
+			logger.Error("Failed to rollback configuration", "error", err)
+		}
+	}
+	
+	// Keep the service running
+	select {}
+}
+
+func createExampleLogger() monitoring.Logger {
+	// Return a mock logger for the example
+	return monitoring.NewLogger("example", "info")
+}

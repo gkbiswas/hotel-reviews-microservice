@@ -1045,8 +1045,8 @@ func (am *AuthMiddleware) authenticateJWT(r *http.Request) (*domain.User, error)
 	
 	// Use circuit breaker for JWT validation
 	if am.config.CircuitBreakerEnabled {
-		result, err := am.circuitBreaker.Execute(func() (interface{}, error) {
-			return am.authService.ValidateToken(r.Context(), token)
+		result, err := am.circuitBreaker.Execute(r.Context(), func(ctx context.Context) (interface{}, error) {
+			return am.authService.ValidateToken(ctx, token)
 		})
 		if err != nil {
 			return nil, err
@@ -1084,8 +1084,8 @@ func (am *AuthMiddleware) authenticateAPIKey(r *http.Request) (*domain.User, err
 	
 	// Use circuit breaker for API key validation
 	if am.config.CircuitBreakerEnabled {
-		result, err := am.circuitBreaker.Execute(func() (interface{}, error) {
-			return am.authService.ValidateApiKey(r.Context(), apiKey)
+		result, err := am.circuitBreaker.Execute(r.Context(), func(ctx context.Context) (interface{}, error) {
+			return am.authService.ValidateApiKey(ctx, apiKey)
 		})
 		if err != nil {
 			return nil, err

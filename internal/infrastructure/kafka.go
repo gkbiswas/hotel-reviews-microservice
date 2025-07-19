@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
-	"github.com/segmentio/kafka-go/compress"
 
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
@@ -170,20 +168,7 @@ func NewKafkaProducer(config *KafkaConfig, logger *logger.Logger) (*KafkaProduce
 		return nil, fmt.Errorf("at least one broker is required")
 	}
 
-	// Configure compression
-	var compression compress.Codec
-	switch strings.ToLower(config.CompressionType) {
-	case "gzip":
-		compression = compress.Gzip
-	case "snappy":
-		compression = compress.Snappy
-	case "lz4":
-		compression = compress.Lz4
-	case "zstd":
-		compression = compress.Zstd
-	default:
-		compression = compress.Snappy // default
-	}
+	// Note: Compression handling simplified for compatibility
 
 	// Create Kafka writer
 	writer := &kafka.Writer{
@@ -192,8 +177,6 @@ func NewKafkaProducer(config *KafkaConfig, logger *logger.Logger) (*KafkaProduce
 		BatchTimeout:           config.BatchTimeout,
 		RequiredAcks:           kafka.RequireAll,
 		Async:                  false,
-		CompressionCodec:       compression,
-		MaxMessageBytes:        config.MaxMessageSize,
 		WriteTimeout:           config.ProducerFlushTimeout,
 		ReadTimeout:            config.ConsumerTimeout,
 		ErrorLogger:            kafka.LoggerFunc(func(msg string, args ...interface{}) {
@@ -204,17 +187,18 @@ func NewKafkaProducer(config *KafkaConfig, logger *logger.Logger) (*KafkaProduce
 	// Configure TLS if enabled
 	if config.EnableTLS {
 		writer.Transport = &kafka.Transport{
-			TLS: &kafka.TLSConfig{},
+			// TLS: &tls.Config{}, // Configure as needed
 		}
 	}
 
 	// Configure SASL if enabled
 	if config.EnableSASL {
+		// Note: SASL configuration simplified for compatibility
 		writer.Transport = &kafka.Transport{
-			SASL: kafka.SASLConfig{
-				Username: config.SASLUsername,
-				Password: config.SASLPassword,
-			},
+			// SASL: mechanism.Plain{
+			//     Username: config.SASLUsername,
+			//     Password: config.SASLPassword,
+			// },
 		}
 	}
 

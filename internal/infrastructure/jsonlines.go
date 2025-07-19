@@ -439,7 +439,7 @@ func (j *JSONLinesProcessor) parseReview(ctx context.Context, reviewJSON *Review
 		ID:             uuid.New(),
 		ProviderID:     providerID,
 		HotelID:        hotelID,
-		ReviewerInfoID: reviewerID,
+		ReviewerInfoID: &reviewerID,
 		ExternalID:     reviewJSON.ID,
 		Rating:         rating,
 		Title:          reviewJSON.Title,
@@ -550,9 +550,9 @@ func (j *JSONLinesProcessor) parseReviewerInfo(ctx context.Context, reviewJSON *
 	
 	reviewer := &domain.ReviewerInfo{
 		ID:      reviewerID,
-		Name:    reviewJSON.ReviewerName,
-		Email:   reviewJSON.ReviewerEmail,
-		Country: reviewJSON.ReviewerCountry,
+		Name:     reviewJSON.ReviewerName,
+		Email:    reviewJSON.ReviewerEmail,
+		Location: reviewJSON.ReviewerCountry,
 	}
 	
 	return reviewer, nil

@@ -257,9 +257,9 @@ func (r *ProtectedReviewRepository) GetReviewStatistics(ctx context.Context) (*d
 			return err
 		}
 		
-		stats.RatingDistribution = make(map[float64]int64)
+		stats.RatingDistribution = make(map[int]int)
 		for _, rd := range ratingDistribution {
-			stats.RatingDistribution[rd.Rating] = rd.Count
+			stats.RatingDistribution[int(rd.Rating)] = int(rd.Count)
 		}
 		
 		// Get reviews by provider
@@ -275,9 +275,9 @@ func (r *ProtectedReviewRepository) GetReviewStatistics(ctx context.Context) (*d
 			return err
 		}
 		
-		stats.ReviewsByProvider = make(map[uuid.UUID]int64)
+		stats.ReviewsByProvider = make(map[string]int)
 		for _, ps := range providerStats {
-			stats.ReviewsByProvider[ps.ProviderID] = ps.Count
+			stats.ReviewsByProvider[ps.ProviderID.String()] = int(ps.Count)
 		}
 		
 		return nil

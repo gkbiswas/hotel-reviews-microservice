@@ -1,14 +1,12 @@
 package application
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure"
@@ -300,7 +297,8 @@ func createTestLogger() *slog.Logger {
 func createTestCircuitBreaker() *infrastructure.CircuitBreaker {
 	config := infrastructure.DefaultCircuitBreakerConfig()
 	config.Name = "test-auth"
-	logger := logger.New("test", "debug")
+	testLogger := &logger.Config{Level: "debug", Format: "text"}
+	logger, _ := logger.New(testLogger)
 	return infrastructure.NewCircuitBreaker(config, logger)
 }
 
@@ -326,7 +324,7 @@ func createTestAuthMiddleware(authService *MockAuthenticationService) *AuthMiddl
 
 // Test AuthMiddleware Creation
 func TestNewAuthMiddleware(t *testing.T) {
-	mockAuthService := &MockAuthenticationService{}
+	_ = &MockAuthenticationService{}
 	config := DefaultAuthMiddlewareConfig()
 	logger := createTestLogger()
 	circuitBreaker := createTestCircuitBreaker()
@@ -541,15 +539,13 @@ func TestJWTAuthentication(t *testing.T) {
 	// For now, we'll test the JWT extraction logic
 	
 	// Test invalid JWT format
-	req2 := httptest.NewRequest("GET", "/test", nil)
-	req2.Header.Set("Authorization", "Invalid format")
+	_ = httptest.NewRequest("GET", "/test", nil)
 	
 	// Test empty token
-	req3 := httptest.NewRequest("GET", "/test", nil)
-	req3.Header.Set("Authorization", "Bearer ")
+	_ = httptest.NewRequest("GET", "/test", nil)
 	
 	// Test missing authorization header
-	req4 := httptest.NewRequest("GET", "/test", nil)
+	_ = httptest.NewRequest("GET", "/test", nil)
 }
 
 // Test API Key Authentication
@@ -579,14 +575,13 @@ func TestAPIKeyAuthentication(t *testing.T) {
 	req.Header.Set("X-API-Key", "valid-api-key")
 	
 	// Test API key in query parameter
-	req2 := httptest.NewRequest("GET", "/test?api_key=valid-api-key", nil)
+	_ = httptest.NewRequest("GET", "/test?api_key=valid-api-key", nil)
 	
 	// Test invalid API key
-	req3 := httptest.NewRequest("GET", "/test", nil)
-	req3.Header.Set("X-API-Key", "invalid-api-key")
+	_ = httptest.NewRequest("GET", "/test", nil)
 	
 	// Test missing API key
-	req4 := httptest.NewRequest("GET", "/test", nil)
+	_ = httptest.NewRequest("GET", "/test", nil)
 }
 
 // Test Permission Middleware
@@ -664,13 +659,13 @@ func TestRoleMiddleware(t *testing.T) {
 	roleMiddleware2 := middleware.RequireRole("admin")
 	handler2 := roleMiddleware2(testHandler)
 	
-	req2 := httptest.NewRequest("GET", "/test", nil)
-	req2 = req2.WithContext(context.WithValue(req2.Context(), "user", user))
+	reqTest := httptest.NewRequest("GET", "/test", nil)
+	reqTest = reqTest.WithContext(context.WithValue(reqTest.Context(), "user", user))
 	
-	rr2 := httptest.NewRecorder()
-	handler2.ServeHTTP(rr2, req2)
+	rrTest := httptest.NewRecorder()
+	handler2.ServeHTTP(rrTest, reqTest)
 	
-	assert.Equal(t, http.StatusForbidden, rr2.Code)
+	assert.Equal(t, http.StatusForbidden, rrTest.Code)
 	
 	// Test with multiple roles (user has one of them)
 	roleMiddleware3 := middleware.RequireRole("admin", "editor")
@@ -756,14 +751,14 @@ func TestCORSHandling(t *testing.T) {
 	assert.Contains(t, rr.Header().Get("Access-Control-Allow-Headers"), "Content-Type")
 	
 	// Test actual request
-	req2 := httptest.NewRequest("POST", "/test", nil)
-	req2.Header.Set("Origin", "https://example.com")
+	reqActual := httptest.NewRequest("POST", "/test", nil)
+	reqActual.Header.Set("Origin", "https://example.com")
 	
-	rr2 := httptest.NewRecorder()
-	handler.ServeHTTP(rr2, req2)
+	rrActual := httptest.NewRecorder()
+	handler.ServeHTTP(rrActual, reqActual)
 	
-	assert.Equal(t, "https://example.com", rr2.Header().Get("Access-Control-Allow-Origin"))
-	assert.Equal(t, "true", rr2.Header().Get("Access-Control-Allow-Credentials"))
+	assert.Equal(t, "https://example.com", rrActual.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", rrActual.Header().Get("Access-Control-Allow-Credentials"))
 	
 	// Test disallowed origin
 	req3 := httptest.NewRequest("POST", "/test", nil)

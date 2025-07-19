@@ -16,8 +16,6 @@ import (
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // ErrorType represents the type of error
@@ -274,7 +272,9 @@ func NewErrorHandler(
 
 	// Initialize components
 	eh.aggregator = NewErrorAggregator(config, logger)
-	eh.metrics = NewErrorMetricsCollector(config, logger)
+	if config.EnableMetrics {
+		eh.metrics = NewErrorMetricsCollector(config, logger)
+	}
 	eh.alerter = NewErrorAlerter(config, logger)
 	eh.rateLimiter = NewErrorRateLimiter(config, logger)
 	eh.healthChecker = NewHealthChecker(config, logger)
@@ -369,7 +369,7 @@ func (eh *ErrorHandler) enhanceError(ctx context.Context, appErr *AppError) *App
 	eh.updateErrorStats(appErr)
 
 	// Record metrics
-	if eh.config.EnableMetrics {
+	if eh.config.EnableMetrics && eh.metrics != nil {
 		eh.metrics.RecordError(appErr)
 	}
 
@@ -939,7 +939,7 @@ func (eh *ErrorHandler) collectMetrics() {
 	// Collect error statistics
 	for key, stats := range eh.errorStats {
 		parts := strings.Split(key, ":")
-		if len(parts) >= 2 {
+		if len(parts) >= 2 && eh.metrics != nil {
 			eh.metrics.UpdateErrorStats(parts[0], parts[1], stats)
 		}
 	}

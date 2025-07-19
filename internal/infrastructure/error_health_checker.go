@@ -298,8 +298,6 @@ func (hc *HealthChecker) updateErrorTracking(appErr *AppError) {
 
 // updateHealthMetrics updates health metrics
 func (hc *HealthChecker) updateHealthMetrics(appErr *AppError) {
-	now := time.Now()
-	
 	// Update error rate metric
 	totalRate := 0.0
 	for _, rate := range hc.errorRates {

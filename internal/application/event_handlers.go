@@ -2,9 +2,7 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log/slog"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -511,13 +509,13 @@ func NewNotificationEventHandler(
 // handleEvent handles notification events
 func (h *NotificationEventHandler) handleEvent(ctx context.Context, event domain.DomainEvent, result *EventHandlerResult) error {
 	switch event.GetType() {
-	case domain.FileProcessingStartedEvent:
+	case domain.FileProcessingStartedEventType:
 		return h.handleFileProcessingStarted(ctx, event, result)
-	case domain.FileProcessingCompletedEvent:
+	case domain.FileProcessingCompletedEventType:
 		return h.handleFileProcessingCompleted(ctx, event, result)
-	case domain.FileProcessingFailedEvent:
+	case domain.FileProcessingFailedEventType:
 		return h.handleFileProcessingFailed(ctx, event, result)
-	case domain.ReviewBatchProcessedEvent:
+	case domain.ReviewBatchProcessedEventType:
 		return h.handleReviewBatchProcessed(ctx, event, result)
 	case domain.SystemErrorEvent:
 		return h.handleSystemError(ctx, event, result)
@@ -645,10 +643,10 @@ func (h *NotificationEventHandler) handleSystemError(ctx context.Context, event 
 // CanHandle returns true if this handler can handle the event type
 func (h *NotificationEventHandler) CanHandle(eventType domain.EventType) bool {
 	switch eventType {
-	case domain.FileProcessingStartedEvent,
-		 domain.FileProcessingCompletedEvent,
-		 domain.FileProcessingFailedEvent,
-		 domain.ReviewBatchProcessedEvent,
+	case domain.FileProcessingStartedEventType,
+		 domain.FileProcessingCompletedEventType,
+		 domain.FileProcessingFailedEventType,
+		 domain.ReviewBatchProcessedEventType,
 		 domain.SystemErrorEvent:
 		return true
 	default:
@@ -659,10 +657,10 @@ func (h *NotificationEventHandler) CanHandle(eventType domain.EventType) bool {
 // GetHandledEventTypes returns the event types this handler can handle
 func (h *NotificationEventHandler) GetHandledEventTypes() []domain.EventType {
 	return []domain.EventType{
-		domain.FileProcessingStartedEvent,
-		domain.FileProcessingCompletedEvent,
-		domain.FileProcessingFailedEvent,
-		domain.ReviewBatchProcessedEvent,
+		domain.FileProcessingStartedEventType,
+		domain.FileProcessingCompletedEventType,
+		domain.FileProcessingFailedEventType,
+		domain.ReviewBatchProcessedEventType,
 		domain.SystemErrorEvent,
 	}
 }
@@ -698,15 +696,15 @@ func NewMetricsEventHandler(
 // handleEvent handles metrics collection events
 func (h *MetricsEventHandler) handleEvent(ctx context.Context, event domain.DomainEvent, result *EventHandlerResult) error {
 	switch event.GetType() {
-	case domain.FileProcessingStartedEvent:
+	case domain.FileProcessingStartedEventType:
 		return h.handleFileProcessingStartedMetrics(ctx, event, result)
-	case domain.FileProcessingCompletedEvent:
+	case domain.FileProcessingCompletedEventType:
 		return h.handleFileProcessingCompletedMetrics(ctx, event, result)
-	case domain.FileProcessingFailedEvent:
+	case domain.FileProcessingFailedEventType:
 		return h.handleFileProcessingFailedMetrics(ctx, event, result)
-	case domain.ReviewProcessedEvent:
+	case domain.ReviewProcessedEventType:
 		return h.handleReviewProcessedMetrics(ctx, event, result)
-	case domain.ReviewBatchProcessedEvent:
+	case domain.ReviewBatchProcessedEventType:
 		return h.handleReviewBatchProcessedMetrics(ctx, event, result)
 	default:
 		return nil // Ignore unknown events
@@ -876,11 +874,11 @@ func (h *MetricsEventHandler) handleReviewBatchProcessedMetrics(ctx context.Cont
 // CanHandle returns true if this handler can handle the event type
 func (h *MetricsEventHandler) CanHandle(eventType domain.EventType) bool {
 	switch eventType {
-	case domain.FileProcessingStartedEvent,
-		 domain.FileProcessingCompletedEvent,
-		 domain.FileProcessingFailedEvent,
-		 domain.ReviewProcessedEvent,
-		 domain.ReviewBatchProcessedEvent:
+	case domain.FileProcessingStartedEventType,
+		 domain.FileProcessingCompletedEventType,
+		 domain.FileProcessingFailedEventType,
+		 domain.ReviewProcessedEventType,
+		 domain.ReviewBatchProcessedEventType:
 		return true
 	default:
 		return false
@@ -890,11 +888,11 @@ func (h *MetricsEventHandler) CanHandle(eventType domain.EventType) bool {
 // GetHandledEventTypes returns the event types this handler can handle
 func (h *MetricsEventHandler) GetHandledEventTypes() []domain.EventType {
 	return []domain.EventType{
-		domain.FileProcessingStartedEvent,
-		domain.FileProcessingCompletedEvent,
-		domain.FileProcessingFailedEvent,
-		domain.ReviewProcessedEvent,
-		domain.ReviewBatchProcessedEvent,
+		domain.FileProcessingStartedEventType,
+		domain.FileProcessingCompletedEventType,
+		domain.FileProcessingFailedEventType,
+		domain.ReviewProcessedEventType,
+		domain.ReviewBatchProcessedEventType,
 	}
 }
 
@@ -932,13 +930,13 @@ func NewStateUpdateEventHandler(
 // handleEvent handles state update events
 func (h *StateUpdateEventHandler) handleEvent(ctx context.Context, event domain.DomainEvent, result *EventHandlerResult) error {
 	switch event.GetType() {
-	case domain.ReviewProcessedEvent:
+	case domain.ReviewProcessedEventType:
 		return h.handleReviewProcessedStateUpdate(ctx, event, result)
-	case domain.ReviewBatchProcessedEvent:
+	case domain.ReviewBatchProcessedEventType:
 		return h.handleReviewBatchProcessedStateUpdate(ctx, event, result)
-	case domain.FileProcessingCompletedEvent:
+	case domain.FileProcessingCompletedEventType:
 		return h.handleFileProcessingCompletedStateUpdate(ctx, event, result)
-	case domain.HotelSummaryUpdatedEvent:
+	case domain.HotelSummaryUpdatedEventType:
 		return h.handleHotelSummaryUpdatedStateUpdate(ctx, event, result)
 	default:
 		return nil // Ignore unknown events
@@ -1057,10 +1055,10 @@ func (h *StateUpdateEventHandler) handleHotelSummaryUpdatedStateUpdate(ctx conte
 // CanHandle returns true if this handler can handle the event type
 func (h *StateUpdateEventHandler) CanHandle(eventType domain.EventType) bool {
 	switch eventType {
-	case domain.ReviewProcessedEvent,
-		 domain.ReviewBatchProcessedEvent,
-		 domain.FileProcessingCompletedEvent,
-		 domain.HotelSummaryUpdatedEvent:
+	case domain.ReviewProcessedEventType,
+		 domain.ReviewBatchProcessedEventType,
+		 domain.FileProcessingCompletedEventType,
+		 domain.HotelSummaryUpdatedEventType:
 		return true
 	default:
 		return false
@@ -1070,10 +1068,10 @@ func (h *StateUpdateEventHandler) CanHandle(eventType domain.EventType) bool {
 // GetHandledEventTypes returns the event types this handler can handle
 func (h *StateUpdateEventHandler) GetHandledEventTypes() []domain.EventType {
 	return []domain.EventType{
-		domain.ReviewProcessedEvent,
-		domain.ReviewBatchProcessedEvent,
-		domain.FileProcessingCompletedEvent,
-		domain.HotelSummaryUpdatedEvent,
+		domain.ReviewProcessedEventType,
+		domain.ReviewBatchProcessedEventType,
+		domain.FileProcessingCompletedEventType,
+		domain.HotelSummaryUpdatedEventType,
 	}
 }
 

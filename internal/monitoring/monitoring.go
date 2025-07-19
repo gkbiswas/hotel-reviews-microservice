@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -331,7 +332,7 @@ func (s *Service) RecordS3Operation(operation, bucket, status string, duration t
 // TraceHTTPRequest traces an HTTP request
 func (s *Service) TraceHTTPRequest(ctx context.Context, method, path, userAgent string, fn func(ctx context.Context) error) error {
 	if s.tracingService != nil {
-		return s.tracingService.TraceHTTPRequest(ctx, method, path, userAgent, func(ctx context.Context, span interface{}) error {
+		return s.tracingService.TraceHTTPRequest(ctx, method, path, userAgent, func(ctx context.Context, span trace.Span) error {
 			return fn(ctx)
 		})
 	}
@@ -341,7 +342,7 @@ func (s *Service) TraceHTTPRequest(ctx context.Context, method, path, userAgent 
 // TraceDatabaseQuery traces a database query
 func (s *Service) TraceDatabaseQuery(ctx context.Context, table, operation, query string, fn func(ctx context.Context) error) error {
 	if s.tracingService != nil {
-		return s.tracingService.TraceDatabaseQuery(ctx, table, operation, query, func(ctx context.Context, span interface{}) error {
+		return s.tracingService.TraceDatabaseQuery(ctx, table, operation, query, func(ctx context.Context, span trace.Span) error {
 			return fn(ctx)
 		})
 	}
@@ -351,7 +352,7 @@ func (s *Service) TraceDatabaseQuery(ctx context.Context, table, operation, quer
 // TraceS3Operation traces an S3 operation
 func (s *Service) TraceS3Operation(ctx context.Context, operation, bucket, key string, fn func(ctx context.Context) error) error {
 	if s.tracingService != nil {
-		return s.tracingService.TraceS3Operation(ctx, operation, bucket, key, func(ctx context.Context, span interface{}) error {
+		return s.tracingService.TraceS3Operation(ctx, operation, bucket, key, func(ctx context.Context, span trace.Span) error {
 			return fn(ctx)
 		})
 	}
@@ -361,7 +362,7 @@ func (s *Service) TraceS3Operation(ctx context.Context, operation, bucket, key s
 // TraceFileProcessing traces file processing operations
 func (s *Service) TraceFileProcessing(ctx context.Context, provider, fileURL string, fn func(ctx context.Context) error) error {
 	if s.tracingService != nil {
-		return s.tracingService.TraceFileProcessing(ctx, provider, fileURL, func(ctx context.Context, span interface{}) error {
+		return s.tracingService.TraceFileProcessing(ctx, provider, fileURL, func(ctx context.Context, span trace.Span) error {
 			return fn(ctx)
 		})
 	}

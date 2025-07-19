@@ -593,7 +593,7 @@ func (suite *ReviewServiceTestSuite) createTestReview() *Review {
 		ID:             uuid.New(),
 		ProviderID:     uuid.New(),
 		HotelID:        uuid.New(),
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		Rating:         4.5,
 		Comment:        "Great hotel experience!",
 		ReviewDate:     time.Now(),
@@ -1536,7 +1536,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_EnrichmentFailure() {
 		Rating:         5,
 		HotelID:        uuid.New(),
 		ProviderID:     uuid.New(),
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
 	
@@ -1573,7 +1573,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_EventPublishingFailure() {
 		Rating:         5,
 		HotelID:        uuid.New(),
 		ProviderID:     uuid.New(),
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
 	
@@ -1611,7 +1611,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_CacheInvalidationFailure()
 		Rating:         5,
 		HotelID:        uuid.New(),
 		ProviderID:     uuid.New(),
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
 	
@@ -1735,7 +1735,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_EventPublishingFailure() {
 		Rating:         3,
 		HotelID:        review.HotelID,
 		ProviderID:     review.ProviderID,
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
 	
@@ -1783,7 +1783,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_CacheInvalidationFailure()
 		Rating:         3,
 		HotelID:        review.HotelID,
 		ProviderID:     review.ProviderID,
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
 	
@@ -1888,7 +1888,7 @@ func (suite *ReviewServiceTestSuite) TestValidateReviewData_HotelValidationError
 		ID:             uuid.New(),
 		HotelID:        uuid.Nil, // Invalid hotel ID to trigger validation error
 		ProviderID:     uuid.New(),
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		Rating:         4.5,
 		Comment:        "Good hotel",
 		ReviewDate:     time.Now(),
@@ -1908,7 +1908,7 @@ func (suite *ReviewServiceTestSuite) TestValidateReviewData_ProviderValidationEr
 		ID:             uuid.New(),
 		HotelID:        uuid.New(),
 		ProviderID:     uuid.Nil, // Invalid provider ID to trigger validation error
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		Rating:         4.5,
 		Comment:        "Good hotel",
 		ReviewDate:     time.Now(),
@@ -1928,7 +1928,7 @@ func (suite *ReviewServiceTestSuite) TestDetectDuplicateReviews_RepositoryError(
 		ID:             uuid.New(),
 		HotelID:        uuid.New(),
 		ProviderID:     uuid.New(),
-		ReviewerInfoID: uuid.New(),
+		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		Rating:         4.5,
 		Comment:        "Great hotel",
 		ReviewDate:     time.Now(),

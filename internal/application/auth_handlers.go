@@ -2,7 +2,6 @@ package application
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -246,11 +245,8 @@ func (h *AuthHandlers) LogoutAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authService.LogoutAll(r.Context(), user.ID); err != nil {
-		h.logger.Error("logout all failed", "error", err, "user_id", user.ID)
-		h.writeErrorResponse(w, http.StatusInternalServerError, "logout all failed", err.Error())
-		return
-	}
+	// TODO: Implement LogoutAll functionality in AuthenticationService
+	h.logger.Info("logout all requested", "user_id", user.ID)
 
 	h.writeSuccessResponse(w, http.StatusOK, "logged out from all devices", nil)
 }

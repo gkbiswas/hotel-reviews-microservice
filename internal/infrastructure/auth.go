@@ -3,11 +3,9 @@ package infrastructure
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 	"time"
 
@@ -48,17 +46,17 @@ type JWTService struct {
 	issuer        string
 	logger        *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryPolicy   *RetryPolicy
+	retryManager  *RetryManager
 }
 
 // NewJWTService creates a new JWT service with circuit breaker and retry support
-func NewJWTService(cfg *config.Config, logger *slog.Logger, cb *CircuitBreaker, retry *RetryPolicy) *JWTService {
+func NewJWTService(cfg *config.Config, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *JWTService {
 	return &JWTService{
 		secretKey:     cfg.Auth.JWTSecret,
 		issuer:        cfg.Auth.JWTIssuer,
 		logger:        logger,
 		circuitBreaker: cb,
-		retryPolicy:   retry,
+		retryManager:  retry,
 	}
 }
 
@@ -220,20 +218,28 @@ func (j *JWTService) extractRolesFromClaims(rolesInterface interface{}) []string
 // executeWithResilience executes a function with circuit breaker and retry support
 func (j *JWTService) executeWithResilience(ctx context.Context, operation string, fn func() (string, error)) (string, error) {
 	if j.circuitBreaker != nil {
-		return j.circuitBreaker.Execute(func() (string, error) {
-			if j.retryPolicy != nil {
-				return j.retryPolicy.Execute(ctx, func() (string, error) {
+		result, err := j.circuitBreaker.Execute(ctx, func(ctx context.Context) (interface{}, error) {
+			if j.retryManager != nil {
+				return j.retryManager.Execute(ctx, func(ctx context.Context, attempt int) (interface{}, error) {
 					return fn()
 				})
 			}
 			return fn()
 		})
+		if err != nil {
+			return "", err
+		}
+		return result.(string), nil
 	}
 
-	if j.retryPolicy != nil {
-		return j.retryPolicy.Execute(ctx, func() (string, error) {
+	if j.retryManager != nil {
+		result, err := j.retryManager.Execute(ctx, func(ctx context.Context, attempt int) (interface{}, error) {
 			return fn()
 		})
+		if err != nil {
+			return "", err
+		}
+		return result.(string), nil
 	}
 
 	return fn()
@@ -242,20 +248,28 @@ func (j *JWTService) executeWithResilience(ctx context.Context, operation string
 // executeWithResilienceForClaims executes a function returning claims with circuit breaker and retry support
 func (j *JWTService) executeWithResilienceForClaims(ctx context.Context, operation string, fn func() (*domain.JWTClaims, error)) (*domain.JWTClaims, error) {
 	if j.circuitBreaker != nil {
-		return j.circuitBreaker.Execute(func() (*domain.JWTClaims, error) {
-			if j.retryPolicy != nil {
-				return j.retryPolicy.Execute(ctx, func() (*domain.JWTClaims, error) {
+		result, err := j.circuitBreaker.Execute(ctx, func(ctx context.Context) (interface{}, error) {
+			if j.retryManager != nil {
+				return j.retryManager.Execute(ctx, func(ctx context.Context, attempt int) (interface{}, error) {
 					return fn()
 				})
 			}
 			return fn()
 		})
+		if err != nil {
+			return nil, err
+		}
+		return result.(*domain.JWTClaims), nil
 	}
 
-	if j.retryPolicy != nil {
-		return j.retryPolicy.Execute(ctx, func() (*domain.JWTClaims, error) {
+	if j.retryManager != nil {
+		result, err := j.retryManager.Execute(ctx, func(ctx context.Context, attempt int) (interface{}, error) {
 			return fn()
 		})
+		if err != nil {
+			return nil, err
+		}
+		return result.(*domain.JWTClaims), nil
 	}
 
 	return fn()
@@ -364,16 +378,16 @@ type AuthRepository struct {
 	db             *gorm.DB
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryPolicy    *RetryPolicy
+	retryManager    *RetryManager
 }
 
 // NewAuthRepository creates a new authentication repository
-func NewAuthRepository(db *gorm.DB, logger *slog.Logger, cb *CircuitBreaker, retry *RetryPolicy) *AuthRepository {
+func NewAuthRepository(db *gorm.DB, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *AuthRepository {
 	return &AuthRepository{
 		db:             db,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryPolicy:    retry,
+		retryManager:    retry,
 	}
 }
 
@@ -890,20 +904,23 @@ func (r *AuthRepository) CleanupOldLoginAttempts(ctx context.Context, before tim
 // executeWithDB executes a database operation with circuit breaker and retry support
 func (r *AuthRepository) executeWithDB(ctx context.Context, operation string, fn func(*gorm.DB) error) error {
 	if r.circuitBreaker != nil {
-		return r.circuitBreaker.Execute(func() error {
-			if r.retryPolicy != nil {
-				return r.retryPolicy.Execute(ctx, func() error {
-					return fn(r.db)
+		_, err := r.circuitBreaker.Execute(ctx, func(ctx context.Context) (interface{}, error) {
+			if r.retryManager != nil {
+				_, err := r.retryManager.Execute(ctx, func(ctx context.Context, attempt int) (interface{}, error) {
+					return nil, fn(r.db)
 				})
+				return nil, err
 			}
-			return fn(r.db)
+			return nil, fn(r.db)
 		})
+		return err
 	}
 
-	if r.retryPolicy != nil {
-		return r.retryPolicy.Execute(ctx, func() error {
-			return fn(r.db)
+	if r.retryManager != nil {
+		_, err := r.retryManager.Execute(ctx, func(ctx context.Context, attempt int) (interface{}, error) {
+			return nil, fn(r.db)
 		})
+		return err
 	}
 
 	return fn(r.db)
@@ -914,16 +931,16 @@ type RBACService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryPolicy    *RetryPolicy
+	retryManager    *RetryManager
 }
 
 // NewRBACService creates a new RBAC service
-func NewRBACService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryPolicy) *RBACService {
+func NewRBACService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *RBACService {
 	return &RBACService{
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryPolicy:    retry,
+		retryManager:    retry,
 	}
 }
 
@@ -948,16 +965,16 @@ type ApiKeyService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryPolicy    *RetryPolicy
+	retryManager    *RetryManager
 }
 
 // NewApiKeyService creates a new API key service
-func NewApiKeyService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryPolicy) *ApiKeyService {
+func NewApiKeyService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *ApiKeyService {
 	return &ApiKeyService{
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryPolicy:    retry,
+		retryManager:    retry,
 	}
 }
 
@@ -1032,16 +1049,16 @@ type RateLimitService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryPolicy    *RetryPolicy
+	retryManager    *RetryManager
 }
 
 // NewRateLimitService creates a new rate limiting service
-func NewRateLimitService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryPolicy) *RateLimitService {
+func NewRateLimitService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *RateLimitService {
 	return &RateLimitService{
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryPolicy:    retry,
+		retryManager:    retry,
 	}
 }
 
@@ -1083,16 +1100,16 @@ type AuditService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryPolicy    *RetryPolicy
+	retryManager    *RetryManager
 }
 
 // NewAuditService creates a new audit service
-func NewAuditService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryPolicy) *AuditService {
+func NewAuditService(authRepo domain.AuthRepository, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *AuditService {
 	return &AuditService{
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryPolicy:    retry,
+		retryManager:    retry,
 	}
 }
 
@@ -1126,7 +1143,7 @@ type AuthenticationService struct {
 	auditService     *AuditService
 	logger           *slog.Logger
 	circuitBreaker   *CircuitBreaker
-	retryPolicy      *RetryPolicy
+	retryManager      *RetryManager
 }
 
 // NewAuthenticationService creates a comprehensive authentication service
@@ -1140,7 +1157,7 @@ func NewAuthenticationService(
 	auditService *AuditService,
 	logger *slog.Logger,
 	cb *CircuitBreaker,
-	retry *RetryPolicy,
+	retry *RetryManager,
 ) *AuthenticationService {
 	return &AuthenticationService{
 		authRepo:         authRepo,
@@ -1152,7 +1169,7 @@ func NewAuthenticationService(
 		auditService:     auditService,
 		logger:           logger,
 		circuitBreaker:   cb,
-		retryPolicy:      retry,
+		retryManager:      retry,
 	}
 }
 

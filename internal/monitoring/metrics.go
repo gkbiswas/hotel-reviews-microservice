@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -366,7 +367,7 @@ func (m *MetricsRegistry) GetRegistry() *prometheus.Registry {
 }
 
 // GetHandler returns the Prometheus HTTP handler
-func (m *MetricsRegistry) GetHandler() *promhttp.Handler {
+func (m *MetricsRegistry) GetHandler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{
 		EnableOpenMetrics: true,
 		Registry:          m.registry,

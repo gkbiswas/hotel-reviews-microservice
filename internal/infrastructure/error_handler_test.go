@@ -10,7 +10,6 @@ import (
 
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestErrorHandler_Handle(t *testing.T) {
@@ -19,6 +18,8 @@ func TestErrorHandler_Handle(t *testing.T) {
 	
 	// Create error handler
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -60,6 +61,8 @@ func TestErrorHandler_Handle(t *testing.T) {
 func TestErrorHandler_ClassifyError(t *testing.T) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -143,6 +146,8 @@ func TestErrorHandler_ClassifyError(t *testing.T) {
 func TestErrorHandler_HTTPResponse(t *testing.T) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -194,6 +199,8 @@ func TestErrorHandler_HTTPResponse(t *testing.T) {
 func TestErrorHandler_ErrorPatterns(t *testing.T) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -223,6 +230,8 @@ func TestErrorHandler_ErrorPatterns(t *testing.T) {
 func TestErrorHandler_ErrorStats(t *testing.T) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -240,7 +249,7 @@ func TestErrorHandler_ErrorStats(t *testing.T) {
 	
 	// Find system error stats
 	found := false
-	for key, metrics := range stats {
+	for _, metrics := range stats {
 		if metrics.Count == 5 {
 			found = true
 			assert.Equal(t, int64(5), metrics.Count)
@@ -255,6 +264,8 @@ func TestErrorHandler_ErrorStats(t *testing.T) {
 func TestErrorHandler_HealthCheck(t *testing.T) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -462,6 +473,8 @@ func TestErrorHandler_Integration(t *testing.T) {
 func TestErrorHandler_Concurrency(t *testing.T) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -511,6 +524,8 @@ func TestErrorHandler_Concurrency(t *testing.T) {
 func BenchmarkErrorHandler_Handle(b *testing.B) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	
@@ -527,6 +542,8 @@ func BenchmarkErrorHandler_Handle(b *testing.B) {
 func BenchmarkErrorHandler_HandleHTTP(b *testing.B) {
 	loggerInstance := logger.NewDefault()
 	config := DefaultErrorHandlerConfig()
+	// Disable metrics to avoid conflicts in tests
+	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
 	

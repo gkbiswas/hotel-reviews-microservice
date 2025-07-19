@@ -39,7 +39,7 @@ func NewTracingService(config *TracingConfig, logger *logrus.Logger) (*TracingSe
 	if !config.Enabled {
 		logger.Info("Tracing is disabled")
 		return &TracingService{
-			tracer: otel.NoopTracerProvider().Tracer("noop"),
+			tracer: trace.NewNoopTracerProvider().Tracer("noop"),
 			config: config,
 			logger: logger,
 		}, nil

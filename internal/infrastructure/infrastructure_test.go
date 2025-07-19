@@ -238,7 +238,7 @@ func (suite *InfrastructureTestSuite) TestValidateReview_Valid() {
 	review := &domain.Review{
 		HotelID:        uuid.MustParse("123e4567-e89b-12d3-a456-426614174000"),
 		ProviderID:     uuid.MustParse("456e4567-e89b-12d3-a456-426614174000"),
-		ReviewerInfoID: uuid.MustParse("789e4567-e89b-12d3-a456-426614174000"),
+		ReviewerInfoID: &[]uuid.UUID{uuid.MustParse("789e4567-e89b-12d3-a456-426614174000")}[0],
 		Rating:         4.5,
 		Comment:        "Great hotel!",
 		ReviewDate:     time.Now(),
@@ -255,7 +255,7 @@ func (suite *InfrastructureTestSuite) TestValidateReview_InvalidRating() {
 	review := &domain.Review{
 		HotelID:        uuid.MustParse("123e4567-e89b-12d3-a456-426614174000"),
 		ProviderID:     uuid.MustParse("456e4567-e89b-12d3-a456-426614174000"),
-		ReviewerInfoID: uuid.MustParse("789e4567-e89b-12d3-a456-426614174000"),
+		ReviewerInfoID: &[]uuid.UUID{uuid.MustParse("789e4567-e89b-12d3-a456-426614174000")}[0],
 		Rating:         6.0, // Invalid rating > 5
 		Comment:        "Great hotel!",
 		ReviewDate:     time.Now(),
@@ -273,7 +273,7 @@ func (suite *InfrastructureTestSuite) TestValidateReview_EmptyComment() {
 	review := &domain.Review{
 		HotelID:        uuid.MustParse("123e4567-e89b-12d3-a456-426614174000"),
 		ProviderID:     uuid.MustParse("456e4567-e89b-12d3-a456-426614174000"),
-		ReviewerInfoID: uuid.MustParse("789e4567-e89b-12d3-a456-426614174000"),
+		ReviewerInfoID: &[]uuid.UUID{uuid.MustParse("789e4567-e89b-12d3-a456-426614174000")}[0],
 		Rating:         4.5,
 		Comment:        "", // Empty comment
 		ReviewDate:     time.Now(),
@@ -341,7 +341,7 @@ func (suite *InfrastructureTestSuite) TestValidateReviewerInfo_Valid() {
 		ID:           uuid.MustParse("123e4567-e89b-12d3-a456-426614174000"),
 		Name:         "John Doe",
 		Email:        "john@example.com",
-		Country:      "New York",
+		Location:     "New York",
 		TotalReviews: 25,
 		MemberSince:  &now,
 	}
@@ -359,7 +359,7 @@ func (suite *InfrastructureTestSuite) TestValidateReviewerInfo_EmptyEmail() {
 		ID:           uuid.MustParse("123e4567-e89b-12d3-a456-426614174000"),
 		Name:         "John Doe",
 		Email:        "", // Empty email
-		Country:      "New York",
+		Location:     "New York",
 		TotalReviews: 25,
 		MemberSince:  &now,
 	}

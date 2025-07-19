@@ -1,0 +1,2521 @@
+openapi: 3.0.3
+info:
+  title: Hotel Reviews Microservice API
+  description: |
+    A comprehensive microservice for managing hotel reviews, ratings, and related data.
+    
+    ## Features
+    - Hotel and provider management
+    - Review creation, retrieval, and management
+    - Advanced search and filtering capabilities
+    - File upload and batch processing
+    - User authentication and authorization
+    - Real-time metrics and monitoring
+    
+    ## Authentication
+    This API uses JWT Bearer token authentication. Obtain a token by calling the `/auth/login` endpoint.
+    
+    ## Rate Limiting
+    API requests are rate-limited. Check the `X-RateLimit-*` headers in responses for current limits.
+    
+    ## Versioning
+    The API uses URL path versioning (e.g., `/api/v1/`). Current version is v1.
+  version: 1.0.0
+  contact:
+    name: Hotel Reviews API Support
+    email: support@hotelreviews.com
+    url: https://docs.hotelreviews.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://hotelreviews.com/terms
+
+servers:
+  - url: https://api.hotelreviews.com/api/v1
+    description: Production server
+  - url: https://staging-api.hotelreviews.com/api/v1
+    description: Staging server
+  - url: http://localhost:8080/api/v1
+    description: Development server
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account with email verification
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+            examples:
+              user_registration:
+                summary: Standard user registration
+                value:
+                  username: "johndoe"
+                  email: "john.doe@example.com"
+                  password: "SecurePassword123!"
+                  first_name: "John"
+                  last_name: "Doe"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                registration_success:
+                  summary: Successful registration
+                  value:
+                    success: true
+                    data:
+                      user:
+                        id: "123e4567-e89b-12d3-a456-426614174000"
+                        username: "johndoe"
+                        email: "john.doe@example.com"
+                        first_name: "John"
+                        last_name: "Doe"
+                        is_verified: false
+                      access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      expires_in: 3600
+                    timestamp: "2024-01-15T10:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and obtain access tokens
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              login_with_email:
+                summary: Login with email
+                value:
+                  email: "john.doe@example.com"
+                  password: "SecurePassword123!"
+              login_with_username:
+                summary: Login with username
+                value:
+                  username: "johndoe"
+                  password: "SecurePassword123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Obtain a new access token using a refresh token
+      operationId: refreshToken
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Valid refresh token
+              required:
+                - refresh_token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current access and refresh tokens
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Review Endpoints
+  /reviews:
+    get:
+      tags:
+        - Reviews
+      summary: List reviews
+      description: Retrieve a paginated list of reviews with optional filtering
+      operationId: listReviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: hotel_id
+          in: query
+          description: Filter reviews by hotel ID
+          schema:
+            type: string
+            format: uuid
+        - name: provider_id
+          in: query
+          description: Filter reviews by provider ID
+          schema:
+            type: string
+            format: uuid
+        - name: rating_min
+          in: query
+          description: Minimum rating filter
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - name: rating_max
+          in: query
+          description: Maximum rating filter
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - name: language
+          in: query
+          description: Filter by review language
+          schema:
+            type: string
+            pattern: '^[a-z]{2}$'
+            example: "en"
+        - name: from_date
+          in: query
+          description: Filter reviews from this date
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          description: Filter reviews to this date
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          description: Number of reviews to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of reviews to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [rating, review_date, created_at, helpful_votes]
+            default: created_at
+        - name: order
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Reviews retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+              examples:
+                review_list:
+                  summary: List of reviews
+                  value:
+                    success: true
+                    data:
+                      reviews:
+                        - id: "550e8400-e29b-41d4-a716-446655440000"
+                          hotel_id: "123e4567-e89b-12d3-a456-426614174000"
+                          provider_id: "987fcdeb-51a2-4567-8901-23456789abcd"
+                          rating: 4.5
+                          title: "Great stay!"
+                          comment: "Had a wonderful time at this hotel."
+                          review_date: "2024-01-10T00:00:00Z"
+                          language: "en"
+                          is_verified: true
+                          helpful_votes: 12
+                          total_votes: 15
+                          created_at: "2024-01-11T10:30:00Z"
+                      pagination:
+                        total: 156
+                        limit: 20
+                        offset: 0
+                        has_next: true
+                        has_previous: false
+                    timestamp: "2024-01-15T10:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Reviews
+      summary: Create a new review
+      description: Create a new hotel review
+      operationId: createReview
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+            examples:
+              basic_review:
+                summary: Basic review
+                value:
+                  hotel_id: "123e4567-e89b-12d3-a456-426614174000"
+                  reviewer_info_id: "456e7890-e89b-12d3-a456-426614174001"
+                  rating: 4.5
+                  title: "Great stay!"
+                  comment: "Had a wonderful time at this hotel. Staff was friendly and rooms were clean."
+                  review_date: "2024-01-10T00:00:00Z"
+                  language: "en"
+              detailed_review:
+                summary: Detailed review with all ratings
+                value:
+                  hotel_id: "123e4567-e89b-12d3-a456-426614174000"
+                  reviewer_info_id: "456e7890-e89b-12d3-a456-426614174001"
+                  rating: 4.2
+                  title: "Good hotel with excellent service"
+                  comment: "Overall a good experience. The location was perfect and staff very helpful."
+                  review_date: "2024-01-10T00:00:00Z"
+                  language: "en"
+                  service_rating: 5.0
+                  cleanliness_rating: 4.0
+                  location_rating: 5.0
+                  value_rating: 3.5
+                  comfort_rating: 4.0
+                  facilities_rating: 4.0
+                  trip_type: "business"
+                  room_type: "standard"
+      responses:
+        '201':
+          description: Review created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /reviews/{id}:
+    get:
+      tags:
+        - Reviews
+      summary: Get review by ID
+      description: Retrieve a specific review by its ID
+      operationId: getReview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Review ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Review retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - Reviews
+      summary: Update review
+      description: Update an existing review (only by owner or admin)
+      operationId: updateReview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Review ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReviewRequest'
+      responses:
+        '200':
+          description: Review updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - Reviews
+      summary: Delete review
+      description: Delete a review (only by owner or admin)
+      operationId: deleteReview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Review ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Review deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reviews/search:
+    get:
+      tags:
+        - Reviews
+      summary: Search reviews
+      description: Perform full-text search across reviews with advanced filtering
+      operationId: searchReviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Search query for full-text search
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 500
+        - name: hotel_id
+          in: query
+          description: Filter by hotel ID
+          schema:
+            type: string
+            format: uuid
+        - name: rating_min
+          in: query
+          description: Minimum rating
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - name: rating_max
+          in: query
+          description: Maximum rating
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - name: language
+          in: query
+          description: Review language
+          schema:
+            type: string
+            pattern: '^[a-z]{2}$'
+        - name: sentiment
+          in: query
+          description: Review sentiment
+          schema:
+            type: string
+            enum: [positive, negative, neutral]
+        - name: verified_only
+          in: query
+          description: Only return verified reviews
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: Number of results to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of results to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /reviews/statistics:
+    get:
+      tags:
+        - Reviews
+      summary: Get review statistics
+      description: Retrieve aggregated statistics for reviews
+      operationId: getReviewStatistics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: hotel_id
+          in: query
+          description: Filter statistics by hotel ID
+          schema:
+            type: string
+            format: uuid
+        - name: provider_id
+          in: query
+          description: Filter statistics by provider ID
+          schema:
+            type: string
+            format: uuid
+        - name: from_date
+          in: query
+          description: Statistics from this date
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          description: Statistics to this date
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewStatisticsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /reviews/bulk:
+    post:
+      tags:
+        - Reviews
+      summary: Bulk create reviews
+      description: Create multiple reviews in a single request
+      operationId: bulkCreateReviews
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CreateReviewRequest'
+                  minItems: 1
+                  maxItems: 100
+              required:
+                - reviews
+      responses:
+        '201':
+          description: Bulk reviews created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkReviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /reviews/upload:
+    post:
+      tags:
+        - Reviews
+      summary: Upload reviews file
+      description: Upload a CSV file containing reviews for batch processing
+      operationId: uploadReviewsFile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV file containing reviews
+                provider_id:
+                  type: string
+                  format: uuid
+                  description: Provider ID for the reviews
+                validate_only:
+                  type: boolean
+                  default: false
+                  description: Only validate the file without processing
+              required:
+                - file
+                - provider_id
+      responses:
+        '202':
+          description: File uploaded and processing started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /reviews/processing/{id}:
+    get:
+      tags:
+        - Reviews
+      summary: Get processing status
+      description: Check the status of a file processing job
+      operationId: getProcessingStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Processing job ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Processing status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessingStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Hotel Endpoints
+  /hotels:
+    get:
+      tags:
+        - Hotels
+      summary: List hotels
+      description: Retrieve a paginated list of hotels with optional filtering
+      operationId: listHotels
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: name
+          in: query
+          description: Filter by hotel name (partial match)
+          schema:
+            type: string
+            maxLength: 255
+        - name: city
+          in: query
+          description: Filter by city
+          schema:
+            type: string
+            maxLength: 100
+        - name: country
+          in: query
+          description: Filter by country
+          schema:
+            type: string
+            maxLength: 100
+        - name: star_rating
+          in: query
+          description: Filter by star rating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - name: min_rating
+          in: query
+          description: Minimum average review rating
+          schema:
+            type: number
+            minimum: 1
+            maximum: 5
+        - name: limit
+          in: query
+          description: Number of hotels to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of hotels to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Hotels retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Hotels
+      summary: Create a new hotel
+      description: Create a new hotel (admin only)
+      operationId: createHotel
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHotelRequest'
+      responses:
+        '201':
+          description: Hotel created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /hotels/{id}:
+    get:
+      tags:
+        - Hotels
+      summary: Get hotel by ID
+      description: Retrieve a specific hotel by its ID
+      operationId: getHotel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Hotel ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hotel retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - Hotels
+      summary: Update hotel
+      description: Update an existing hotel (admin only)
+      operationId: updateHotel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Hotel ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHotelRequest'
+      responses:
+        '200':
+          description: Hotel updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - Hotels
+      summary: Delete hotel
+      description: Delete a hotel (admin only)
+      operationId: deleteHotel
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Hotel ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Hotel deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Provider Endpoints
+  /providers:
+    get:
+      tags:
+        - Providers
+      summary: List providers
+      description: Retrieve a list of review providers
+      operationId: listProviders
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: active_only
+          in: query
+          description: Only return active providers
+          schema:
+            type: boolean
+            default: true
+        - name: limit
+          in: query
+          description: Number of providers to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of providers to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Providers
+      summary: Create a new provider
+      description: Create a new review provider (admin only)
+      operationId: createProvider
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProviderRequest'
+      responses:
+        '201':
+          description: Provider created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /providers/{id}:
+    get:
+      tags:
+        - Providers
+      summary: Get provider by ID
+      description: Retrieve a specific provider by its ID
+      operationId: getProvider
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Provider ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Provider retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Health and Monitoring Endpoints
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check the health status of the API and its dependencies
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: Healthy service
+                  value:
+                    status: "healthy"
+                    timestamp: "2024-01-15T10:30:00Z"
+                    version: "1.0.0"
+                    services:
+                      database: "healthy"
+                      redis: "healthy"
+                      circuit_breakers: "healthy"
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/circuit-breakers:
+    get:
+      tags:
+        - Health
+      summary: Circuit breaker health
+      description: Check the status of circuit breakers
+      operationId: circuitBreakerHealth
+      responses:
+        '200':
+          description: Circuit breaker status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerHealthResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Monitoring
+      summary: Get application metrics
+      description: Retrieve application performance metrics
+      operationId: getMetrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /metrics/circuit-breakers:
+    get:
+      tags:
+        - Monitoring
+      summary: Get circuit breaker metrics
+      description: Retrieve circuit breaker performance metrics
+      operationId: getCircuitBreakerMetrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Circuit breaker metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerMetricsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the authentication endpoints
+
+  schemas:
+    # Authentication Schemas
+    UserRegistrationRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - first_name
+        - last_name
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9_]+$'
+          description: Unique username
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: User email address
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+          description: Password with at least 8 characters, including uppercase, lowercase, number, and special character
+        first_name:
+          type: string
+          maxLength: 100
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 100
+          description: User's last name
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+        username:
+          type: string
+          description: Username
+        password:
+          type: string
+          description: User password
+      required:
+        - password
+      oneOf:
+        - required: [email]
+        - required: [username]
+
+    AuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                user:
+                  $ref: '#/components/schemas/User'
+                access_token:
+                  type: string
+                  description: JWT access token
+                refresh_token:
+                  type: string
+                  description: JWT refresh token
+                expires_in:
+                  type: integer
+                  description: Token expiration time in seconds
+
+    TokenResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  description: New JWT access token
+                expires_in:
+                  type: integer
+                  description: Token expiration time in seconds
+
+    # User Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: User email
+        first_name:
+          type: string
+          description: First name
+        last_name:
+          type: string
+          description: Last name
+        is_active:
+          type: boolean
+          description: Whether user account is active
+        is_verified:
+          type: boolean
+          description: Whether user email is verified
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last login timestamp
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+
+    # Review Schemas
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Review ID
+        provider_id:
+          type: string
+          format: uuid
+          description: Provider ID
+        hotel_id:
+          type: string
+          format: uuid
+          description: Hotel ID
+        reviewer_info_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Reviewer information ID
+        external_id:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: External system review ID
+        rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          multipleOf: 0.1
+          description: Overall rating
+        title:
+          type: string
+          maxLength: 500
+          description: Review title
+        comment:
+          type: string
+          description: Review text content
+        review_date:
+          type: string
+          format: date-time
+          description: Date when review was written
+        stay_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date of hotel stay
+        trip_type:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: Type of trip (business, leisure, etc.)
+        room_type:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Room type stayed in
+        is_verified:
+          type: boolean
+          description: Whether review is verified
+        helpful_votes:
+          type: integer
+          minimum: 0
+          description: Number of helpful votes
+        total_votes:
+          type: integer
+          minimum: 0
+          description: Total number of votes
+        language:
+          type: string
+          pattern: '^[a-z]{2}$'
+          description: Review language code
+        sentiment:
+          type: string
+          maxLength: 20
+          nullable: true
+          enum: [positive, negative, neutral]
+          description: Review sentiment
+        source:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Review source
+        service_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Service rating
+        cleanliness_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Cleanliness rating
+        location_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Location rating
+        value_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Value for money rating
+        comfort_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Comfort rating
+        facilities_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Facilities rating
+        metadata:
+          type: object
+          nullable: true
+          description: Additional metadata
+        processed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Processing timestamp
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CreateReviewRequest:
+      type: object
+      required:
+        - hotel_id
+        - reviewer_info_id
+        - rating
+        - title
+        - comment
+        - review_date
+        - language
+      properties:
+        hotel_id:
+          type: string
+          format: uuid
+          description: Hotel ID
+        reviewer_info_id:
+          type: string
+          format: uuid
+          description: Reviewer information ID
+        external_id:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: External system review ID
+        rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          multipleOf: 0.1
+          description: Overall rating
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Review title
+        comment:
+          type: string
+          minLength: 1
+          description: Review text content
+        review_date:
+          type: string
+          format: date-time
+          description: Date when review was written
+        stay_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date of hotel stay
+        trip_type:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: Type of trip
+        room_type:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Room type
+        language:
+          type: string
+          pattern: '^[a-z]{2}$'
+          description: Review language code
+        service_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Service rating
+        cleanliness_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Cleanliness rating
+        location_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Location rating
+        value_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Value rating
+        comfort_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Comfort rating
+        facilities_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Facilities rating
+
+    UpdateReviewRequest:
+      type: object
+      properties:
+        rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          multipleOf: 0.1
+          description: Overall rating
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Review title
+        comment:
+          type: string
+          minLength: 1
+          description: Review text content
+        language:
+          type: string
+          pattern: '^[a-z]{2}$'
+          description: Review language code
+        service_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Service rating
+        cleanliness_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Cleanliness rating
+        location_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Location rating
+        value_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Value rating
+        comfort_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Comfort rating
+        facilities_rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          nullable: true
+          description: Facilities rating
+
+    ReviewResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Review'
+
+    ReviewListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                reviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Review'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+
+    ReviewSearchResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                reviews:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Review'
+                search_metadata:
+                  type: object
+                  properties:
+                    query:
+                      type: string
+                      description: Original search query
+                    total_results:
+                      type: integer
+                      description: Total number of matching results
+                    search_time_ms:
+                      type: number
+                      description: Search execution time in milliseconds
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+
+    ReviewStatisticsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                total_reviews:
+                  type: integer
+                  description: Total number of reviews
+                average_rating:
+                  type: number
+                  description: Average rating across all reviews
+                rating_distribution:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Distribution of ratings (1-5 stars)
+                reviews_by_language:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Review count by language
+                reviews_by_month:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                  description: Review count by month
+                sentiment_distribution:
+                  type: object
+                  properties:
+                    positive:
+                      type: integer
+                    negative:
+                      type: integer
+                    neutral:
+                      type: integer
+                last_updated:
+                  type: string
+                  format: date-time
+                  description: When statistics were last calculated
+
+    BulkReviewResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                created_count:
+                  type: integer
+                  description: Number of successfully created reviews
+                failed_count:
+                  type: integer
+                  description: Number of failed review creations
+                errors:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      index:
+                        type: integer
+                        description: Index of failed review in the request array
+                      error:
+                        type: string
+                        description: Error message
+                      error_code:
+                        type: string
+                        description: Error code
+                created_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: IDs of successfully created reviews
+
+    # Hotel Schemas
+    Hotel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Hotel ID
+        name:
+          type: string
+          maxLength: 255
+          description: Hotel name
+        address:
+          type: string
+          nullable: true
+          description: Hotel address
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: City
+        country:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Country
+        postal_code:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Postal code
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Phone number
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          nullable: true
+          description: Email address
+        star_rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+          description: Official star rating
+        description:
+          type: string
+          nullable: true
+          description: Hotel description
+        amenities:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: List of amenities
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          nullable: true
+          description: Latitude coordinate
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          nullable: true
+          description: Longitude coordinate
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CreateHotelRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Hotel name
+        address:
+          type: string
+          description: Hotel address
+        city:
+          type: string
+          maxLength: 100
+          description: City
+        country:
+          type: string
+          maxLength: 100
+          description: Country
+        postal_code:
+          type: string
+          maxLength: 20
+          description: Postal code
+        phone:
+          type: string
+          maxLength: 20
+          description: Phone number
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Email address
+        star_rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Official star rating
+        description:
+          type: string
+          description: Hotel description
+        amenities:
+          type: array
+          items:
+            type: string
+          description: List of amenities
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude coordinate
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude coordinate
+
+    UpdateHotelRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Hotel name
+        address:
+          type: string
+          description: Hotel address
+        city:
+          type: string
+          maxLength: 100
+          description: City
+        country:
+          type: string
+          maxLength: 100
+          description: Country
+        postal_code:
+          type: string
+          maxLength: 20
+          description: Postal code
+        phone:
+          type: string
+          maxLength: 20
+          description: Phone number
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Email address
+        star_rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Official star rating
+        description:
+          type: string
+          description: Hotel description
+        amenities:
+          type: array
+          items:
+            type: string
+          description: List of amenities
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude coordinate
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude coordinate
+
+    HotelResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Hotel'
+
+    HotelListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                hotels:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Hotel'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+
+    # Provider Schemas
+    Provider:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Provider ID
+        name:
+          type: string
+          maxLength: 100
+          description: Provider name
+        base_url:
+          type: string
+          format: uri
+          maxLength: 255
+          nullable: true
+          description: Provider base URL
+        is_active:
+          type: boolean
+          description: Whether provider is active
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    CreateProviderRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Provider name
+        base_url:
+          type: string
+          format: uri
+          maxLength: 255
+          description: Provider base URL
+        is_active:
+          type: boolean
+          default: true
+          description: Whether provider is active
+
+    ProviderResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Provider'
+
+    ProviderListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                providers:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Provider'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+
+    # File Processing Schemas
+    FileUploadResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                processing_id:
+                  type: string
+                  format: uuid
+                  description: Processing job ID
+                filename:
+                  type: string
+                  description: Uploaded filename
+                file_size:
+                  type: integer
+                  description: File size in bytes
+                estimated_records:
+                  type: integer
+                  description: Estimated number of records to process
+                status:
+                  type: string
+                  enum: [queued, processing]
+                  description: Current processing status
+
+    ProcessingStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Processing job ID
+                status:
+                  type: string
+                  enum: [pending, processing, completed, failed]
+                  description: Current status
+                started_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Processing start time
+                completed_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Processing completion time
+                records_total:
+                  type: integer
+                  description: Total records to process
+                records_processed:
+                  type: integer
+                  description: Records processed so far
+                records_failed:
+                  type: integer
+                  description: Records that failed processing
+                error_message:
+                  type: string
+                  nullable: true
+                  description: Error message if failed
+                progress_percentage:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  description: Processing progress percentage
+
+    # Health and Monitoring Schemas
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          description: Overall health status
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+        version:
+          type: string
+          description: Application version
+        services:
+          type: object
+          additionalProperties:
+            type: string
+          description: Status of individual services
+        uptime_seconds:
+          type: integer
+          description: Application uptime in seconds
+
+    CircuitBreakerHealthResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                circuit_breakers:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      state:
+                        type: string
+                        enum: [closed, open, half_open]
+                        description: Circuit breaker state
+                      failure_count:
+                        type: integer
+                        description: Current failure count
+                      last_failure_time:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: Last failure timestamp
+                      next_attempt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        description: Next attempt time (for open state)
+
+    MetricsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Metrics collection timestamp
+                http_requests:
+                  type: object
+                  properties:
+                    total:
+                      type: integer
+                      description: Total HTTP requests
+                    rate_per_second:
+                      type: number
+                      description: Request rate per second
+                    avg_response_time_ms:
+                      type: number
+                      description: Average response time
+                    error_rate:
+                      type: number
+                      description: Error rate percentage
+                database:
+                  type: object
+                  properties:
+                    active_connections:
+                      type: integer
+                      description: Active database connections
+                    avg_query_time_ms:
+                      type: number
+                      description: Average query time
+                    slow_queries:
+                      type: integer
+                      description: Number of slow queries
+                cache:
+                  type: object
+                  properties:
+                    hit_rate:
+                      type: number
+                      description: Cache hit rate percentage
+                    memory_usage_mb:
+                      type: number
+                      description: Cache memory usage
+                    evictions:
+                      type: integer
+                      description: Number of cache evictions
+
+    CircuitBreakerMetricsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                circuit_breakers:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      requests_total:
+                        type: integer
+                        description: Total requests through circuit breaker
+                      failures_total:
+                        type: integer
+                        description: Total failures
+                      successes_total:
+                        type: integer
+                        description: Total successes
+                      timeouts_total:
+                        type: integer
+                        description: Total timeouts
+                      rejected_total:
+                        type: integer
+                        description: Total rejected requests
+                      avg_response_time_ms:
+                        type: number
+                        description: Average response time
+
+    # Base Response Schemas
+    BaseResponse:
+      type: object
+      required:
+        - success
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+        trace_id:
+          type: string
+          nullable: true
+          description: Request trace ID for debugging
+
+    SuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              nullable: true
+              description: Response data
+            message:
+              type: string
+              description: Success message
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required:
+            - error
+            - error_code
+          properties:
+            success:
+              type: boolean
+              enum: [false]
+            error:
+              type: string
+              description: Error message
+            error_code:
+              type: string
+              description: Machine-readable error code
+            details:
+              type: object
+              nullable: true
+              description: Additional error details
+
+    ValidationErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - type: object
+          properties:
+            details:
+              type: object
+              properties:
+                validation_errors:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      field:
+                        type: string
+                        description: Field that failed validation
+                      message:
+                        type: string
+                        description: Validation error message
+                      code:
+                        type: string
+                        description: Validation error code
+
+    # Utility Schemas
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        limit:
+          type: integer
+          description: Maximum items per page
+        offset:
+          type: integer
+          description: Number of items skipped
+        has_next:
+          type: boolean
+          description: Whether there are more pages
+        has_previous:
+          type: boolean
+          description: Whether there are previous pages
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalid_parameter:
+              summary: Invalid parameter
+              value:
+                success: false
+                error: "Invalid parameter value"
+                error_code: "INVALID_PARAMETER"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_token:
+              summary: Missing authentication token
+              value:
+                success: false
+                error: "Authentication required"
+                error_code: "UNAUTHORIZED"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+            invalid_token:
+              summary: Invalid authentication token
+              value:
+                success: false
+                error: "Invalid or expired token"
+                error_code: "INVALID_TOKEN"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            insufficient_permissions:
+              summary: Insufficient permissions
+              value:
+                success: false
+                error: "Insufficient permissions for this operation"
+                error_code: "FORBIDDEN"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            resource_not_found:
+              summary: Resource not found
+              value:
+                success: false
+                error: "The requested resource was not found"
+                error_code: "NOT_FOUND"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            duplicate_resource:
+              summary: Resource already exists
+              value:
+                success: false
+                error: "A resource with this identifier already exists"
+                error_code: "CONFLICT"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    ValidationError:
+      description: Validation error - invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+          examples:
+            validation_failure:
+              summary: Validation errors
+              value:
+                success: false
+                error: "Request validation failed"
+                error_code: "VALIDATION_ERROR"
+                details:
+                  validation_errors:
+                    - field: "email"
+                      message: "Invalid email format"
+                      code: "INVALID_FORMAT"
+                    - field: "rating"
+                      message: "Rating must be between 1 and 5"
+                      code: "OUT_OF_RANGE"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    TooManyRequests:
+      description: Too many requests - rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: Request limit per time window
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Remaining requests in current window
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Time when rate limit resets
+          schema:
+            type: integer
+        Retry-After:
+          description: Number of seconds to wait before retrying
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            rate_limit_exceeded:
+              summary: Rate limit exceeded
+              value:
+                success: false
+                error: "Rate limit exceeded"
+                error_code: "RATE_LIMIT_EXCEEDED"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    PayloadTooLarge:
+      description: Payload too large - file size exceeds limit
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            file_too_large:
+              summary: File size exceeds limit
+              value:
+                success: false
+                error: "File size exceeds maximum allowed limit"
+                error_code: "PAYLOAD_TOO_LARGE"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            server_error:
+              summary: Internal server error
+              value:
+                success: false
+                error: "An internal server error occurred"
+                error_code: "INTERNAL_ERROR"
+                timestamp: "2024-01-15T10:30:00Z"
+                trace_id: "abc123def456"
+
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      description: Maximum number of items to return
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    OffsetParam:
+      name: offset
+      in: query
+      description: Number of items to skip
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  headers:
+    X-RateLimit-Limit:
+      description: Request limit per time window
+      schema:
+        type: integer
+        example: 1000
+
+    X-RateLimit-Remaining:
+      description: Remaining requests in current window
+      schema:
+        type: integer
+        example: 950
+
+    X-RateLimit-Reset:
+      description: Time when rate limit resets (Unix timestamp)
+      schema:
+        type: integer
+        example: 1642249200
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization endpoints
+  - name: Reviews
+    description: Hotel review management and operations
+  - name: Hotels
+    description: Hotel information management
+  - name: Providers
+    description: Review provider management
+  - name: Health
+    description: Health check and system status endpoints
+  - name: Monitoring
+    description: Application metrics and monitoring endpoints
+
+x-api-versioning:
+  strategy: "URL Path Versioning"
+  current_version: "v1"
+  supported_versions: ["v1"]
+  deprecation_policy: |
+    API versions will be supported for a minimum of 12 months after the release of a newer version.
+    Deprecated versions will be clearly marked in the documentation and response headers.
+  version_header: "X-API-Version"
+  migration_guide: "https://docs.hotelreviews.com/api/migration"
+
+x-rate-limiting:
+  default_limits:
+    authenticated: "1000 requests per hour"
+    unauthenticated: "100 requests per hour"
+  endpoint_specific:
+    "/auth/login": "10 requests per minute"
+    "/reviews/upload": "5 requests per hour"
+    "/reviews/bulk": "20 requests per hour"
+  headers:
+    - "X-RateLimit-Limit"
+    - "X-RateLimit-Remaining"
+    - "X-RateLimit-Reset"
+
+x-security:
+  authentication:
+    - type: "JWT Bearer Token"
+      description: "Obtained from /auth/login endpoint"
+      expiration: "1 hour"
+      refresh: "Available via /auth/refresh endpoint"
+  authorization:
+    - "Role-based access control (RBAC)"
+    - "Resource-level permissions"
+  data_protection:
+    - "All data encrypted in transit (TLS 1.3)"
+    - "Sensitive data encrypted at rest"
+    - "PII handling according to GDPR/CCPA"

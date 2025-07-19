@@ -16,52 +16,23 @@ import (
 )
 
 // ErrorType represents the type of error for retry classification
-type ErrorType int
+// Note: Using ErrorType from error_handler.go for consistency
 
+// Retry error mappings to ErrorType constants from error_handler.go
 const (
-	// ErrorTypeTransient represents transient errors that should be retried
-	ErrorTypeTransient ErrorType = iota
-	// ErrorTypePermanent represents permanent errors that should not be retried
-	ErrorTypePermanent
-	// ErrorTypeTimeout represents timeout errors
-	ErrorTypeTimeout
-	// ErrorTypeRateLimit represents rate limit errors
-	ErrorTypeRateLimit
-	// ErrorTypeCircuitBreaker represents circuit breaker errors
-	ErrorTypeCircuitBreaker
-	// ErrorTypeNetwork represents network errors
-	ErrorTypeNetwork
-	// ErrorTypeServer represents server errors (5xx)
-	ErrorTypeServer
-	// ErrorTypeClient represents client errors (4xx)
-	ErrorTypeClient
-	// ErrorTypeUnknown represents unknown errors
-	ErrorTypeUnknown
+	// Common retryable error types
+	RetryableNetworkError = ErrorTypeNetwork
+	RetryableTimeoutError = ErrorTypeTimeout
+	RetryableSystemError = ErrorTypeSystem
+	RetryableExternalError = ErrorTypeExternal
+	
+	// Common permanent error types
+	PermanentValidationError = ErrorTypeValidation
+	PermanentClientError = ErrorTypeClient
+	PermanentAuthError = ErrorTypeAuthentication
 )
 
-// String returns the string representation of the error type
-func (et ErrorType) String() string {
-	switch et {
-	case ErrorTypeTransient:
-		return "TRANSIENT"
-	case ErrorTypePermanent:
-		return "PERMANENT"
-	case ErrorTypeTimeout:
-		return "TIMEOUT"
-	case ErrorTypeRateLimit:
-		return "RATE_LIMIT"
-	case ErrorTypeCircuitBreaker:
-		return "CIRCUIT_BREAKER"
-	case ErrorTypeNetwork:
-		return "NETWORK"
-	case ErrorTypeServer:
-		return "SERVER"
-	case ErrorTypeClient:
-		return "CLIENT"
-	default:
-		return "UNKNOWN"
-	}
-}
+// Note: Using ErrorType.String() method from error_handler.go
 
 // RetryStrategy represents different retry strategies
 type RetryStrategy int
@@ -194,8 +165,8 @@ func DefaultRetryConfig() *RetryConfig {
 		JitterType:          JitterTypeFull,
 		JitterMaxDeviation:  0.1,
 		EnableCircuitBreaker: true,
-		RetryableErrors:     []ErrorType{ErrorTypeTransient, ErrorTypeTimeout, ErrorTypeNetwork, ErrorTypeServer},
-		PermanentErrors:     []ErrorType{ErrorTypePermanent, ErrorTypeClient},
+		RetryableErrors:     []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout, ErrorTypeExternal},
+		PermanentErrors:     []ErrorType{ErrorTypeValidation, ErrorTypeClient},
 		EnableDeadLetter:    true,
 		EnableMetrics:       true,
 		EnableLogging:       true,
@@ -402,6 +373,7 @@ func (rm *RetryManager) executeWithRetry(ctx context.Context, fn RetryableFunc, 
 		if config.EnableCircuitBreaker && rm.circuitBreaker != nil {
 			if err := rm.checkCircuitBreaker(ctx, config); err != nil {
 				rm.recordCircuitBreakerReject()
+				rm.circuitBreaker.recordRejection()
 				return nil, err
 			}
 		}
@@ -415,11 +387,16 @@ func (rm *RetryManager) executeWithRetry(ctx context.Context, fn RetryableFunc, 
 		retryCtx.LastError = lastErr
 		retryCtx.TotalDuration += executeDuration
 		
-		// Record attempt metrics
-		rm.recordAttempt(config, attempt, executeDuration, lastErr)
-		
 		// If successful, return immediately
 		if lastErr == nil {
+			// Record successful attempt metrics
+			rm.recordAttempt(config, attempt, executeDuration, lastErr)
+			
+			// Record success with circuit breaker
+			if config.EnableCircuitBreaker && rm.circuitBreaker != nil {
+				rm.circuitBreaker.recordSuccess()
+			}
+			
 			if config.EnableLogging {
 				rm.logSuccess(config, retryCtx)
 			}
@@ -429,6 +406,14 @@ func (rm *RetryManager) executeWithRetry(ctx context.Context, fn RetryableFunc, 
 		// Classify error
 		errorType := rm.classifyError(lastErr)
 		retryCtx.LastErrorType = errorType
+		
+		// Record attempt metrics
+		rm.recordAttempt(config, attempt, executeDuration, lastErr)
+		
+		// Record failure with circuit breaker
+		if config.EnableCircuitBreaker && rm.circuitBreaker != nil {
+			rm.circuitBreaker.recordFailure()
+		}
 		
 		// Check if error is retryable
 		if !rm.isRetryable(lastErr, attempt, config) {
@@ -442,6 +427,9 @@ func (rm *RetryManager) executeWithRetry(ctx context.Context, fn RetryableFunc, 
 		if attempt == config.MaxAttempts {
 			break
 		}
+		
+		// We are going to retry, so count this as a retry
+		rm.recordRetry(config, attempt, lastErr)
 		
 		// Calculate backoff delay
 		backoffDelay := rm.calculateBackoff(attempt, config)
@@ -462,7 +450,6 @@ func (rm *RetryManager) executeWithRetry(ctx context.Context, fn RetryableFunc, 
 		}
 	}
 	
-	// All attempts failed
 	if config.EnableLogging {
 		rm.logAllAttemptsFailed(config, retryCtx, lastErr)
 	}
@@ -517,14 +504,14 @@ func (rm *RetryManager) isRetryable(err error, attempt int, config *RetryConfig)
 		}
 	}
 	
-	// Default behavior: retry transient errors
-	return errorType == ErrorTypeTransient || errorType == ErrorTypeTimeout || errorType == ErrorTypeNetwork
+	// Default behavior: retry transient and network errors
+	return errorType == ErrorTypeNetwork || errorType == ErrorTypeTimeout
 }
 
 // classifyError classifies an error into a specific error type
 func (rm *RetryManager) classifyError(err error) ErrorType {
 	if err == nil {
-		return ErrorTypeUnknown
+		return ErrorTypeSystem
 	}
 	
 	errorStr := err.Error()
@@ -567,7 +554,7 @@ func (rm *RetryManager) classifyError(err error) ErrorType {
 	// Check for HTTP status codes (if available in error message)
 	if strings.Contains(errorStrLower, "500") || strings.Contains(errorStrLower, "502") ||
 	   strings.Contains(errorStrLower, "503") || strings.Contains(errorStrLower, "504") {
-		return ErrorTypeServer
+		return ErrorTypeExternal
 	}
 	
 	if strings.Contains(errorStrLower, "400") || strings.Contains(errorStrLower, "401") ||
@@ -578,11 +565,11 @@ func (rm *RetryManager) classifyError(err error) ErrorType {
 	// Check for permanent error patterns
 	if strings.Contains(errorStrLower, "invalid") || strings.Contains(errorStrLower, "bad request") ||
 	   strings.Contains(errorStrLower, "unauthorized") || strings.Contains(errorStrLower, "forbidden") {
-		return ErrorTypePermanent
+		return ErrorTypeValidation
 	}
 	
-	// Default to transient for unknown errors
-	return ErrorTypeTransient
+	// Default to system error for unknown errors
+	return ErrorTypeSystem
 }
 
 // calculateBackoff calculates the backoff delay for a retry attempt
@@ -720,48 +707,29 @@ func (rm *RetryManager) recordAttempt(config *RetryConfig, attempt int, duration
 		atomic.AddUint64(&rm.metrics.SuccessfulOperations, 1)
 		rm.metrics.LastSuccessTime = time.Now()
 	} else {
-		if attempt == config.MaxAttempts {
+		// Check if this error will be retried
+		if attempt == config.MaxAttempts || !rm.isRetryable(err, attempt, config) {
 			atomic.AddUint64(&rm.metrics.FailedOperations, 1)
 		}
 		rm.metrics.LastFailureTime = time.Now()
-		
-		// Record retry statistics
-		if attempt > 1 {
-			atomic.AddUint64(&rm.metrics.TotalRetries, 1)
-			errorType := rm.classifyError(err)
-			rm.metrics.RetriesByErrorType[errorType]++
-			rm.metrics.RetriesByAttempt[attempt]++
-		}
-	}
-	
-	// Update timing metrics
-	rm.metrics.TotalDuration += duration
-	rm.metrics.LastAttemptTime = time.Now()
-	
-	if duration > rm.metrics.MaxDuration {
-		rm.metrics.MaxDuration = duration
-	}
-	if duration < rm.metrics.MinDuration {
-		rm.metrics.MinDuration = duration
-	}
-	
-	// Update average duration
-	totalOps := atomic.LoadUint64(&rm.metrics.TotalOperations)
-	if totalOps > 0 {
-		rm.metrics.AverageDuration = time.Duration(int64(rm.metrics.TotalDuration) / int64(totalOps))
-	}
-	
-	// Update success/failure rates
-	successOps := atomic.LoadUint64(&rm.metrics.SuccessfulOperations)
-	failedOps := atomic.LoadUint64(&rm.metrics.FailedOperations)
-	if totalOps > 0 {
-		rm.metrics.SuccessRate = float64(successOps) / float64(totalOps) * 100
-		rm.metrics.FailureRate = float64(failedOps) / float64(totalOps) * 100
 	}
 	
 	// Update per-operation metrics
 	rm.updateOperationMetrics(config, attempt, duration, err)
 }
+
+// recordRetry records that we're about to retry
+func (rm *RetryManager) recordRetry(config *RetryConfig, attempt int, err error) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	atomic.AddUint64(&rm.metrics.TotalRetries, 1)
+	errorType := rm.classifyError(err)
+	rm.metrics.RetriesByErrorType[errorType]++
+	rm.metrics.RetriesByAttempt[attempt+1]++  // +1 because next attempt will be attempt+1
+}
+
+
 
 // updateOperationMetrics updates metrics for a specific operation
 func (rm *RetryManager) updateOperationMetrics(config *RetryConfig, attempt int, duration time.Duration, err error) {
@@ -853,7 +821,7 @@ func (rm *RetryManager) handleDeadLetter(ctx context.Context, config *RetryConfi
 			"operation_type":    retryCtx.OperationType,
 			"total_attempts":    retryCtx.Attempt,
 			"total_duration":    retryCtx.TotalDuration,
-			"last_error_type":   retryCtx.LastErrorType.String(),
+			"last_error_type":   string(retryCtx.LastErrorType),
 			"backoff_duration":  retryCtx.BackoffDuration,
 			"tags":              retryCtx.Tags,
 			"start_time":        retryCtx.StartTime,
@@ -896,8 +864,8 @@ func (rm *RetryManager) GetMetrics() *RetryMetrics {
 		LastAttemptTime:       rm.metrics.LastAttemptTime,
 		LastSuccessTime:       rm.metrics.LastSuccessTime,
 		LastFailureTime:       rm.metrics.LastFailureTime,
-		SuccessRate:           rm.metrics.SuccessRate,
-		FailureRate:           rm.metrics.FailureRate,
+		SuccessRate:           0,
+		FailureRate:           0,
 		AverageRetriesPerOperation: rm.metrics.AverageRetriesPerOperation,
 		OperationMetrics:      make(map[string]*OperationMetrics),
 	}
@@ -911,6 +879,12 @@ func (rm *RetryManager) GetMetrics() *RetryMetrics {
 	}
 	for k, v := range rm.metrics.OperationMetrics {
 		metrics.OperationMetrics[k] = &(*v) // Deep copy
+	}
+	
+	// Calculate success and failure rates
+	if metrics.TotalOperations > 0 {
+		metrics.SuccessRate = float64(metrics.SuccessfulOperations) / float64(metrics.TotalOperations) * 100
+		metrics.FailureRate = float64(metrics.FailedOperations) / float64(metrics.TotalOperations) * 100
 	}
 	
 	return metrics
@@ -1011,7 +985,7 @@ func (rm *RetryManager) logRetryAttempt(config *RetryConfig, retryCtx *RetryCont
 			"attempt", retryCtx.Attempt,
 			"max_attempts", retryCtx.MaxAttempts,
 			"error", err.Error(),
-			"error_type", retryCtx.LastErrorType.String(),
+			"error_type", string(retryCtx.LastErrorType),
 			"backoff_delay", backoffDelay,
 			"strategy", config.Strategy.String(),
 			"tags", retryCtx.Tags,
@@ -1026,7 +1000,7 @@ func (rm *RetryManager) logNonRetryableError(config *RetryConfig, retryCtx *Retr
 		"operation_type", retryCtx.OperationType,
 		"attempt", retryCtx.Attempt,
 		"error", err.Error(),
-		"error_type", retryCtx.LastErrorType.String(),
+		"error_type", string(retryCtx.LastErrorType),
 		"duration", retryCtx.TotalDuration,
 		"tags", retryCtx.Tags,
 	)
@@ -1040,7 +1014,7 @@ func (rm *RetryManager) logAllAttemptsFailed(config *RetryConfig, retryCtx *Retr
 		"total_attempts", retryCtx.Attempt,
 		"max_attempts", retryCtx.MaxAttempts,
 		"final_error", err.Error(),
-		"error_type", retryCtx.LastErrorType.String(),
+		"error_type", string(retryCtx.LastErrorType),
 		"total_duration", retryCtx.TotalDuration,
 		"backoff_duration", retryCtx.BackoffDuration,
 		"tags", retryCtx.Tags,
@@ -1061,8 +1035,8 @@ func DatabaseRetryConfig() *RetryConfig {
 		JitterType:          JitterTypeFull,
 		JitterMaxDeviation:  0.1,
 		EnableCircuitBreaker: true,
-		RetryableErrors:     []ErrorType{ErrorTypeTransient, ErrorTypeTimeout, ErrorTypeNetwork},
-		PermanentErrors:     []ErrorType{ErrorTypePermanent, ErrorTypeClient},
+		RetryableErrors:     []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout},
+		PermanentErrors:     []ErrorType{ErrorTypeValidation, ErrorTypeClient},
 		EnableDeadLetter:    true,
 		EnableMetrics:       true,
 		EnableLogging:       true,
@@ -1085,8 +1059,8 @@ func HTTPRetryConfig() *RetryConfig {
 		JitterType:          JitterTypeEqual,
 		JitterMaxDeviation:  0.1,
 		EnableCircuitBreaker: true,
-		RetryableErrors:     []ErrorType{ErrorTypeTransient, ErrorTypeTimeout, ErrorTypeNetwork, ErrorTypeServer, ErrorTypeRateLimit},
-		PermanentErrors:     []ErrorType{ErrorTypePermanent, ErrorTypeClient},
+		RetryableErrors:     []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout, ErrorTypeExternal, ErrorTypeRateLimit},
+		PermanentErrors:     []ErrorType{ErrorTypeValidation, ErrorTypeClient},
 		EnableDeadLetter:    true,
 		EnableMetrics:       true,
 		EnableLogging:       true,
@@ -1109,8 +1083,8 @@ func S3RetryConfig() *RetryConfig {
 		JitterType:          JitterTypeFull,
 		JitterMaxDeviation:  0.1,
 		EnableCircuitBreaker: true,
-		RetryableErrors:     []ErrorType{ErrorTypeTransient, ErrorTypeTimeout, ErrorTypeNetwork, ErrorTypeServer, ErrorTypeRateLimit},
-		PermanentErrors:     []ErrorType{ErrorTypePermanent, ErrorTypeClient},
+		RetryableErrors:     []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout, ErrorTypeExternal, ErrorTypeRateLimit},
+		PermanentErrors:     []ErrorType{ErrorTypeValidation, ErrorTypeClient},
 		EnableDeadLetter:    true,
 		EnableMetrics:       true,
 		EnableLogging:       true,
@@ -1133,8 +1107,8 @@ func CacheRetryConfig() *RetryConfig {
 		JitterType:          JitterTypeNone,
 		JitterMaxDeviation:  0.0,
 		EnableCircuitBreaker: false, // Cache failures are less critical
-		RetryableErrors:     []ErrorType{ErrorTypeTransient, ErrorTypeTimeout, ErrorTypeNetwork},
-		PermanentErrors:     []ErrorType{ErrorTypePermanent, ErrorTypeClient},
+		RetryableErrors:     []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout},
+		PermanentErrors:     []ErrorType{ErrorTypeValidation, ErrorTypeClient},
 		EnableDeadLetter:    false,
 		EnableMetrics:       true,
 		EnableLogging:       true,
@@ -1157,8 +1131,8 @@ func KafkaRetryConfig() *RetryConfig {
 		JitterType:          JitterTypeDecorrelated,
 		JitterMaxDeviation:  0.1,
 		EnableCircuitBreaker: true,
-		RetryableErrors:     []ErrorType{ErrorTypeTransient, ErrorTypeTimeout, ErrorTypeNetwork, ErrorTypeServer},
-		PermanentErrors:     []ErrorType{ErrorTypePermanent, ErrorTypeClient},
+		RetryableErrors:     []ErrorType{ErrorTypeNetwork, ErrorTypeTimeout, ErrorTypeExternal},
+		PermanentErrors:     []ErrorType{ErrorTypeValidation, ErrorTypeClient},
 		EnableDeadLetter:    true,
 		EnableMetrics:       true,
 		EnableLogging:       true,

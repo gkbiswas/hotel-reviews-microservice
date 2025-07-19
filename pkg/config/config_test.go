@@ -136,6 +136,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	os.Setenv("HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY", "test-secret-key")
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
+	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
 	
 	config, err := Load()
 	
@@ -635,6 +636,7 @@ func (suite *ConfigTestSuite) TestLoad_ValidationFailures() {
 			os.Setenv("HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY", "test-secret-key")
 			os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 			os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
+	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
 			
 			// Set test-specific environment variables
 			for key, value := range test.envVars {
@@ -659,6 +661,7 @@ func (suite *ConfigTestSuite) TestLoad_TLSValidation() {
 	os.Setenv("HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY", "test-secret-key")
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
+	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
 	
 	// Test missing TLS key file
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_CERT_FILE", "cert.pem")
@@ -928,6 +931,7 @@ func (suite *ConfigTestSuite) TestCompleteConfigStructure() {
 	os.Setenv("HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY", "test-secret-key")
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
+	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
 	
 	config, err := Load()
 	suite.NoError(err)

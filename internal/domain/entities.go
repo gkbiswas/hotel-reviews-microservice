@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,7 +31,9 @@ type Hotel struct {
 	Email       string         `json:"email" gorm:"type:varchar(255)" validate:"email,max=255"`
 	StarRating  int            `json:"star_rating" gorm:"type:int;check:star_rating >= 1 AND star_rating <= 5" validate:"min=1,max=5"`
 	Description string         `json:"description" gorm:"type:text"`
+	Website     string         `json:"website" gorm:"type:varchar(255)" validate:"url,max=255"`
 	Amenities   []string       `json:"amenities" gorm:"type:jsonb"`
+	Images      []string       `json:"images" gorm:"type:jsonb"`
 	Latitude    float64        `json:"latitude" gorm:"type:decimal(10,8)" validate:"min=-90,max=90"`
 	Longitude   float64        `json:"longitude" gorm:"type:decimal(11,8)" validate:"min=-180,max=180"`
 	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
@@ -46,7 +49,9 @@ type ReviewerInfo struct {
 	ID               uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
 	Name             string         `json:"name" gorm:"type:varchar(255)" validate:"max=255"`
 	Email            string         `json:"email" gorm:"type:varchar(255)" validate:"email,max=255"`
-	Country          string         `json:"country" gorm:"type:varchar(100)" validate:"max=100"`
+	Location         string         `json:"location" gorm:"type:varchar(100)" validate:"max=100"`
+	ReviewerLevel    string         `json:"reviewer_level" gorm:"type:varchar(50)" validate:"max=50"`
+	HelpfulVotes     int            `json:"helpful_votes" gorm:"default:0"`
 	IsVerified       bool           `json:"is_verified" gorm:"default:false"`
 	TotalReviews     int            `json:"total_reviews" gorm:"default:0"`
 	AverageRating    float64        `json:"average_rating" gorm:"type:decimal(3,2);default:0.0"`
@@ -66,18 +71,25 @@ type Review struct {
 	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()" validate:"required"`
 	ProviderID     uuid.UUID      `json:"provider_id" gorm:"type:uuid;not null" validate:"required"`
 	HotelID        uuid.UUID      `json:"hotel_id" gorm:"type:uuid;not null" validate:"required"`
-	ReviewerInfoID uuid.UUID      `json:"reviewer_info_id" gorm:"type:uuid;not null" validate:"required"`
+	UserID         *uuid.UUID     `json:"user_id,omitempty" gorm:"type:uuid"`
+	ReviewerInfoID *uuid.UUID     `json:"reviewer_info_id,omitempty" gorm:"type:uuid"`
 	ExternalID     string         `json:"external_id" gorm:"type:varchar(255)" validate:"max=255"`
 	Rating         float64        `json:"rating" gorm:"type:decimal(3,2);not null;check:rating >= 1.0 AND rating <= 5.0" validate:"required,min=1.0,max=5.0"`
 	Title          string         `json:"title" gorm:"type:varchar(500)" validate:"max=500"`
 	Comment        string         `json:"comment" gorm:"type:text"`
 	ReviewDate     time.Time      `json:"review_date" gorm:"not null" validate:"required"`
 	StayDate       *time.Time     `json:"stay_date,omitempty"`
+	TravelDate     *time.Time     `json:"travel_date,omitempty"`
 	TripType       string         `json:"trip_type" gorm:"type:varchar(50)" validate:"max=50"`
+	TravelType     string         `json:"travel_type" gorm:"type:varchar(50)" validate:"max=50"`
 	RoomType       string         `json:"room_type" gorm:"type:varchar(100)" validate:"max=100"`
 	IsVerified     bool           `json:"is_verified" gorm:"default:false"`
 	HelpfulVotes   int            `json:"helpful_votes" gorm:"default:0"`
+	HelpfulCount   int            `json:"helpful_count" gorm:"default:0"`
 	TotalVotes     int            `json:"total_votes" gorm:"default:0"`
+	Pros           []string       `json:"pros" gorm:"type:jsonb"`
+	Cons           []string       `json:"cons" gorm:"type:jsonb"`
+	Images         []string       `json:"images" gorm:"type:jsonb"`
 	Language       string         `json:"language" gorm:"type:varchar(10);default:'en'" validate:"max=10"`
 	Sentiment      string         `json:"sentiment" gorm:"type:varchar(20)" validate:"max=20"`
 	Source         string         `json:"source" gorm:"type:varchar(100)" validate:"max=100"`
@@ -279,3 +291,17 @@ type LoginAttempt struct {
 	FailureReason string       `json:"failure_reason,omitempty" gorm:"type:varchar(100)"`
 	CreatedAt   time.Time      `json:"created_at" gorm:"autoCreateTime"`
 }
+
+// ReviewStatistics represents statistics for reviews
+type ReviewStatistics struct {
+	TotalReviews        int64                    `json:"total_reviews"`
+	AverageRating       float64                  `json:"average_rating"`
+	LastUpdated         time.Time                `json:"last_updated"`
+	RatingDistribution  map[int]int              `json:"rating_distribution"`
+	ReviewsByProvider   map[string]int           `json:"reviews_by_provider"`
+}
+
+// Common errors
+var (
+	ErrReviewNotFound = fmt.Errorf("review not found")
+)

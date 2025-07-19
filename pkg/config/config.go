@@ -530,7 +530,7 @@ func setDefaults(v *viper.Viper) {
 	// Authentication defaults
 	v.SetDefault("auth.jwt_issuer", "hotel-reviews-api")
 	v.SetDefault("auth.access_token_expiry", "15m")
-	v.SetDefault("auth.refresh_token_expiry", "7d")
+	v.SetDefault("auth.refresh_token_expiry", "168h") // 7 days = 7 * 24 hours
 	v.SetDefault("auth.max_login_attempts", 5)
 	v.SetDefault("auth.login_attempt_window", "15m")
 	v.SetDefault("auth.account_lock_duration", "30m")

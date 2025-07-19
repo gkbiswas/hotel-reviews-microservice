@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 

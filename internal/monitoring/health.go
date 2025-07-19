@@ -2,13 +2,12 @@ package monitoring
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/heptiolabs/healthcheck"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -90,9 +89,8 @@ func (h *DatabaseHealthChecker) Check(ctx context.Context) HealthCheckResult {
 		"in_use_connections":   stats.InUse,
 		"idle_connections":     stats.Idle,
 		"max_open_connections": stats.MaxOpenConnections,
-		"max_idle_connections": stats.MaxIdleConnections,
-		"max_lifetime":         stats.MaxLifetime,
-		"max_idle_time":        stats.MaxIdleTime,
+		"wait_count":           stats.WaitCount,
+		"wait_duration":        stats.WaitDuration,
 	}
 
 	return HealthCheckResult{
@@ -419,30 +417,8 @@ func (s *HealthService) GetHTTPHandler() http.Handler {
 			"checks":    results,
 		}
 		
-		// Simple JSON encoding (in production, use a proper JSON library)
-		fmt.Fprintf(w, `{
-			"status": "%s",
-			"timestamp": "%s",
-			"checks": {`, overall, time.Now().Format(time.RFC3339))
-		
-		first := true
-		for name, result := range results {
-			if !first {
-				fmt.Fprint(w, ",")
-			}
-			fmt.Fprintf(w, `
-				"%s": {
-					"status": "%s",
-					"message": "%s",
-					"timestamp": "%s",
-					"response_time": "%s"
-				}`, name, result.Status, result.Message, result.Timestamp.Format(time.RFC3339), result.ResponseTime)
-			first = false
-		}
-		
-		fmt.Fprint(w, `
-			}
-		}`)
+		// Encode response as JSON
+		json.NewEncoder(w).Encode(response)
 	})
 }
 
