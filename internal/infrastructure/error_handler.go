@@ -23,29 +23,29 @@ type ErrorType string
 
 const (
 	// System errors
-	ErrorTypeSystem           ErrorType = "system"
-	ErrorTypeDatabase         ErrorType = "database"
-	ErrorTypeNetwork          ErrorType = "network"
-	ErrorTypeTimeout          ErrorType = "timeout"
-	ErrorTypeCircuitBreaker   ErrorType = "circuit_breaker"
-	ErrorTypeRateLimit        ErrorType = "rate_limit"
-	ErrorTypeResource         ErrorType = "resource"
-	ErrorTypeConfiguration    ErrorType = "configuration"
+	ErrorTypeSystem         ErrorType = "system"
+	ErrorTypeDatabase       ErrorType = "database"
+	ErrorTypeNetwork        ErrorType = "network"
+	ErrorTypeTimeout        ErrorType = "timeout"
+	ErrorTypeCircuitBreaker ErrorType = "circuit_breaker"
+	ErrorTypeRateLimit      ErrorType = "rate_limit"
+	ErrorTypeResource       ErrorType = "resource"
+	ErrorTypeConfiguration  ErrorType = "configuration"
 
 	// Business errors
-	ErrorTypeBusiness         ErrorType = "business"
-	ErrorTypeValidation       ErrorType = "validation"
-	ErrorTypeAuthentication   ErrorType = "authentication"
-	ErrorTypeAuthorization    ErrorType = "authorization"
-	ErrorTypeNotFound         ErrorType = "not_found"
-	ErrorTypeConflict         ErrorType = "conflict"
-	ErrorTypePrecondition     ErrorType = "precondition"
+	ErrorTypeBusiness       ErrorType = "business"
+	ErrorTypeValidation     ErrorType = "validation"
+	ErrorTypeAuthentication ErrorType = "authentication"
+	ErrorTypeAuthorization  ErrorType = "authorization"
+	ErrorTypeNotFound       ErrorType = "not_found"
+	ErrorTypeConflict       ErrorType = "conflict"
+	ErrorTypePrecondition   ErrorType = "precondition"
 
 	// External errors
-	ErrorTypeExternal         ErrorType = "external"
-	ErrorTypeThirdParty       ErrorType = "third_party"
-	ErrorTypeUpstream         ErrorType = "upstream"
-	ErrorTypeDownstream       ErrorType = "downstream"
+	ErrorTypeExternal   ErrorType = "external"
+	ErrorTypeThirdParty ErrorType = "third_party"
+	ErrorTypeUpstream   ErrorType = "upstream"
+	ErrorTypeDownstream ErrorType = "downstream"
 
 	// Client errors
 	ErrorTypeClient           ErrorType = "client"
@@ -57,13 +57,13 @@ const (
 type ErrorCategory string
 
 const (
-	CategoryTransient    ErrorCategory = "transient"    // Temporary errors that may resolve
-	CategoryPermanent    ErrorCategory = "permanent"    // Permanent errors that won't resolve
-	CategoryRetryable    ErrorCategory = "retryable"    // Errors that can be retried
+	CategoryTransient    ErrorCategory = "transient"     // Temporary errors that may resolve
+	CategoryPermanent    ErrorCategory = "permanent"     // Permanent errors that won't resolve
+	CategoryRetryable    ErrorCategory = "retryable"     // Errors that can be retried
 	CategoryNonRetryable ErrorCategory = "non_retryable" // Errors that shouldn't be retried
-	CategoryCritical     ErrorCategory = "critical"     // Critical errors requiring immediate attention
-	CategoryWarning      ErrorCategory = "warning"      // Warning-level errors
-	CategoryInfo         ErrorCategory = "info"         // Informational errors
+	CategoryCritical     ErrorCategory = "critical"      // Critical errors requiring immediate attention
+	CategoryWarning      ErrorCategory = "warning"       // Warning-level errors
+	CategoryInfo         ErrorCategory = "info"          // Informational errors
 )
 
 // ErrorSeverity represents the severity of an error
@@ -87,38 +87,38 @@ const (
 
 // AppError represents a structured application error
 type AppError struct {
-	ID             string                 `json:"id"`
-	Type           ErrorType              `json:"type"`
-	Category       ErrorCategory          `json:"category"`
-	Severity       ErrorSeverity          `json:"severity"`
-	Code           string                 `json:"code"`
-	Message        string                 `json:"message"`
-	UserMessage    string                 `json:"user_message,omitempty"`
-	Details        map[string]interface{} `json:"details,omitempty"`
-	Context        map[string]interface{} `json:"context,omitempty"`
-	Timestamp      time.Time              `json:"timestamp"`
-	CorrelationID  string                 `json:"correlation_id,omitempty"`
-	RequestID      string                 `json:"request_id,omitempty"`
-	UserID         string                 `json:"user_id,omitempty"`
-	Source         string                 `json:"source,omitempty"`
-	StackTrace     string                 `json:"stack_trace,omitempty"`
-	Cause          error                  `json:"-"`
-	RetryAfter     *time.Duration         `json:"retry_after,omitempty"`
-	HTTPStatus     int                    `json:"http_status"`
-	Internal       bool                   `json:"internal"`
-	Retryable      bool                   `json:"retryable"`
-	Logged         bool                   `json:"logged"`
-	Metrics        *ErrorMetrics          `json:"metrics,omitempty"`
+	ID            string                 `json:"id"`
+	Type          ErrorType              `json:"type"`
+	Category      ErrorCategory          `json:"category"`
+	Severity      ErrorSeverity          `json:"severity"`
+	Code          string                 `json:"code"`
+	Message       string                 `json:"message"`
+	UserMessage   string                 `json:"user_message,omitempty"`
+	Details       map[string]interface{} `json:"details,omitempty"`
+	Context       map[string]interface{} `json:"context,omitempty"`
+	Timestamp     time.Time              `json:"timestamp"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
+	RequestID     string                 `json:"request_id,omitempty"`
+	UserID        string                 `json:"user_id,omitempty"`
+	Source        string                 `json:"source,omitempty"`
+	StackTrace    string                 `json:"stack_trace,omitempty"`
+	Cause         error                  `json:"-"`
+	RetryAfter    *time.Duration         `json:"retry_after,omitempty"`
+	HTTPStatus    int                    `json:"http_status"`
+	Internal      bool                   `json:"internal"`
+	Retryable     bool                   `json:"retryable"`
+	Logged        bool                   `json:"logged"`
+	Metrics       *ErrorMetrics          `json:"metrics,omitempty"`
 }
 
 // ErrorMetrics represents metrics for an error
 type ErrorMetrics struct {
-	Count        int64     `json:"count"`
-	FirstSeen    time.Time `json:"first_seen"`
-	LastSeen     time.Time `json:"last_seen"`
-	Occurrences  []time.Time `json:"occurrences,omitempty"`
-	AffectedUsers []string  `json:"affected_users,omitempty"`
-	Sources      []string   `json:"sources,omitempty"`
+	Count         int64       `json:"count"`
+	FirstSeen     time.Time   `json:"first_seen"`
+	LastSeen      time.Time   `json:"last_seen"`
+	Occurrences   []time.Time `json:"occurrences,omitempty"`
+	AffectedUsers []string    `json:"affected_users,omitempty"`
+	Sources       []string    `json:"sources,omitempty"`
 }
 
 // Error implements the error interface
@@ -161,89 +161,89 @@ func (e *AppError) ToXML() ([]byte, error) {
 
 // ErrorResponse represents a structured error response
 type ErrorResponse struct {
-	Error      *AppError `json:"error"`
-	Success    bool      `json:"success"`
-	RequestID  string    `json:"request_id,omitempty"`
-	Timestamp  time.Time `json:"timestamp"`
-	Path       string    `json:"path,omitempty"`
-	Method     string    `json:"method,omitempty"`
-	Version    string    `json:"version,omitempty"`
-	TraceID    string    `json:"trace_id,omitempty"`
+	Error     *AppError `json:"error"`
+	Success   bool      `json:"success"`
+	RequestID string    `json:"request_id,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+	Path      string    `json:"path,omitempty"`
+	Method    string    `json:"method,omitempty"`
+	Version   string    `json:"version,omitempty"`
+	TraceID   string    `json:"trace_id,omitempty"`
 }
 
 // ErrorPattern represents a pattern for error detection
 type ErrorPattern struct {
-	Type           ErrorType     `json:"type"`
-	MessagePattern string        `json:"message_pattern"`
-	SourcePattern  string        `json:"source_pattern"`
-	HTTPStatus     int           `json:"http_status"`
-	Category       ErrorCategory `json:"category"`
-	Severity       ErrorSeverity `json:"severity"`
-	Retryable      bool          `json:"retryable"`
+	Type           ErrorType      `json:"type"`
+	MessagePattern string         `json:"message_pattern"`
+	SourcePattern  string         `json:"source_pattern"`
+	HTTPStatus     int            `json:"http_status"`
+	Category       ErrorCategory  `json:"category"`
+	Severity       ErrorSeverity  `json:"severity"`
+	Retryable      bool           `json:"retryable"`
 	RetryAfter     *time.Duration `json:"retry_after,omitempty"`
 }
 
 // ErrorHandlerConfig represents the configuration for error handling
 type ErrorHandlerConfig struct {
-	EnableMetrics         bool          `json:"enable_metrics"`
-	EnableAlerting        bool          `json:"enable_alerting"`
-	EnableStackTrace      bool          `json:"enable_stack_trace"`
-	EnableDetailedLogging bool          `json:"enable_detailed_logging"`
-	EnableErrorAggregation bool         `json:"enable_error_aggregation"`
-	EnableRateLimiting    bool          `json:"enable_rate_limiting"`
-	MaxStackTraceDepth    int           `json:"max_stack_trace_depth"`
-	ErrorRetentionPeriod  time.Duration `json:"error_retention_period"`
-	MetricsInterval       time.Duration `json:"metrics_interval"`
-	AlertingThreshold     int           `json:"alerting_threshold"`
-	AlertingWindow        time.Duration `json:"alerting_window"`
-	RateLimitWindow       time.Duration `json:"rate_limit_window"`
-	RateLimitThreshold    int           `json:"rate_limit_threshold"`
-	DefaultFormat         ErrorFormat   `json:"default_format"`
-	IncludeInternalErrors bool          `json:"include_internal_errors"`
-	SanitizeUserData      bool          `json:"sanitize_user_data"`
+	EnableMetrics          bool          `json:"enable_metrics"`
+	EnableAlerting         bool          `json:"enable_alerting"`
+	EnableStackTrace       bool          `json:"enable_stack_trace"`
+	EnableDetailedLogging  bool          `json:"enable_detailed_logging"`
+	EnableErrorAggregation bool          `json:"enable_error_aggregation"`
+	EnableRateLimiting     bool          `json:"enable_rate_limiting"`
+	MaxStackTraceDepth     int           `json:"max_stack_trace_depth"`
+	ErrorRetentionPeriod   time.Duration `json:"error_retention_period"`
+	MetricsInterval        time.Duration `json:"metrics_interval"`
+	AlertingThreshold      int           `json:"alerting_threshold"`
+	AlertingWindow         time.Duration `json:"alerting_window"`
+	RateLimitWindow        time.Duration `json:"rate_limit_window"`
+	RateLimitThreshold     int           `json:"rate_limit_threshold"`
+	DefaultFormat          ErrorFormat   `json:"default_format"`
+	IncludeInternalErrors  bool          `json:"include_internal_errors"`
+	SanitizeUserData       bool          `json:"sanitize_user_data"`
 }
 
 // DefaultErrorHandlerConfig returns the default configuration
 func DefaultErrorHandlerConfig() *ErrorHandlerConfig {
 	return &ErrorHandlerConfig{
-		EnableMetrics:         true,
-		EnableAlerting:        true,
-		EnableStackTrace:      true,
-		EnableDetailedLogging: true,
+		EnableMetrics:          true,
+		EnableAlerting:         true,
+		EnableStackTrace:       true,
+		EnableDetailedLogging:  true,
 		EnableErrorAggregation: true,
-		EnableRateLimiting:    true,
-		MaxStackTraceDepth:    50,
-		ErrorRetentionPeriod:  24 * time.Hour,
-		MetricsInterval:       30 * time.Second,
-		AlertingThreshold:     10,
-		AlertingWindow:        5 * time.Minute,
-		RateLimitWindow:       time.Minute,
-		RateLimitThreshold:    100,
-		DefaultFormat:         FormatJSON,
-		IncludeInternalErrors: false,
-		SanitizeUserData:      true,
+		EnableRateLimiting:     true,
+		MaxStackTraceDepth:     50,
+		ErrorRetentionPeriod:   24 * time.Hour,
+		MetricsInterval:        30 * time.Second,
+		AlertingThreshold:      10,
+		AlertingWindow:         5 * time.Minute,
+		RateLimitWindow:        time.Minute,
+		RateLimitThreshold:     100,
+		DefaultFormat:          FormatJSON,
+		IncludeInternalErrors:  false,
+		SanitizeUserData:       true,
 	}
 }
 
 // ErrorHandler handles all application errors
 type ErrorHandler struct {
-	config           *ErrorHandlerConfig
-	logger           *logger.Logger
-	patterns         []ErrorPattern
-	aggregator       *ErrorAggregator
-	metrics          *ErrorMetricsCollector
-	alerter          *ErrorAlerter
-	rateLimiter      *ErrorRateLimiter
-	circuitBreaker   *CircuitBreaker
-	retryConfig      *RetryConfig
-	healthChecker    *HealthChecker
-	mu               sync.RWMutex
-	errorStats       map[string]*ErrorMetrics
-	errorHistory     map[string][]*AppError
-	errorPatterns    map[string]int
-	correlationMap   map[string][]string
-	shutdownChan     chan struct{}
-	wg               sync.WaitGroup
+	config         *ErrorHandlerConfig
+	logger         *logger.Logger
+	patterns       []ErrorPattern
+	aggregator     *ErrorAggregator
+	metrics        *ErrorMetricsCollector
+	alerter        *ErrorAlerter
+	rateLimiter    *ErrorRateLimiter
+	circuitBreaker *CircuitBreaker
+	retryConfig    *RetryConfig
+	healthChecker  *HealthChecker
+	mu             sync.RWMutex
+	errorStats     map[string]*ErrorMetrics
+	errorHistory   map[string][]*AppError
+	errorPatterns  map[string]int
+	correlationMap map[string][]string
+	shutdownChan   chan struct{}
+	wg             sync.WaitGroup
 }
 
 // NewErrorHandler creates a new error handler
@@ -320,7 +320,7 @@ func (eh *ErrorHandler) createAppError(ctx context.Context, err error) *AppError
 
 	// Classify error based on patterns
 	pattern := eh.classifyError(err)
-	
+
 	appErr := &AppError{
 		ID:          uuid.New().String(),
 		Type:        pattern.Type,
@@ -403,7 +403,7 @@ func (eh *ErrorHandler) classifyError(err error) ErrorPattern {
 	// Check built-in patterns
 	for _, pattern := range eh.patterns {
 		if eh.matchesPattern(errMsg, pattern.MessagePattern) ||
-		   eh.matchesPattern(source, pattern.SourcePattern) {
+			eh.matchesPattern(source, pattern.SourcePattern) {
 			return pattern
 		}
 	}
@@ -512,7 +512,7 @@ func (eh *ErrorHandler) classifyError(err error) ErrorPattern {
 func (eh *ErrorHandler) writeHTTPResponse(ctx context.Context, w http.ResponseWriter, r *http.Request, appErr *AppError) {
 	// Determine response format
 	format := eh.getResponseFormat(r)
-	
+
 	// Create error response
 	response := &ErrorResponse{
 		Error:     appErr,
@@ -534,21 +534,21 @@ func (eh *ErrorHandler) writeHTTPResponse(ctx context.Context, w http.ResponseWr
 	w.Header().Set("Content-Type", eh.getContentType(format))
 	w.Header().Set("X-Error-ID", appErr.ID)
 	w.Header().Set("X-Error-Type", string(appErr.Type))
-	
+
 	if appErr.CorrelationID != "" {
 		w.Header().Set("X-Correlation-ID", appErr.CorrelationID)
 	}
-	
+
 	if appErr.RetryAfter != nil {
 		w.Header().Set("Retry-After", strconv.Itoa(int(appErr.RetryAfter.Seconds())))
 	}
 
 	// Write response
 	w.WriteHeader(appErr.HTTPStatus)
-	
+
 	var responseData []byte
 	var err error
-	
+
 	switch format {
 	case FormatJSON:
 		responseData, err = json.Marshal(response)
@@ -559,88 +559,88 @@ func (eh *ErrorHandler) writeHTTPResponse(ctx context.Context, w http.ResponseWr
 	default:
 		responseData, err = json.Marshal(response)
 	}
-	
+
 	if err != nil {
 		eh.logger.ErrorContext(ctx, "Failed to marshal error response", "error", err)
 		w.Write([]byte(`{"error": "Internal server error"}`))
 		return
 	}
-	
+
 	w.Write(responseData)
 }
 
 // Error type checking methods
 func (eh *ErrorHandler) isTimeoutError(err error) bool {
 	return strings.Contains(err.Error(), "timeout") ||
-		   strings.Contains(err.Error(), "deadline exceeded") ||
-		   errors.Is(err, context.DeadlineExceeded)
+		strings.Contains(err.Error(), "deadline exceeded") ||
+		errors.Is(err, context.DeadlineExceeded)
 }
 
 func (eh *ErrorHandler) isNetworkError(err error) bool {
 	return strings.Contains(err.Error(), "network") ||
-		   strings.Contains(err.Error(), "connection") ||
-		   strings.Contains(err.Error(), "no route to host") ||
-		   strings.Contains(err.Error(), "connection refused")
+		strings.Contains(err.Error(), "connection") ||
+		strings.Contains(err.Error(), "no route to host") ||
+		strings.Contains(err.Error(), "connection refused")
 }
 
 func (eh *ErrorHandler) isDatabaseError(err error) bool {
 	return strings.Contains(err.Error(), "database") ||
-		   strings.Contains(err.Error(), "sql") ||
-		   strings.Contains(err.Error(), "postgres") ||
-		   strings.Contains(err.Error(), "mysql") ||
-		   strings.Contains(err.Error(), "gorm")
+		strings.Contains(err.Error(), "sql") ||
+		strings.Contains(err.Error(), "postgres") ||
+		strings.Contains(err.Error(), "mysql") ||
+		strings.Contains(err.Error(), "gorm")
 }
 
 func (eh *ErrorHandler) isValidationError(err error) bool {
 	return strings.Contains(err.Error(), "validation") ||
-		   strings.Contains(err.Error(), "invalid") ||
-		   strings.Contains(err.Error(), "required") ||
-		   strings.Contains(err.Error(), "malformed")
+		strings.Contains(err.Error(), "invalid") ||
+		strings.Contains(err.Error(), "required") ||
+		strings.Contains(err.Error(), "malformed")
 }
 
 func (eh *ErrorHandler) isAuthenticationError(err error) bool {
 	return strings.Contains(err.Error(), "authentication") ||
-		   strings.Contains(err.Error(), "unauthorized") ||
-		   strings.Contains(err.Error(), "invalid credentials") ||
-		   strings.Contains(err.Error(), "login failed")
+		strings.Contains(err.Error(), "unauthorized") ||
+		strings.Contains(err.Error(), "invalid credentials") ||
+		strings.Contains(err.Error(), "login failed")
 }
 
 func (eh *ErrorHandler) isAuthorizationError(err error) bool {
 	return strings.Contains(err.Error(), "authorization") ||
-		   strings.Contains(err.Error(), "forbidden") ||
-		   strings.Contains(err.Error(), "access denied") ||
-		   strings.Contains(err.Error(), "permission denied")
+		strings.Contains(err.Error(), "forbidden") ||
+		strings.Contains(err.Error(), "access denied") ||
+		strings.Contains(err.Error(), "permission denied")
 }
 
 func (eh *ErrorHandler) isNotFoundError(err error) bool {
 	return strings.Contains(err.Error(), "not found") ||
-		   strings.Contains(err.Error(), "record not found") ||
-		   strings.Contains(err.Error(), "does not exist")
+		strings.Contains(err.Error(), "record not found") ||
+		strings.Contains(err.Error(), "does not exist")
 }
 
 func (eh *ErrorHandler) isConflictError(err error) bool {
 	return strings.Contains(err.Error(), "conflict") ||
-		   strings.Contains(err.Error(), "already exists") ||
-		   strings.Contains(err.Error(), "duplicate") ||
-		   strings.Contains(err.Error(), "unique constraint")
+		strings.Contains(err.Error(), "already exists") ||
+		strings.Contains(err.Error(), "duplicate") ||
+		strings.Contains(err.Error(), "unique constraint")
 }
 
 func (eh *ErrorHandler) isCircuitBreakerError(err error) bool {
 	return IsCircuitBreakerError(err) ||
-		   strings.Contains(err.Error(), "circuit breaker")
+		strings.Contains(err.Error(), "circuit breaker")
 }
 
 func (eh *ErrorHandler) isRateLimitError(err error) bool {
 	return strings.Contains(err.Error(), "rate limit") ||
-		   strings.Contains(err.Error(), "too many requests") ||
-		   strings.Contains(err.Error(), "quota exceeded")
+		strings.Contains(err.Error(), "too many requests") ||
+		strings.Contains(err.Error(), "quota exceeded")
 }
 
 func (eh *ErrorHandler) isInternalError(errorType ErrorType) bool {
 	return errorType == ErrorTypeSystem ||
-		   errorType == ErrorTypeDatabase ||
-		   errorType == ErrorTypeConfiguration ||
-		   errorType == ErrorTypeResource
+		errorType == ErrorTypeDatabase ||
+		errorType == ErrorTypeConfiguration ||
+		errorType == ErrorTypeResource
 }
 
 // Helper methods
@@ -687,34 +687,34 @@ func (eh *ErrorHandler) generateUserMessage(errorType ErrorType, err error) stri
 
 func (eh *ErrorHandler) extractErrorDetails(err error) map[string]interface{} {
 	details := make(map[string]interface{})
-	
+
 	// Extract details from wrapped errors
 	if unwrapped := errors.Unwrap(err); unwrapped != nil {
 		details["underlying_error"] = unwrapped.Error()
 	}
-	
+
 	// Extract details from error type
 	details["error_type"] = fmt.Sprintf("%T", err)
-	
+
 	return details
 }
 
 func (eh *ErrorHandler) extractErrorContext(ctx context.Context) map[string]interface{} {
 	context := make(map[string]interface{})
-	
+
 	// Add context values
 	if requestID := logger.GetRequestID(ctx); requestID != "" {
 		context["request_id"] = requestID
 	}
-	
+
 	if userID := logger.GetUserID(ctx); userID != "" {
 		context["user_id"] = userID
 	}
-	
+
 	if traceID := logger.GetTraceID(ctx); traceID != "" {
 		context["trace_id"] = traceID
 	}
-	
+
 	return context
 }
 
@@ -733,13 +733,13 @@ func (eh *ErrorHandler) getStackTrace(maxDepth int) string {
 	buf := make([]byte, 4096)
 	n := runtime.Stack(buf, false)
 	stack := string(buf[:n])
-	
+
 	// Limit stack trace depth
 	lines := strings.Split(stack, "\n")
 	if len(lines) > maxDepth*2 {
 		lines = lines[:maxDepth*2]
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 
@@ -776,7 +776,7 @@ func (eh *ErrorHandler) sanitizeResponse(response *ErrorResponse) *ErrorResponse
 	sanitized := *response
 	sanitized.Error = &AppError{}
 	*sanitized.Error = *response.Error
-	
+
 	// Remove sensitive information
 	if sanitized.Error.Internal {
 		sanitized.Error.StackTrace = ""
@@ -784,45 +784,45 @@ func (eh *ErrorHandler) sanitizeResponse(response *ErrorResponse) *ErrorResponse
 		sanitized.Error.Context = nil
 		sanitized.Error.Source = ""
 	}
-	
+
 	return &sanitized
 }
 
 func (eh *ErrorHandler) createRateLimitError(ctx context.Context, err error) *AppError {
 	return &AppError{
-		ID:          uuid.New().String(),
-		Type:        ErrorTypeRateLimit,
-		Category:    CategoryTransient,
-		Severity:    SeverityMedium,
-		Code:        "RATE_LIMIT_EXCEEDED",
-		Message:     "Rate limit exceeded",
-		UserMessage: "Too many requests. Please wait before trying again.",
-		Timestamp:   time.Now(),
-		HTTPStatus:  http.StatusTooManyRequests,
-		Retryable:   true,
-		RetryAfter:  &[]time.Duration{time.Minute}[0],
+		ID:            uuid.New().String(),
+		Type:          ErrorTypeRateLimit,
+		Category:      CategoryTransient,
+		Severity:      SeverityMedium,
+		Code:          "RATE_LIMIT_EXCEEDED",
+		Message:       "Rate limit exceeded",
+		UserMessage:   "Too many requests. Please wait before trying again.",
+		Timestamp:     time.Now(),
+		HTTPStatus:    http.StatusTooManyRequests,
+		Retryable:     true,
+		RetryAfter:    &[]time.Duration{time.Minute}[0],
 		CorrelationID: logger.GetCorrelationID(ctx),
-		RequestID:   logger.GetRequestID(ctx),
-		UserID:      logger.GetUserID(ctx),
+		RequestID:     logger.GetRequestID(ctx),
+		UserID:        logger.GetUserID(ctx),
 	}
 }
 
 func (eh *ErrorHandler) updateErrorStats(appErr *AppError) {
 	eh.mu.Lock()
 	defer eh.mu.Unlock()
-	
+
 	key := fmt.Sprintf("%s:%s", appErr.Type, appErr.Code)
-	
+
 	if stats, exists := eh.errorStats[key]; exists {
 		atomic.AddInt64(&stats.Count, 1)
 		stats.LastSeen = appErr.Timestamp
 		stats.Occurrences = append(stats.Occurrences, appErr.Timestamp)
-		
+
 		// Add user ID if present
 		if appErr.UserID != "" {
 			stats.AffectedUsers = append(stats.AffectedUsers, appErr.UserID)
 		}
-		
+
 		// Add source if present
 		if appErr.Source != "" {
 			stats.Sources = append(stats.Sources, appErr.Source)
@@ -860,19 +860,19 @@ func (eh *ErrorHandler) logError(ctx context.Context, appErr *AppError) {
 		"retryable":      appErr.Retryable,
 		"internal":       appErr.Internal,
 	}
-	
+
 	if appErr.Details != nil {
 		fields["details"] = appErr.Details
 	}
-	
+
 	if appErr.Context != nil {
 		fields["context"] = appErr.Context
 	}
-	
+
 	if appErr.Source != "" {
 		fields["source"] = appErr.Source
 	}
-	
+
 	// Log based on severity
 	switch appErr.Severity {
 	case SeverityLow:
@@ -894,7 +894,7 @@ func (eh *ErrorHandler) startBackgroundProcesses() {
 		eh.wg.Add(1)
 		go eh.metricsCollectionLoop()
 	}
-	
+
 	// Start error cleanup
 	eh.wg.Add(1)
 	go eh.cleanupLoop()
@@ -902,10 +902,10 @@ func (eh *ErrorHandler) startBackgroundProcesses() {
 
 func (eh *ErrorHandler) metricsCollectionLoop() {
 	defer eh.wg.Done()
-	
+
 	ticker := time.NewTicker(eh.config.MetricsInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -918,10 +918,10 @@ func (eh *ErrorHandler) metricsCollectionLoop() {
 
 func (eh *ErrorHandler) cleanupLoop() {
 	defer eh.wg.Done()
-	
+
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -935,7 +935,7 @@ func (eh *ErrorHandler) cleanupLoop() {
 func (eh *ErrorHandler) collectMetrics() {
 	eh.mu.RLock()
 	defer eh.mu.RUnlock()
-	
+
 	// Collect error statistics
 	for key, stats := range eh.errorStats {
 		parts := strings.Split(key, ":")
@@ -948,16 +948,16 @@ func (eh *ErrorHandler) collectMetrics() {
 func (eh *ErrorHandler) cleanupOldErrors() {
 	eh.mu.Lock()
 	defer eh.mu.Unlock()
-	
+
 	cutoff := time.Now().Add(-eh.config.ErrorRetentionPeriod)
-	
+
 	// Clean up old error statistics
 	for key, stats := range eh.errorStats {
 		if stats.LastSeen.Before(cutoff) {
 			delete(eh.errorStats, key)
 		}
 	}
-	
+
 	// Clean up old error history
 	for key, history := range eh.errorHistory {
 		filtered := make([]*AppError, 0)
@@ -966,7 +966,7 @@ func (eh *ErrorHandler) cleanupOldErrors() {
 				filtered = append(filtered, err)
 			}
 		}
-		
+
 		if len(filtered) == 0 {
 			delete(eh.errorHistory, key)
 		} else {
@@ -981,7 +981,7 @@ func (eh *ErrorHandler) cleanupOldErrors() {
 func (eh *ErrorHandler) AddErrorPattern(pattern ErrorPattern) {
 	eh.mu.Lock()
 	defer eh.mu.Unlock()
-	
+
 	eh.patterns = append(eh.patterns, pattern)
 }
 
@@ -989,12 +989,12 @@ func (eh *ErrorHandler) AddErrorPattern(pattern ErrorPattern) {
 func (eh *ErrorHandler) GetErrorStats() map[string]*ErrorMetrics {
 	eh.mu.RLock()
 	defer eh.mu.RUnlock()
-	
+
 	stats := make(map[string]*ErrorMetrics)
 	for key, metrics := range eh.errorStats {
 		stats[key] = metrics
 	}
-	
+
 	return stats
 }
 
@@ -1002,12 +1002,12 @@ func (eh *ErrorHandler) GetErrorStats() map[string]*ErrorMetrics {
 func (eh *ErrorHandler) GetErrorHistory() map[string][]*AppError {
 	eh.mu.RLock()
 	defer eh.mu.RUnlock()
-	
+
 	history := make(map[string][]*AppError)
 	for key, errors := range eh.errorHistory {
 		history[key] = errors
 	}
-	
+
 	return history
 }
 
@@ -1025,7 +1025,7 @@ func (eh *ErrorHandler) GetHealthStatus() map[string]interface{} {
 func (eh *ErrorHandler) Close() error {
 	close(eh.shutdownChan)
 	eh.wg.Wait()
-	
+
 	// Close components
 	if eh.metrics != nil {
 		eh.metrics.Close()
@@ -1036,7 +1036,7 @@ func (eh *ErrorHandler) Close() error {
 	if eh.healthChecker != nil {
 		eh.healthChecker.Close()
 	}
-	
+
 	return nil
 }
 

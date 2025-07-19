@@ -230,7 +230,7 @@ func setupDemoRoutes(router *mux.Router, watcher *infrastructure.ConfigWatcher, 
 	// Health check
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		health := map[string]interface{}{
-			"status": "healthy",
+			"status":         "healthy",
 			"watcher_health": watcher.HealthCheck() == nil,
 		}
 
@@ -241,7 +241,7 @@ func setupDemoRoutes(router *mux.Router, watcher *infrastructure.ConfigWatcher, 
 
 func showConfigDiff(logger monitoring.Logger, oldConfig, newConfig map[string]interface{}) {
 	logger.Info("📋 Configuration differences:")
-	
+
 	// Check for changes in nested maps
 	for key, newValue := range newConfig {
 		if oldValue, exists := oldConfig[key]; exists {

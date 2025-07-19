@@ -21,7 +21,7 @@ func (suite *ConfigTestSuite) SetupTest() {
 	var err error
 	suite.tmpDir, err = os.MkdirTemp("", "config_test")
 	suite.NoError(err)
-	
+
 	// Clean up only our environment variables before each test
 	suite.cleanupTestEnvVars()
 }
@@ -37,7 +37,7 @@ func (suite *ConfigTestSuite) cleanupTestEnvVars() {
 	// Clean up only our test environment variables
 	testEnvVars := []string{
 		"HOTEL_REVIEWS_DATABASE_HOST",
-		"HOTEL_REVIEWS_DATABASE_PORT", 
+		"HOTEL_REVIEWS_DATABASE_PORT",
 		"HOTEL_REVIEWS_DATABASE_USER",
 		"HOTEL_REVIEWS_DATABASE_PASSWORD",
 		"HOTEL_REVIEWS_DATABASE_NAME",
@@ -114,7 +114,7 @@ func (suite *ConfigTestSuite) cleanupTestEnvVars() {
 		"HOTEL_REVIEWS_SECURITY_ENABLE_ENCRYPTION",
 		"HOTEL_REVIEWS_SECURITY_ENCRYPTION_KEY",
 	}
-	
+
 	for _, envVar := range testEnvVars {
 		os.Unsetenv(envVar)
 	}
@@ -137,12 +137,12 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
 	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
-	
+
 	config, err := Load()
-	
+
 	suite.NoError(err)
 	suite.NotNil(config)
-	
+
 	// Verify defaults are set
 	suite.Equal("localhost", config.Database.Host)
 	suite.Equal(5432, config.Database.Port)
@@ -156,7 +156,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.Equal(5*time.Minute, config.Database.ConnMaxIdleTime)
 	suite.Equal("UTC", config.Database.TimeZone)
 	suite.Equal("warn", config.Database.LogLevel)
-	
+
 	// Verify S3 defaults
 	suite.Equal("us-east-1", config.S3.Region)
 	suite.Equal("test-access-key", config.S3.AccessKeyID)
@@ -169,7 +169,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.Equal(1*time.Second, config.S3.RetryDelay)
 	suite.Equal(int64(5*1024*1024), config.S3.UploadPartSize)
 	suite.Equal(int64(5*1024*1024), config.S3.DownloadPartSize)
-	
+
 	// Verify server defaults
 	suite.Equal("0.0.0.0", config.Server.Host)
 	suite.Equal(8080, config.Server.Port)
@@ -183,7 +183,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.True(config.Server.EnableMetrics)
 	suite.False(config.Server.EnablePprof)
 	suite.Empty(config.Server.TrustedProxies)
-	
+
 	// Verify log defaults
 	suite.Equal("info", config.Log.Level)
 	suite.Equal("json", config.Log.Format)
@@ -194,7 +194,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.True(config.Log.Compress)
 	suite.True(config.Log.EnableCaller)
 	suite.False(config.Log.EnableStacktrace)
-	
+
 	// Verify cache defaults
 	suite.Equal("redis", config.Cache.Type)
 	suite.Equal("localhost", config.Cache.Host)
@@ -207,7 +207,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.Equal(3*time.Second, config.Cache.WriteTimeout)
 	suite.Equal(1*time.Hour, config.Cache.TTL)
 	suite.Equal(int64(100*1024*1024), config.Cache.MaxMemory)
-	
+
 	// Verify metrics defaults
 	suite.True(config.Metrics.Enabled)
 	suite.Equal("prometheus", config.Metrics.Type)
@@ -218,7 +218,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.Equal("hotel-reviews-api", config.Metrics.ServiceName)
 	suite.Equal("development", config.Metrics.Environment)
 	suite.Equal("1.0.0", config.Metrics.Version)
-	
+
 	// Verify processing defaults
 	suite.Equal(1000, config.Processing.BatchSize)
 	suite.Equal(4, config.Processing.WorkerCount)
@@ -229,7 +229,7 @@ func (suite *ConfigTestSuite) TestLoad_WithDefaults() {
 	suite.True(config.Processing.EnableValidation)
 	suite.True(config.Processing.EnableDuplicateCheck)
 	suite.Equal("/tmp/hotel-reviews", config.Processing.TempDirectory)
-	
+
 	// Verify security defaults
 	suite.Equal("test-jwt-secret", config.Security.JWTSecret)
 	suite.Equal(24*time.Hour, config.Security.JWTExpiration)
@@ -254,12 +254,12 @@ func (suite *ConfigTestSuite) TestLoad_WithEnvironmentVariables() {
 	os.Setenv("HOTEL_REVIEWS_SERVER_PORT", "9090")
 	os.Setenv("HOTEL_REVIEWS_LOG_LEVEL", "debug")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "custom-jwt-secret")
-	
+
 	config, err := Load()
-	
+
 	suite.NoError(err)
 	suite.NotNil(config)
-	
+
 	// Verify custom values from environment
 	suite.Equal("custom-db-host", config.Database.Host)
 	suite.Equal(5433, config.Database.Port)
@@ -396,20 +396,20 @@ security:
   enable_encryption: true
   encryption_key: file-encryption-key
 `
-	
+
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	suite.NoError(err)
-	
+
 	// Change to the directory containing the config file
 	oldDir, _ := os.Getwd()
 	defer os.Chdir(oldDir)
 	os.Chdir(suite.tmpDir)
-	
+
 	config, err := Load()
-	
+
 	suite.NoError(err)
 	suite.NotNil(config)
-	
+
 	// Verify values from config file
 	suite.Equal("file-db-host", config.Database.Host)
 	suite.Equal(5434, config.Database.Port)
@@ -423,7 +423,7 @@ security:
 	suite.Equal(5*time.Minute, config.Database.ConnMaxIdleTime)
 	suite.Equal("America/New_York", config.Database.TimeZone)
 	suite.Equal("info", config.Database.LogLevel)
-	
+
 	suite.Equal("eu-west-1", config.S3.Region)
 	suite.Equal("file-access-key", config.S3.AccessKeyID)
 	suite.Equal("file-secret-key", config.S3.SecretAccessKey)
@@ -435,7 +435,7 @@ security:
 	suite.Equal(2*time.Second, config.S3.RetryDelay)
 	suite.Equal(int64(10485760), config.S3.UploadPartSize)
 	suite.Equal(int64(10485760), config.S3.DownloadPartSize)
-	
+
 	suite.Equal("127.0.0.1", config.Server.Host)
 	suite.Equal(8090, config.Server.Port)
 	suite.Equal(15*time.Second, config.Server.ReadTimeout)
@@ -450,7 +450,7 @@ security:
 	suite.Len(config.Server.TrustedProxies, 2)
 	suite.Contains(config.Server.TrustedProxies, "192.168.1.0/24")
 	suite.Contains(config.Server.TrustedProxies, "10.0.0.0/8")
-	
+
 	suite.Equal("warn", config.Log.Level)
 	suite.Equal("text", config.Log.Format)
 	suite.Equal("stderr", config.Log.Output)
@@ -460,7 +460,7 @@ security:
 	suite.False(config.Log.Compress)
 	suite.False(config.Log.EnableCaller)
 	suite.True(config.Log.EnableStacktrace)
-	
+
 	suite.Equal("memory", config.Cache.Type)
 	suite.Equal("cache-host", config.Cache.Host)
 	suite.Equal(6380, config.Cache.Port)
@@ -473,7 +473,7 @@ security:
 	suite.Equal(5*time.Second, config.Cache.WriteTimeout)
 	suite.Equal(2*time.Hour, config.Cache.TTL)
 	suite.Equal(int64(209715200), config.Cache.MaxMemory)
-	
+
 	suite.False(config.Metrics.Enabled)
 	suite.Equal("jaeger", config.Metrics.Type)
 	suite.Equal("metrics-host", config.Metrics.Host)
@@ -483,7 +483,7 @@ security:
 	suite.Equal("custom-service", config.Metrics.ServiceName)
 	suite.Equal("staging", config.Metrics.Environment)
 	suite.Equal("2.0.0", config.Metrics.Version)
-	
+
 	suite.True(config.Notification.Email.Enabled)
 	suite.Equal("smtp.example.com", config.Notification.Email.Host)
 	suite.Equal(465, config.Notification.Email.Port)
@@ -491,14 +491,14 @@ security:
 	suite.Equal("email-password", config.Notification.Email.Password)
 	suite.Equal("noreply@example.com", config.Notification.Email.From)
 	suite.False(config.Notification.Email.UseTLS)
-	
+
 	suite.True(config.Notification.Slack.Enabled)
 	suite.Equal("https://hooks.slack.com/services/test", config.Notification.Slack.WebhookURL)
 	suite.Equal("#alerts", config.Notification.Slack.Channel)
 	suite.Equal("Custom Bot", config.Notification.Slack.Username)
 	suite.Equal(":warning:", config.Notification.Slack.IconEmoji)
 	suite.Equal("https://example.com/icon.png", config.Notification.Slack.IconURL)
-	
+
 	suite.Equal(2000, config.Processing.BatchSize)
 	suite.Equal(8, config.Processing.WorkerCount)
 	suite.Equal(int64(209715200), config.Processing.MaxFileSize)
@@ -508,7 +508,7 @@ security:
 	suite.False(config.Processing.EnableValidation)
 	suite.False(config.Processing.EnableDuplicateCheck)
 	suite.Equal("/custom/temp", config.Processing.TempDirectory)
-	
+
 	suite.Equal("file-jwt-secret", config.Security.JWTSecret)
 	suite.Equal(48*time.Hour, config.Security.JWTExpiration)
 	suite.Equal(2000, config.Security.RateLimit)
@@ -620,12 +620,12 @@ func (suite *ConfigTestSuite) TestLoad_ValidationFailures() {
 			expected: "JWT secret is required",
 		},
 	}
-	
+
 	for _, test := range tests {
 		suite.Run(test.name, func() {
 			// Clean environment
 			suite.cleanupTestEnvVars()
-			
+
 			// Set ALL required values to valid defaults
 			os.Setenv("HOTEL_REVIEWS_DATABASE_HOST", "localhost")
 			os.Setenv("HOTEL_REVIEWS_DATABASE_USER", "testuser")
@@ -636,13 +636,13 @@ func (suite *ConfigTestSuite) TestLoad_ValidationFailures() {
 			os.Setenv("HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY", "test-secret-key")
 			os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 			os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
-	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
-			
+			os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
+
 			// Set test-specific environment variables
 			for key, value := range test.envVars {
 				os.Setenv(key, value)
 			}
-			
+
 			_, err := Load()
 			suite.Error(err)
 			suite.Contains(err.Error(), test.expected)
@@ -662,51 +662,51 @@ func (suite *ConfigTestSuite) TestLoad_TLSValidation() {
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
 	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
-	
+
 	// Test missing TLS key file
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_CERT_FILE", "cert.pem")
-	
+
 	_, err := Load()
 	suite.Error(err)
 	suite.Contains(err.Error(), "TLS key file is required when TLS cert file is provided")
-	
+
 	// Test missing TLS cert file
 	os.Unsetenv("HOTEL_REVIEWS_SERVER_TLS_CERT_FILE")
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_KEY_FILE", "key.pem")
-	
+
 	_, err = Load()
 	suite.Error(err)
 	suite.Contains(err.Error(), "TLS cert file is required when TLS key file is provided")
-	
+
 	// Test non-existent TLS cert file
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_CERT_FILE", "/non/existent/cert.pem")
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_KEY_FILE", "key.pem")
-	
+
 	_, err = Load()
 	suite.Error(err)
 	suite.Contains(err.Error(), "TLS cert file does not exist")
-	
+
 	// Test non-existent TLS key file
 	certFile := filepath.Join(suite.tmpDir, "cert.pem")
 	keyFile := filepath.Join(suite.tmpDir, "key.pem")
-	
+
 	// Create cert file but not key file
 	err = os.WriteFile(certFile, []byte("cert content"), 0644)
 	suite.NoError(err)
-	
+
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_CERT_FILE", certFile)
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_KEY_FILE", "/non/existent/key.pem")
-	
+
 	_, err = Load()
 	suite.Error(err)
 	suite.Contains(err.Error(), "TLS key file does not exist")
-	
+
 	// Test valid TLS files
 	err = os.WriteFile(keyFile, []byte("key content"), 0644)
 	suite.NoError(err)
-	
+
 	os.Setenv("HOTEL_REVIEWS_SERVER_TLS_KEY_FILE", keyFile)
-	
+
 	config, err := Load()
 	suite.NoError(err)
 	suite.NotNil(config)
@@ -727,10 +727,10 @@ func (suite *ConfigTestSuite) TestGetDatabaseURL() {
 			TimeZone: "UTC",
 		},
 	}
-	
+
 	expected := "postgres://testuser:testpass@localhost:5432/testdb?sslmode=require&timezone=UTC"
 	actual := config.GetDatabaseURL()
-	
+
 	suite.Equal(expected, actual)
 }
 
@@ -741,10 +741,10 @@ func (suite *ConfigTestSuite) TestGetServerAddress() {
 			Port: 8080,
 		},
 	}
-	
+
 	expected := "192.168.1.1:8080"
 	actual := config.GetServerAddress()
-	
+
 	suite.Equal(expected, actual)
 }
 
@@ -755,10 +755,10 @@ func (suite *ConfigTestSuite) TestGetCacheAddress() {
 			Port: 6379,
 		},
 	}
-	
+
 	expected := "cache.example.com:6379"
 	actual := config.GetCacheAddress()
-	
+
 	suite.Equal(expected, actual)
 }
 
@@ -769,28 +769,28 @@ func (suite *ConfigTestSuite) TestEnvironmentChecks() {
 			Environment: "production",
 		},
 	}
-	
+
 	suite.True(config.IsProduction())
 	suite.False(config.IsDevelopment())
 	suite.False(config.IsTestEnvironment())
-	
+
 	// Test development environment
 	config.Metrics.Environment = "development"
-	
+
 	suite.False(config.IsProduction())
 	suite.True(config.IsDevelopment())
 	suite.False(config.IsTestEnvironment())
-	
+
 	// Test test environment
 	config.Metrics.Environment = "test"
-	
+
 	suite.False(config.IsProduction())
 	suite.False(config.IsDevelopment())
 	suite.True(config.IsTestEnvironment())
-	
+
 	// Test other environment
 	config.Metrics.Environment = "staging"
-	
+
 	suite.False(config.IsProduction())
 	suite.False(config.IsDevelopment())
 	suite.False(config.IsTestEnvironment())
@@ -799,13 +799,13 @@ func (suite *ConfigTestSuite) TestEnvironmentChecks() {
 // Test contains helper function
 func (suite *ConfigTestSuite) TestContains() {
 	slice := []string{"a", "b", "c"}
-	
+
 	suite.True(contains(slice, "a"))
 	suite.True(contains(slice, "b"))
 	suite.True(contains(slice, "c"))
 	suite.False(contains(slice, "d"))
 	suite.False(contains(slice, ""))
-	
+
 	// Test empty slice
 	emptySlice := []string{}
 	suite.False(contains(emptySlice, "a"))
@@ -815,14 +815,14 @@ func (suite *ConfigTestSuite) TestContains() {
 func TestConfigFunctions(t *testing.T) {
 	t.Run("contains", func(t *testing.T) {
 		slice := []string{"debug", "info", "warn", "error"}
-		
+
 		assert.True(t, contains(slice, "debug"))
 		assert.True(t, contains(slice, "info"))
 		assert.True(t, contains(slice, "warn"))
 		assert.True(t, contains(slice, "error"))
 		assert.False(t, contains(slice, "trace"))
 		assert.False(t, contains(slice, ""))
-		
+
 		// Test empty slice
 		emptySlice := []string{}
 		assert.False(t, contains(emptySlice, "debug"))
@@ -852,10 +852,10 @@ s3:
 security:
   jwt_secret: file-jwt-secret
 `
-	
+
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	suite.NoError(err)
-	
+
 	// Set environment variables that should override config file
 	os.Setenv("HOTEL_REVIEWS_DATABASE_HOST", "env-host")
 	os.Setenv("HOTEL_REVIEWS_DATABASE_USER", "env-user")
@@ -868,17 +868,17 @@ security:
 	os.Setenv("HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY", "env-secret-key")
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "env-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "env-jwt-secret")
-	
+
 	// Change to the directory containing the config file
 	oldDir, _ := os.Getwd()
 	defer os.Chdir(oldDir)
 	os.Chdir(suite.tmpDir)
-	
+
 	config, err := Load()
-	
+
 	suite.NoError(err)
 	suite.NotNil(config)
-	
+
 	// Verify environment variables override config file
 	suite.Equal("env-host", config.Database.Host)
 	suite.Equal("env-user", config.Database.User)
@@ -891,7 +891,7 @@ security:
 	suite.Equal("env-secret-key", config.S3.SecretAccessKey)
 	suite.Equal("env-bucket", config.S3.Bucket)
 	suite.Equal("env-jwt-secret", config.Security.JWTSecret)
-	
+
 	// Verify config file values are used when no environment variable is set
 	suite.Equal(5432, config.Database.Port) // From config file
 }
@@ -905,15 +905,15 @@ invalid yaml content:
   - missing closing bracket
   - invalid: [unclosed
 `
-	
+
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	suite.NoError(err)
-	
+
 	// Change to the directory containing the config file
 	oldDir, _ := os.Getwd()
 	defer os.Chdir(oldDir)
 	os.Chdir(suite.tmpDir)
-	
+
 	_, err = Load()
 	suite.Error(err)
 	suite.Contains(err.Error(), "error reading config file")
@@ -932,11 +932,11 @@ func (suite *ConfigTestSuite) TestCompleteConfigStructure() {
 	os.Setenv("HOTEL_REVIEWS_S3_BUCKET", "test-bucket")
 	os.Setenv("HOTEL_REVIEWS_SECURITY_JWT_SECRET", "test-jwt-secret")
 	os.Setenv("HOTEL_REVIEWS_AUTH_JWT_SECRET", "test-auth-jwt-secret")
-	
+
 	config, err := Load()
 	suite.NoError(err)
 	suite.NotNil(config)
-	
+
 	// Verify all config sections are present
 	suite.NotNil(config.Database)
 	suite.NotNil(config.S3)
@@ -949,12 +949,12 @@ func (suite *ConfigTestSuite) TestCompleteConfigStructure() {
 	suite.NotNil(config.Notification.Slack)
 	suite.NotNil(config.Processing)
 	suite.NotNil(config.Security)
-	
+
 	// Verify notification defaults
 	suite.False(config.Notification.Email.Enabled)
 	suite.Equal(587, config.Notification.Email.Port)
 	suite.True(config.Notification.Email.UseTLS)
-	
+
 	suite.False(config.Notification.Slack.Enabled)
 	suite.Equal("Hotel Reviews Bot", config.Notification.Slack.Username)
 	suite.Equal(":hotel:", config.Notification.Slack.IconEmoji)

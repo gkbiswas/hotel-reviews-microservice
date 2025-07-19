@@ -67,10 +67,12 @@ func (s *ReviewServiceImpl) CreateReview(ctx context.Context, review *Review) er
 		s.logger.Warn("Failed to invalidate review summary cache", "error", err, "hotel_id", review.HotelID)
 	}
 
-	s.metricsService.IncrementCounter(ctx, "reviews_created", map[string]string{
+	if err := s.metricsService.IncrementCounter(ctx, "reviews_created", map[string]string{
 		"provider_id": review.ProviderID.String(),
 		"hotel_id":    review.HotelID.String(),
-	})
+	}); err != nil {
+		s.logger.Warn("Failed to increment metrics", "error", err)
+	}
 
 	return nil
 }
@@ -118,9 +120,13 @@ func (s *ReviewServiceImpl) UpdateReview(ctx context.Context, review *Review) er
 	}
 
 	if existingReview.HotelID != review.HotelID {
-		s.cacheService.InvalidateReviewSummary(ctx, existingReview.HotelID)
+		if err := s.cacheService.InvalidateReviewSummary(ctx, existingReview.HotelID); err != nil {
+			s.logger.Warn("Failed to invalidate old hotel cache", "error", err, "hotel_id", existingReview.HotelID)
+		}
 	}
-	s.cacheService.InvalidateReviewSummary(ctx, review.HotelID)
+	if err := s.cacheService.InvalidateReviewSummary(ctx, review.HotelID); err != nil {
+		s.logger.Warn("Failed to invalidate review summary cache", "error", err, "hotel_id", review.HotelID)
+	}
 
 	return nil
 }
@@ -274,7 +280,7 @@ func (s *ReviewServiceImpl) ListProviders(ctx context.Context, limit, offset int
 // File processing operations
 func (s *ReviewServiceImpl) ProcessReviewFile(ctx context.Context, fileURL string, providerID uuid.UUID) (*ReviewProcessingStatus, error) {
 	processingID := uuid.New()
-	
+
 	processingStatus := &ReviewProcessingStatus{
 		ID:               processingID,
 		ProviderID:       providerID,
@@ -295,7 +301,7 @@ func (s *ReviewServiceImpl) ProcessReviewFile(ctx context.Context, fileURL strin
 
 func (s *ReviewServiceImpl) processFileAsync(ctx context.Context, processingID uuid.UUID, fileURL string, providerID uuid.UUID) {
 	startTime := time.Now()
-	
+
 	if err := s.reviewRepo.UpdateProcessingStatus(ctx, processingID, "processing", 0, ""); err != nil {
 		s.logger.Error("Failed to update processing status", "error", err, "processing_id", processingID)
 		return
@@ -341,7 +347,7 @@ func (s *ReviewServiceImpl) processFileAsync(ctx context.Context, processingID u
 
 func (s *ReviewServiceImpl) handleProcessingError(ctx context.Context, processingID uuid.UUID, errorMsg string) {
 	s.logger.Error("Processing failed", "processing_id", processingID, "error", errorMsg)
-	
+
 	if err := s.reviewRepo.UpdateProcessingStatus(ctx, processingID, "failed", 0, errorMsg); err != nil {
 		s.logger.Error("Failed to update processing status to failed", "error", err, "processing_id", processingID)
 	}
@@ -598,31 +604,31 @@ func (s *ReviewServiceImpl) parseS3URL(url string) (bucket, key string, err erro
 
 func (s *ReviewServiceImpl) detectSentiment(comment string) string {
 	comment = strings.ToLower(comment)
-	
+
 	positiveWords := []string{"good", "great", "excellent", "amazing", "wonderful", "perfect", "love", "fantastic"}
 	negativeWords := []string{"bad", "terrible", "awful", "horrible", "worst", "hate", "disappointing", "poor"}
-	
+
 	positiveCount := 0
 	negativeCount := 0
-	
+
 	for _, word := range positiveWords {
 		if strings.Contains(comment, word) {
 			positiveCount++
 		}
 	}
-	
+
 	for _, word := range negativeWords {
 		if strings.Contains(comment, word) {
 			negativeCount++
 		}
 	}
-	
+
 	if positiveCount > negativeCount {
 		return "positive"
 	} else if negativeCount > positiveCount {
 		return "negative"
 	}
-	
+
 	return "neutral"
 }
 

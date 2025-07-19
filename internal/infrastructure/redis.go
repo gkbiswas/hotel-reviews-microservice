@@ -40,52 +40,52 @@ type RedisConfig struct {
 
 // CacheConfig holds cache-specific configuration
 type CacheConfig struct {
-	ReviewTTL          time.Duration `mapstructure:"review_ttl" json:"review_ttl"`
-	HotelTTL           time.Duration `mapstructure:"hotel_ttl" json:"hotel_ttl"`
-	ProviderTTL        time.Duration `mapstructure:"provider_ttl" json:"provider_ttl"`
-	StatisticsTTL      time.Duration `mapstructure:"statistics_ttl" json:"statistics_ttl"`
-	SearchTTL          time.Duration `mapstructure:"search_ttl" json:"search_ttl"`
-	ProcessingTTL      time.Duration `mapstructure:"processing_ttl" json:"processing_ttl"`
-	AnalyticsTTL       time.Duration `mapstructure:"analytics_ttl" json:"analytics_ttl"`
-	DefaultTTL         time.Duration `mapstructure:"default_ttl" json:"default_ttl"`
-	MaxKeyLength       int           `mapstructure:"max_key_length" json:"max_key_length"`
-	EnableCompression  bool          `mapstructure:"enable_compression" json:"enable_compression"`
-	CompressionLevel   int           `mapstructure:"compression_level" json:"compression_level"`
-	PrefixSeparator    string        `mapstructure:"prefix_separator" json:"prefix_separator"`
-	InvalidationBatch  int           `mapstructure:"invalidation_batch" json:"invalidation_batch"`
-	WarmupConcurrency  int           `mapstructure:"warmup_concurrency" json:"warmup_concurrency"`
+	ReviewTTL         time.Duration `mapstructure:"review_ttl" json:"review_ttl"`
+	HotelTTL          time.Duration `mapstructure:"hotel_ttl" json:"hotel_ttl"`
+	ProviderTTL       time.Duration `mapstructure:"provider_ttl" json:"provider_ttl"`
+	StatisticsTTL     time.Duration `mapstructure:"statistics_ttl" json:"statistics_ttl"`
+	SearchTTL         time.Duration `mapstructure:"search_ttl" json:"search_ttl"`
+	ProcessingTTL     time.Duration `mapstructure:"processing_ttl" json:"processing_ttl"`
+	AnalyticsTTL      time.Duration `mapstructure:"analytics_ttl" json:"analytics_ttl"`
+	DefaultTTL        time.Duration `mapstructure:"default_ttl" json:"default_ttl"`
+	MaxKeyLength      int           `mapstructure:"max_key_length" json:"max_key_length"`
+	EnableCompression bool          `mapstructure:"enable_compression" json:"enable_compression"`
+	CompressionLevel  int           `mapstructure:"compression_level" json:"compression_level"`
+	PrefixSeparator   string        `mapstructure:"prefix_separator" json:"prefix_separator"`
+	InvalidationBatch int           `mapstructure:"invalidation_batch" json:"invalidation_batch"`
+	WarmupConcurrency int           `mapstructure:"warmup_concurrency" json:"warmup_concurrency"`
 }
 
 // CacheOperation represents different cache operations
 type CacheOperation string
 
 const (
-	CacheOperationGet    CacheOperation = "get"
-	CacheOperationSet    CacheOperation = "set"
-	CacheOperationDelete CacheOperation = "delete"
-	CacheOperationExists CacheOperation = "exists"
-	CacheOperationExpire CacheOperation = "expire"
-	CacheOperationHGet   CacheOperation = "hget"
-	CacheOperationHSet   CacheOperation = "hset"
-	CacheOperationHDel   CacheOperation = "hdel"
-	CacheOperationHKeys  CacheOperation = "hkeys"
-	CacheOperationHVals  CacheOperation = "hvals"
+	CacheOperationGet     CacheOperation = "get"
+	CacheOperationSet     CacheOperation = "set"
+	CacheOperationDelete  CacheOperation = "delete"
+	CacheOperationExists  CacheOperation = "exists"
+	CacheOperationExpire  CacheOperation = "expire"
+	CacheOperationHGet    CacheOperation = "hget"
+	CacheOperationHSet    CacheOperation = "hset"
+	CacheOperationHDel    CacheOperation = "hdel"
+	CacheOperationHKeys   CacheOperation = "hkeys"
+	CacheOperationHVals   CacheOperation = "hvals"
 	CacheOperationHGetAll CacheOperation = "hgetall"
 )
 
 // CacheMetrics holds cache operation metrics
 type CacheMetrics struct {
-	TotalHits           int64                       `json:"total_hits"`
-	TotalMisses         int64                       `json:"total_misses"`
-	TotalSets           int64                       `json:"total_sets"`
-	TotalDeletes        int64                       `json:"total_deletes"`
-	TotalErrors         int64                       `json:"total_errors"`
-	HitRate             float64                     `json:"hit_rate"`
-	AverageLatency      time.Duration               `json:"average_latency"`
-	OperationCounts     map[CacheOperation]int64    `json:"operation_counts"`
-	KeyspaceCounts      map[string]int64            `json:"keyspace_counts"`
-	LastUpdated         time.Time                   `json:"last_updated"`
-	ConnectionPoolStats redis.PoolStats             `json:"connection_pool_stats"`
+	TotalHits           int64                    `json:"total_hits"`
+	TotalMisses         int64                    `json:"total_misses"`
+	TotalSets           int64                    `json:"total_sets"`
+	TotalDeletes        int64                    `json:"total_deletes"`
+	TotalErrors         int64                    `json:"total_errors"`
+	HitRate             float64                  `json:"hit_rate"`
+	AverageLatency      time.Duration            `json:"average_latency"`
+	OperationCounts     map[CacheOperation]int64 `json:"operation_counts"`
+	KeyspaceCounts      map[string]int64         `json:"keyspace_counts"`
+	LastUpdated         time.Time                `json:"last_updated"`
+	ConnectionPoolStats redis.PoolStats          `json:"connection_pool_stats"`
 }
 
 // RedisClient wraps Redis client with additional functionality
@@ -146,11 +146,11 @@ func NewRedisClient(redisConfig *RedisConfig, cacheConfig *CacheConfig, logger *
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 
 	redisClient := &RedisClient{
-		client:        client,
-		config:        redisConfig,
-		cacheConfig:   cacheConfig,
-		logger:        logger,
-		metrics:       &CacheMetrics{
+		client:      client,
+		config:      redisConfig,
+		cacheConfig: cacheConfig,
+		logger:      logger,
+		metrics: &CacheMetrics{
 			OperationCounts: make(map[CacheOperation]int64),
 			KeyspaceCounts:  make(map[string]int64),
 		},
@@ -574,7 +574,7 @@ func (c *ReviewCache) GetReviewsByHotel(ctx context.Context, hotelID uuid.UUID, 
 	for i := range reviews {
 		reviewPtrs[i] = &reviews[i]
 	}
-	
+
 	return reviewPtrs, nil
 }
 
@@ -589,7 +589,7 @@ func (c *ReviewCache) InvalidateReview(ctx context.Context, reviewID uuid.UUID) 
 // InvalidateHotelReviews removes all cached reviews for a hotel
 func (c *ReviewCache) InvalidateHotelReviews(ctx context.Context, hotelID uuid.UUID) error {
 	pattern := fmt.Sprintf("hotel:%s:reviews:*", hotelID.String())
-	
+
 	req := InvalidationRequest{
 		Pattern:   pattern,
 		Immediate: false,
@@ -612,8 +612,8 @@ func (c *ReviewCache) InvalidateHotelReviews(ctx context.Context, hotelID uuid.U
 
 // HotelCache implements cache-aside pattern for hotel data
 type HotelCache struct {
-	client  *RedisClient
-	logger  *logger.Logger
+	client *RedisClient
+	logger *logger.Logger
 }
 
 // NewHotelCache creates a new hotel cache
@@ -754,7 +754,7 @@ func (r *RedisClient) processInvalidationRequest(req InvalidationRequest) {
 // invalidateByPattern invalidates keys matching a pattern
 func (r *RedisClient) invalidateByPattern(pattern string) (int, error) {
 	ctx := context.Background()
-	
+
 	// Get all keys matching the pattern
 	keys, err := r.client.Keys(ctx, pattern).Result()
 	if err != nil {
@@ -794,7 +794,7 @@ func (r *RedisClient) invalidateByPattern(pattern string) (int, error) {
 // invalidateByKeys invalidates specific keys
 func (r *RedisClient) invalidateByKeys(keys []string) (int, error) {
 	ctx := context.Background()
-	
+
 	deleted, err := r.client.Del(ctx, keys...).Result()
 	if err != nil {
 		return 0, err
@@ -826,7 +826,7 @@ func (r *RedisClient) metricsCollector() {
 func (r *RedisClient) collectMetrics() {
 	// Get connection pool stats
 	poolStats := r.client.PoolStats()
-	
+
 	r.mu.Lock()
 	r.metrics.ConnectionPoolStats = *poolStats
 	r.mu.Unlock()
@@ -895,7 +895,7 @@ func (r *RedisClient) WarmupCache(ctx context.Context, warmupData map[string]int
 		wg.Add(1)
 		go func(ks string, d interface{}) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore
 			sem <- struct{}{}
 			defer func() { <-sem }()
@@ -993,7 +993,7 @@ func (r *RedisClient) HealthCheck(ctx context.Context) error {
 	// Test basic operations
 	testKey := "health_check"
 	testValue := "ok"
-	
+
 	if err := r.Set(ctx, "health", testKey, testValue, time.Minute); err != nil {
 		return fmt.Errorf("Redis set operation failed: %w", err)
 	}

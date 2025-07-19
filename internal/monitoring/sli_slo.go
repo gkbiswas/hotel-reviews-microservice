@@ -58,11 +58,11 @@ type SLIResult struct {
 
 // SLOViolation represents an SLO violation
 type SLOViolation struct {
-	SLO         SLO       `json:"slo"`
-	CurrentValue float64   `json:"current_value"`
-	Target      float64   `json:"target"`
-	Timestamp   time.Time `json:"timestamp"`
-	Severity    SLOSeverity `json:"severity"`
+	SLO          SLO         `json:"slo"`
+	CurrentValue float64     `json:"current_value"`
+	Target       float64     `json:"target"`
+	Timestamp    time.Time   `json:"timestamp"`
+	Severity     SLOSeverity `json:"severity"`
 }
 
 // SLOManager manages SLIs and SLOs
@@ -81,11 +81,11 @@ func NewSLOManager(metrics *MetricsRegistry, logger *logrus.Logger) *SLOManager 
 		logger:  logger,
 		metrics: metrics,
 	}
-	
+
 	// Initialize default SLIs and SLOs
 	manager.initializeDefaultSLIs()
 	manager.initializeDefaultSLOs()
-	
+
 	return manager
 }
 
@@ -110,7 +110,7 @@ func (m *SLOManager) initializeDefaultSLIs() {
 			Service:     "hotel-reviews-api",
 			Endpoint:    "/health",
 		},
-		
+
 		// API Latency SLIs
 		{
 			Name:        "api_latency_p95",
@@ -136,7 +136,7 @@ func (m *SLOManager) initializeDefaultSLIs() {
 			Unit:        "seconds",
 			Service:     "review-processor",
 		},
-		
+
 		// Error Rate SLIs
 		{
 			Name:        "api_error_rate",
@@ -162,7 +162,7 @@ func (m *SLOManager) initializeDefaultSLIs() {
 			Unit:        "percent",
 			Service:     "database",
 		},
-		
+
 		// Throughput SLIs
 		{
 			Name:        "api_throughput",
@@ -215,7 +215,7 @@ func (m *SLOManager) initializeDefaultSLOs() {
 			Severity:     SLOSeverityWarning,
 			AlertEnabled: true,
 		},
-		
+
 		// Latency SLOs
 		{
 			Name:         "api_latency_p95_slo",
@@ -247,7 +247,7 @@ func (m *SLOManager) initializeDefaultSLOs() {
 			Severity:     SLOSeverityWarning,
 			AlertEnabled: true,
 		},
-		
+
 		// Error Rate SLOs
 		{
 			Name:         "api_error_rate_slo",
@@ -279,7 +279,7 @@ func (m *SLOManager) initializeDefaultSLOs() {
 			Severity:     SLOSeverityCritical,
 			AlertEnabled: true,
 		},
-		
+
 		// Throughput SLOs
 		{
 			Name:         "api_throughput_slo",
@@ -370,7 +370,7 @@ func (m *SLOManager) AddSLO(slo SLO) {
 func (m *SLOManager) EvaluateSLI(ctx context.Context, sli SLI) (SLIResult, error) {
 	// This is a placeholder implementation
 	// In a real implementation, you would query Prometheus or another metrics system
-	
+
 	// For demonstration, return mock values
 	var value float64
 	switch sli.Type {
@@ -383,7 +383,7 @@ func (m *SLOManager) EvaluateSLI(ctx context.Context, sli SLI) (SLIResult, error
 	case SLITypeThroughput:
 		value = 150.0 // 150 requests/second
 	}
-	
+
 	return SLIResult{
 		SLI:       sli,
 		Value:     value,
@@ -397,7 +397,7 @@ func (m *SLOManager) EvaluateSLO(ctx context.Context, slo SLO) (bool, SLIResult,
 	if err != nil {
 		return false, result, err
 	}
-	
+
 	var met bool
 	switch slo.SLI.Type {
 	case SLITypeAvailability, SLITypeThroughput:
@@ -405,25 +405,25 @@ func (m *SLOManager) EvaluateSLO(ctx context.Context, slo SLO) (bool, SLIResult,
 	case SLITypeLatency, SLITypeErrorRate:
 		met = result.Value <= slo.Target
 	}
-	
+
 	return met, result, nil
 }
 
 // CheckSLOViolations checks for SLO violations and returns them
 func (m *SLOManager) CheckSLOViolations(ctx context.Context) ([]SLOViolation, error) {
 	var violations []SLOViolation
-	
+
 	for _, slo := range m.slos {
 		if !slo.AlertEnabled {
 			continue
 		}
-		
+
 		met, result, err := m.EvaluateSLO(ctx, slo)
 		if err != nil {
 			m.logger.WithError(err).WithField("slo", slo.Name).Error("Failed to evaluate SLO")
 			continue
 		}
-		
+
 		if !met {
 			violations = append(violations, SLOViolation{
 				SLO:          slo,
@@ -434,7 +434,7 @@ func (m *SLOManager) CheckSLOViolations(ctx context.Context) ([]SLOViolation, er
 			})
 		}
 	}
-	
+
 	return violations, nil
 }
 
@@ -454,7 +454,7 @@ func (m *SLOManager) StartSLOMonitoring(ctx context.Context, interval time.Durat
 					m.logger.WithError(err).Error("Failed to check SLO violations")
 					continue
 				}
-				
+
 				for _, violation := range violations {
 					m.logger.WithFields(logrus.Fields{
 						"slo":           violation.SLO.Name,
@@ -463,7 +463,7 @@ func (m *SLOManager) StartSLOMonitoring(ctx context.Context, interval time.Durat
 						"target":        violation.Target,
 						"severity":      violation.Severity,
 					}).Warn("SLO violation detected")
-					
+
 					// Update SLO metrics
 					m.updateSLOMetrics(violation)
 				}
@@ -475,7 +475,7 @@ func (m *SLOManager) StartSLOMonitoring(ctx context.Context, interval time.Durat
 // updateSLOMetrics updates SLO-related metrics
 func (m *SLOManager) updateSLOMetrics(violation SLOViolation) {
 	slo := violation.SLO
-	
+
 	// Update SLI metrics
 	switch slo.SLI.Type {
 	case SLITypeAvailability:
@@ -492,21 +492,21 @@ func (m *SLOManager) updateSLOMetrics(violation SLOViolation) {
 // GetSLOReport generates a report of all SLO statuses
 func (m *SLOManager) GetSLOReport(ctx context.Context) (map[string]interface{}, error) {
 	report := make(map[string]interface{})
-	
+
 	var totalSLOs, violatedSLOs int
 	var sloResults []map[string]interface{}
-	
+
 	for _, slo := range m.slos {
 		met, result, err := m.EvaluateSLO(ctx, slo)
 		if err != nil {
 			continue
 		}
-		
+
 		totalSLOs++
 		if !met {
 			violatedSLOs++
 		}
-		
+
 		sloResult := map[string]interface{}{
 			"name":          slo.Name,
 			"service":       slo.Service,
@@ -517,15 +517,15 @@ func (m *SLOManager) GetSLOReport(ctx context.Context) (map[string]interface{}, 
 			"severity":      slo.Severity,
 			"window":        slo.Window,
 		}
-		
+
 		sloResults = append(sloResults, sloResult)
 	}
-	
+
 	report["total_slos"] = totalSLOs
 	report["violated_slos"] = violatedSLOs
 	report["slo_success_rate"] = float64(totalSLOs-violatedSLOs) / float64(totalSLOs)
 	report["slos"] = sloResults
 	report["timestamp"] = time.Now()
-	
+
 	return report, nil
 }

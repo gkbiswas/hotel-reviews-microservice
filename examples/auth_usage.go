@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -126,7 +126,7 @@ func main() {
 	go func() {
 		// Wait for server to start
 		time.Sleep(2 * time.Second)
-		
+
 		// Demonstrate authentication system usage
 		demonstrateAuthSystem(authService, logger)
 	}()
@@ -380,7 +380,7 @@ func setupDefaultRolesAndPermissions(ctx context.Context, authService *infrastru
 // HTTP Client example for testing authentication endpoints
 func exampleHTTPClient() {
 	// Example API calls using the authentication system
-	
+
 	// 1. Register a user
 	registerPayload := `{
 		"username": "jane_doe",
@@ -389,35 +389,35 @@ func exampleHTTPClient() {
 		"first_name": "Jane",
 		"last_name": "Doe"
 	}`
-	
+
 	// POST /api/v1/auth/register
 	fmt.Println("Register:", registerPayload)
-	
+
 	// 2. Login
 	loginPayload := `{
 		"email": "jane@example.com",
 		"password": "SecurePassword123!"
 	}`
-	
+
 	// POST /api/v1/auth/login
 	fmt.Println("Login:", loginPayload)
-	
+
 	// 3. Access protected endpoint
 	// GET /api/v1/protected/profile
 	// Headers: Authorization: Bearer <access_token>
-	
+
 	// 4. Use API key
 	// GET /api/v1/service/status
 	// Headers: X-API-Key: <api_key>
-	
+
 	// 5. Refresh token
 	refreshPayload := `{
 		"refresh_token": "<refresh_token>"
 	}`
-	
+
 	// POST /api/v1/auth/refresh
 	fmt.Println("Refresh token:", refreshPayload)
-	
+
 	// 6. Logout
 	// POST /api/v1/auth/logout
 	// Headers: Authorization: Bearer <access_token>

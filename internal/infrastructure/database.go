@@ -41,48 +41,48 @@ func NewDatabase(cfg *config.DatabaseConfig, log *logger.Logger) (*Database, err
 // connect establishes the database connection with retry logic
 func (d *Database) connect() error {
 	dsn := d.buildDSN()
-	
+
 	var gormDB *gorm.DB
 	var err error
-	
+
 	maxRetries := 5
 	retryDelay := 2 * time.Second
-	
+
 	for i := 0; i < maxRetries; i++ {
 		gormDB, err = d.attemptConnection(dsn)
 		if err == nil {
 			break
 		}
-		
+
 		d.logger.Warn("Database connection failed, retrying...",
 			"attempt", i+1,
 			"max_retries", maxRetries,
 			"error", err,
 		)
-		
+
 		if i < maxRetries-1 {
 			time.Sleep(retryDelay)
 			retryDelay *= 2 // Exponential backoff
 		}
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to connect after %d attempts: %w", maxRetries, err)
 	}
-	
+
 	d.DB = gormDB
-	
+
 	// Configure connection pool
 	if err := d.configureConnectionPool(); err != nil {
 		return fmt.Errorf("failed to configure connection pool: %w", err)
 	}
-	
+
 	d.logger.Info("Database connection established successfully",
 		"host", d.config.Host,
 		"port", d.config.Port,
 		"database", d.config.Name,
 	)
-	
+
 	return nil
 }
 
@@ -106,7 +106,7 @@ func (d *Database) attemptConnection(dsn string) (*gorm.DB, error) {
 		PrepareStmt:                              true,
 		DisableForeignKeyConstraintWhenMigrating: false,
 	}
-	
+
 	return gorm.Open(postgres.Open(dsn), gormConfig)
 }
 
@@ -130,20 +130,20 @@ func (d *Database) configureConnectionPool() error {
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	
+
 	// Set connection pool settings
 	sqlDB.SetMaxOpenConns(d.config.MaxOpenConns)
 	sqlDB.SetMaxIdleConns(d.config.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(d.config.ConnMaxLifetime)
 	sqlDB.SetConnMaxIdleTime(d.config.ConnMaxIdleTime)
-	
+
 	d.logger.Info("Database connection pool configured",
 		"max_open_conns", d.config.MaxOpenConns,
 		"max_idle_conns", d.config.MaxIdleConns,
 		"conn_max_lifetime", d.config.ConnMaxLifetime,
 		"conn_max_idle_time", d.config.ConnMaxIdleTime,
 	)
-	
+
 	return nil
 }
 
@@ -166,7 +166,7 @@ func (d *Database) getGormLogLevel() gormLogger.LogLevel {
 // Migrate runs database migrations
 func (d *Database) Migrate() error {
 	d.logger.Info("Starting database migration...")
-	
+
 	entities := []interface{}{
 		&domain.Provider{},
 		&domain.Hotel{},
@@ -175,18 +175,18 @@ func (d *Database) Migrate() error {
 		&domain.ReviewSummary{},
 		&domain.ReviewProcessingStatus{},
 	}
-	
+
 	for _, entity := range entities {
 		if err := d.DB.AutoMigrate(entity); err != nil {
 			return fmt.Errorf("failed to migrate %T: %w", entity, err)
 		}
 	}
-	
+
 	// Create indexes
 	if err := d.createIndexes(); err != nil {
 		return fmt.Errorf("failed to create indexes: %w", err)
 	}
-	
+
 	d.logger.Info("Database migration completed successfully")
 	return nil
 }
@@ -214,13 +214,13 @@ func (d *Database) createIndexes() error {
 		{"review_processing_statuses", "CREATE INDEX IF NOT EXISTS idx_review_processing_statuses_provider_id_status ON review_processing_statuses(provider_id, status)"},
 		{"review_processing_statuses", "CREATE INDEX IF NOT EXISTS idx_review_processing_statuses_created_at ON review_processing_statuses(created_at)"},
 	}
-	
+
 	for _, idx := range indexes {
 		if err := d.DB.Exec(idx.index).Error; err != nil {
 			d.logger.Warn("Failed to create index", "table", idx.table, "error", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -228,22 +228,22 @@ func (d *Database) createIndexes() error {
 func (d *Database) HealthCheck(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	
+
 	sqlDB, err := d.DB.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	
+
 	if err := sqlDB.PingContext(ctx); err != nil {
 		return fmt.Errorf("database ping failed: %w", err)
 	}
-	
+
 	// Test a simple query
 	var result int
 	if err := d.DB.WithContext(ctx).Raw("SELECT 1").Scan(&result).Error; err != nil {
 		return fmt.Errorf("test query failed: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -253,7 +253,7 @@ func (d *Database) GetStats() (*sql.DBStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	
+
 	stats := sqlDB.Stats()
 	return &stats, nil
 }
@@ -265,7 +265,7 @@ func (d *Database) LogStats(ctx context.Context) {
 		d.logger.ErrorContext(ctx, "Failed to get database stats", "error", err)
 		return
 	}
-	
+
 	d.logger.InfoContext(ctx, "Database connection statistics",
 		"open_connections", stats.OpenConnections,
 		"in_use", stats.InUse,
@@ -283,16 +283,16 @@ func (d *Database) Close() error {
 	if d.DB == nil {
 		return nil
 	}
-	
+
 	sqlDB, err := d.DB.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	
+
 	if err := sqlDB.Close(); err != nil {
 		return fmt.Errorf("failed to close database connection: %w", err)
 	}
-	
+
 	d.logger.Info("Database connection closed successfully")
 	return nil
 }
@@ -317,7 +317,7 @@ func (d *Database) BeginTransaction(ctx context.Context) *gorm.DB {
 // Seed seeds the database with initial data
 func (d *Database) Seed(ctx context.Context) error {
 	d.logger.InfoContext(ctx, "Seeding database with initial data...")
-	
+
 	// Create default providers
 	providers := []domain.Provider{
 		{
@@ -346,7 +346,7 @@ func (d *Database) Seed(ctx context.Context) error {
 			IsActive: true,
 		},
 	}
-	
+
 	for _, provider := range providers {
 		var existingProvider domain.Provider
 		if err := d.DB.WithContext(ctx).Where("name = ?", provider.Name).First(&existingProvider).Error; err != nil {
@@ -360,7 +360,7 @@ func (d *Database) Seed(ctx context.Context) error {
 			}
 		}
 	}
-	
+
 	d.logger.InfoContext(ctx, "Database seeding completed successfully")
 	return nil
 }
@@ -368,7 +368,7 @@ func (d *Database) Seed(ctx context.Context) error {
 // Reset resets the database (drops all tables and recreates them)
 func (d *Database) Reset(ctx context.Context) error {
 	d.logger.WarnContext(ctx, "Resetting database - all data will be lost!")
-	
+
 	entities := []interface{}{
 		&domain.ReviewProcessingStatus{},
 		&domain.ReviewSummary{},
@@ -377,19 +377,19 @@ func (d *Database) Reset(ctx context.Context) error {
 		&domain.Hotel{},
 		&domain.Provider{},
 	}
-	
+
 	// Drop tables in reverse order to handle foreign keys
 	for i := len(entities) - 1; i >= 0; i-- {
 		if err := d.DB.WithContext(ctx).Migrator().DropTable(entities[i]); err != nil {
 			d.logger.WarnContext(ctx, "Failed to drop table", "entity", entities[i], "error", err)
 		}
 	}
-	
+
 	// Run migrations to recreate tables
 	if err := d.Migrate(); err != nil {
 		return fmt.Errorf("failed to run migrations after reset: %w", err)
 	}
-	
+
 	d.logger.InfoContext(ctx, "Database reset completed successfully")
 	return nil
 }
@@ -416,10 +416,10 @@ func (d *Database) IsHealthy(ctx context.Context) bool {
 func (d *Database) WaitForConnection(ctx context.Context, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	
+
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -435,7 +435,7 @@ func (d *Database) WaitForConnection(ctx context.Context, timeout time.Duration)
 // StartStatsLogger starts a goroutine that periodically logs database statistics
 func (d *Database) StartStatsLogger(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
-	
+
 	go func() {
 		defer ticker.Stop()
 		for {

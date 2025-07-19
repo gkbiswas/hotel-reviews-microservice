@@ -34,10 +34,10 @@ func RequestID() gin.HandlerFunc {
 		if requestID == "" {
 			requestID = uuid.New().String()
 		}
-		
+
 		c.Set("request_id", requestID)
 		c.Header("X-Request-ID", requestID)
-		
+
 		c.Next()
 	}
 }
@@ -84,7 +84,7 @@ func ErrorHandler(logger interface{}) gin.HandlerFunc {
 		// Handle any errors that occurred
 		if len(c.Errors) > 0 {
 			err := c.Errors.Last()
-			
+
 			// Determine status code
 			status := c.Writer.Status()
 			if status == http.StatusOK {
@@ -113,7 +113,7 @@ func Security() gin.HandlerFunc {
 		c.Header("Content-Security-Policy", "default-src 'self'")
 		c.Header("X-Permitted-Cross-Domain-Policies", "none")
 		c.Header("Referrer-Policy", "no-referrer")
-		
+
 		c.Next()
 	}
 }
@@ -122,7 +122,7 @@ func Security() gin.HandlerFunc {
 func CORS(allowedOrigins []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
-		
+
 		// Check if origin is allowed
 		allowed := false
 		for _, allowedOrigin := range allowedOrigins {
@@ -173,10 +173,10 @@ func Metrics(monitoring interface{}) gin.HandlerFunc {
 func Tracing(serviceName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tracer := otel.Tracer(serviceName)
-		
+
 		// Extract parent span context from headers
 		ctx := c.Request.Context()
-		
+
 		// Start a new span
 		ctx, span := tracer.Start(ctx, fmt.Sprintf("%s %s", c.Request.Method, c.FullPath()),
 			trace.WithAttributes(
@@ -193,7 +193,7 @@ func Tracing(serviceName string) gin.HandlerFunc {
 
 		// Update request context
 		c.Request = c.Request.WithContext(ctx)
-		
+
 		// Process request
 		c.Next()
 

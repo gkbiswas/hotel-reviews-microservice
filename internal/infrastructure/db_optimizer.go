@@ -20,27 +20,27 @@ type DBOptimizer struct {
 	pool   *pgxpool.Pool
 	logger monitoring.Logger
 	config *DBOptimizerConfig
-	
+
 	// Query performance tracking
-	queryStats     map[string]*QueryStats
-	queryStatsMux  sync.RWMutex
-	
+	queryStats    map[string]*QueryStats
+	queryStatsMux sync.RWMutex
+
 	// Slow query tracking
 	slowQueries    []SlowQuery
 	slowQueriesMux sync.RWMutex
-	
+
 	// Migration tracking
 	migrationHistory []MigrationRecord
 	migrationMux     sync.RWMutex
-	
+
 	// Health monitoring
 	lastHealthCheck time.Time
 	healthStatus    *DatabaseHealth
 	healthMux       sync.RWMutex
-	
+
 	// Metrics
 	metrics *DBMetrics
-	
+
 	// Background monitoring
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -50,23 +50,23 @@ type DBOptimizer struct {
 // DBOptimizerConfig configures the database optimizer
 type DBOptimizerConfig struct {
 	// Query monitoring
-	SlowQueryThreshold    time.Duration `json:"slow_query_threshold" validate:"min=1ms"`
-	MaxSlowQueries        int           `json:"max_slow_queries" validate:"min=1"`
-	QueryStatsRetention   time.Duration `json:"query_stats_retention" validate:"min=1h"`
-	
+	SlowQueryThreshold  time.Duration `json:"slow_query_threshold" validate:"min=1ms"`
+	MaxSlowQueries      int           `json:"max_slow_queries" validate:"min=1"`
+	QueryStatsRetention time.Duration `json:"query_stats_retention" validate:"min=1h"`
+
 	// Health monitoring
-	HealthCheckInterval   time.Duration `json:"health_check_interval" validate:"min=10s"`
-	ConnectionTimeout     time.Duration `json:"connection_timeout" validate:"min=1s"`
-	
+	HealthCheckInterval time.Duration `json:"health_check_interval" validate:"min=10s"`
+	ConnectionTimeout   time.Duration `json:"connection_timeout" validate:"min=1s"`
+
 	// Performance monitoring
-	MetricsInterval       time.Duration `json:"metrics_interval" validate:"min=10s"`
-	EnableQueryLogging    bool          `json:"enable_query_logging"`
-	EnableSlowQueryLog    bool          `json:"enable_slow_query_log"`
-	
+	MetricsInterval    time.Duration `json:"metrics_interval" validate:"min=10s"`
+	EnableQueryLogging bool          `json:"enable_query_logging"`
+	EnableSlowQueryLog bool          `json:"enable_slow_query_log"`
+
 	// Connection pool optimization
-	EnablePoolOptimization bool `json:"enable_pool_optimization"`
+	EnablePoolOptimization   bool          `json:"enable_pool_optimization"`
 	PoolOptimizationInterval time.Duration `json:"pool_optimization_interval" validate:"min=1m"`
-	
+
 	// Migration tracking
 	EnableMigrationTracking bool `json:"enable_migration_tracking"`
 }
@@ -95,14 +95,14 @@ type SlowQuery struct {
 
 // MigrationRecord tracks migration performance
 type MigrationRecord struct {
-	Version     string        `json:"version"`
-	Name        string        `json:"name"`
-	StartTime   time.Time     `json:"start_time"`
-	EndTime     time.Time     `json:"end_time"`
-	Duration    time.Duration `json:"duration"`
-	Success     bool          `json:"success"`
-	Error       string        `json:"error,omitempty"`
-	RowsAffected int64        `json:"rows_affected"`
+	Version      string        `json:"version"`
+	Name         string        `json:"name"`
+	StartTime    time.Time     `json:"start_time"`
+	EndTime      time.Time     `json:"end_time"`
+	Duration     time.Duration `json:"duration"`
+	Success      bool          `json:"success"`
+	Error        string        `json:"error,omitempty"`
+	RowsAffected int64         `json:"rows_affected"`
 }
 
 // DatabaseHealth represents the current health status of the database
@@ -123,21 +123,21 @@ type DatabaseHealth struct {
 
 // PoolOptimizationSuggestion represents a suggestion for pool optimization
 type PoolOptimizationSuggestion struct {
-	Parameter   string      `json:"parameter"`
-	Current     interface{} `json:"current"`
-	Suggested   interface{} `json:"suggested"`
-	Reason      string      `json:"reason"`
-	Impact      string      `json:"impact"`
-	Confidence  float64     `json:"confidence"`
+	Parameter  string      `json:"parameter"`
+	Current    interface{} `json:"current"`
+	Suggested  interface{} `json:"suggested"`
+	Reason     string      `json:"reason"`
+	Impact     string      `json:"impact"`
+	Confidence float64     `json:"confidence"`
 }
 
 // DBMetrics contains Prometheus metrics for database monitoring
 type DBMetrics struct {
-	QueryDuration    *prometheus.HistogramVec
-	QueryCount       *prometheus.CounterVec
-	SlowQueryCount   prometheus.Counter
-	ConnectionsGauge *prometheus.GaugeVec
-	HealthGauge      prometheus.Gauge
+	QueryDuration     *prometheus.HistogramVec
+	QueryCount        *prometheus.CounterVec
+	SlowQueryCount    prometheus.Counter
+	ConnectionsGauge  *prometheus.GaugeVec
+	HealthGauge       prometheus.Gauge
 	MigrationDuration *prometheus.HistogramVec
 }
 
@@ -163,9 +163,9 @@ func NewDBOptimizer(pool *pgxpool.Pool, logger monitoring.Logger, config *DBOpti
 	if config == nil {
 		config = DefaultDBOptimizerConfig()
 	}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	optimizer := &DBOptimizer{
 		pool:             pool,
 		logger:           logger,
@@ -177,20 +177,20 @@ func NewDBOptimizer(pool *pgxpool.Pool, logger monitoring.Logger, config *DBOpti
 		cancel:           cancel,
 		metrics:          createDBMetrics(),
 	}
-	
+
 	// Start background monitoring
 	optimizer.wg.Add(1)
 	go optimizer.backgroundMonitor()
-	
+
 	if config.EnablePoolOptimization {
 		optimizer.wg.Add(1)
 		go optimizer.poolOptimizer()
 	}
-	
-	logger.Info("Database optimizer started", 
+
+	logger.Info("Database optimizer started",
 		"slow_query_threshold", config.SlowQueryThreshold,
 		"health_check_interval", config.HealthCheckInterval)
-	
+
 	return optimizer, nil
 }
 
@@ -205,7 +205,7 @@ func createDBMetrics() *DBMetrics {
 		},
 		[]string{"query_type", "table", "operation"},
 	)
-	
+
 	queryCount := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "db_query_total",
@@ -213,14 +213,14 @@ func createDBMetrics() *DBMetrics {
 		},
 		[]string{"query_type", "table", "operation", "status"},
 	)
-	
+
 	slowQueryCount := prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "db_slow_query_total",
 			Help: "Total number of slow database queries",
 		},
 	)
-	
+
 	connectionsGauge := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "db_connections",
@@ -228,14 +228,14 @@ func createDBMetrics() *DBMetrics {
 		},
 		[]string{"state"},
 	)
-	
+
 	healthGauge := prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "db_health_status",
 			Help: "Database health status (1 = healthy, 0 = unhealthy)",
 		},
 	)
-	
+
 	migrationDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "db_migration_duration_seconds",
@@ -244,7 +244,7 @@ func createDBMetrics() *DBMetrics {
 		},
 		[]string{"version", "operation"},
 	)
-	
+
 	return &DBMetrics{
 		QueryDuration:     queryDuration,
 		QueryCount:        queryCount,
@@ -259,7 +259,7 @@ func createDBMetrics() *DBMetrics {
 func (opt *DBOptimizer) TrackQuery(query string, duration time.Duration, err error, rowsAffected int64) {
 	// Normalize query for statistics (remove specific values)
 	normalizedQuery := opt.normalizeQuery(query)
-	
+
 	opt.queryStatsMux.Lock()
 	stats, exists := opt.queryStats[normalizedQuery]
 	if !exists {
@@ -270,12 +270,12 @@ func (opt *DBOptimizer) TrackQuery(query string, duration time.Duration, err err
 		}
 		opt.queryStats[normalizedQuery] = stats
 	}
-	
+
 	stats.ExecutionCount++
 	stats.TotalDuration += duration
 	stats.LastExecuted = time.Now()
 	stats.RowsAffected += rowsAffected
-	
+
 	if duration < stats.MinDuration {
 		stats.MinDuration = duration
 	}
@@ -283,33 +283,33 @@ func (opt *DBOptimizer) TrackQuery(query string, duration time.Duration, err err
 		stats.MaxDuration = duration
 	}
 	stats.AvgDuration = time.Duration(int64(stats.TotalDuration) / stats.ExecutionCount)
-	
+
 	if err != nil {
 		stats.ErrorCount++
 	}
 	opt.queryStatsMux.Unlock()
-	
+
 	// Track slow queries
 	if duration >= opt.config.SlowQueryThreshold {
 		opt.trackSlowQuery(query, duration, err)
 	}
-	
+
 	// Update metrics
 	queryType, table, operation := opt.parseQuery(query)
 	opt.metrics.QueryDuration.WithLabelValues(queryType, table, operation).Observe(duration.Seconds())
-	
+
 	status := "success"
 	if err != nil {
 		status = "error"
 	}
 	opt.metrics.QueryCount.WithLabelValues(queryType, table, operation, status).Inc()
-	
+
 	if opt.config.EnableQueryLogging {
 		logLevel := "debug"
 		if duration >= opt.config.SlowQueryThreshold {
 			logLevel = "warn"
 		}
-		
+
 		if logLevel == "warn" {
 			opt.logger.Warn("Slow query detected",
 				"query", query,
@@ -327,24 +327,24 @@ func (opt *DBOptimizer) TrackQuery(query string, duration time.Duration, err err
 // trackSlowQuery records a slow query
 func (opt *DBOptimizer) trackSlowQuery(query string, duration time.Duration, err error) {
 	opt.metrics.SlowQueryCount.Inc()
-	
+
 	if !opt.config.EnableSlowQueryLog {
 		return
 	}
-	
+
 	slowQuery := SlowQuery{
 		Query:     query,
 		Duration:  duration,
 		Timestamp: time.Now(),
 	}
-	
+
 	if err != nil {
 		slowQuery.Error = err.Error()
 	}
-	
+
 	opt.slowQueriesMux.Lock()
 	opt.slowQueries = append(opt.slowQueries, slowQuery)
-	
+
 	// Keep only the most recent slow queries
 	if len(opt.slowQueries) > opt.config.MaxSlowQueries {
 		opt.slowQueries = opt.slowQueries[1:]
@@ -357,9 +357,9 @@ func (opt *DBOptimizer) TrackMigration(version, name string, startTime, endTime 
 	if !opt.config.EnableMigrationTracking {
 		return
 	}
-	
+
 	duration := endTime.Sub(startTime)
-	
+
 	migration := MigrationRecord{
 		Version:      version,
 		Name:         name,
@@ -369,22 +369,22 @@ func (opt *DBOptimizer) TrackMigration(version, name string, startTime, endTime 
 		Success:      success,
 		RowsAffected: rowsAffected,
 	}
-	
+
 	if err != nil {
 		migration.Error = err.Error()
 	}
-	
+
 	opt.migrationMux.Lock()
 	opt.migrationHistory = append(opt.migrationHistory, migration)
 	opt.migrationMux.Unlock()
-	
+
 	// Update metrics
 	operation := "up"
 	if !success {
 		operation = "failed"
 	}
 	opt.metrics.MigrationDuration.WithLabelValues(version, operation).Observe(duration.Seconds())
-	
+
 	opt.logger.Info("Migration tracked",
 		"version", version,
 		"name", name,
@@ -398,14 +398,14 @@ func (opt *DBOptimizer) TrackMigration(version, name string, startTime, endTime 
 func (opt *DBOptimizer) GetQueryStats() map[string]*QueryStats {
 	opt.queryStatsMux.RLock()
 	defer opt.queryStatsMux.RUnlock()
-	
+
 	// Return a copy to prevent concurrent access issues
 	result := make(map[string]*QueryStats)
 	for k, v := range opt.queryStats {
 		statsCopy := *v
 		result[k] = &statsCopy
 	}
-	
+
 	return result
 }
 
@@ -413,11 +413,11 @@ func (opt *DBOptimizer) GetQueryStats() map[string]*QueryStats {
 func (opt *DBOptimizer) GetSlowQueries() []SlowQuery {
 	opt.slowQueriesMux.RLock()
 	defer opt.slowQueriesMux.RUnlock()
-	
+
 	// Return a copy
 	result := make([]SlowQuery, len(opt.slowQueries))
 	copy(result, opt.slowQueries)
-	
+
 	return result
 }
 
@@ -425,11 +425,11 @@ func (opt *DBOptimizer) GetSlowQueries() []SlowQuery {
 func (opt *DBOptimizer) GetMigrationHistory() []MigrationRecord {
 	opt.migrationMux.RLock()
 	defer opt.migrationMux.RUnlock()
-	
+
 	// Return a copy
 	result := make([]MigrationRecord, len(opt.migrationHistory))
 	copy(result, opt.migrationHistory)
-	
+
 	return result
 }
 
@@ -437,11 +437,11 @@ func (opt *DBOptimizer) GetMigrationHistory() []MigrationRecord {
 func (opt *DBOptimizer) GetDatabaseHealth() *DatabaseHealth {
 	opt.healthMux.RLock()
 	defer opt.healthMux.RUnlock()
-	
+
 	if opt.healthStatus == nil {
 		return nil
 	}
-	
+
 	// Return a copy
 	health := *opt.healthStatus
 	return &health
@@ -450,14 +450,14 @@ func (opt *DBOptimizer) GetDatabaseHealth() *DatabaseHealth {
 // PerformHealthCheck executes a comprehensive database health check
 func (opt *DBOptimizer) PerformHealthCheck() error {
 	start := time.Now()
-	
+
 	ctx, cancel := context.WithTimeout(opt.ctx, opt.config.ConnectionTimeout)
 	defer cancel()
-	
+
 	health := &DatabaseHealth{
 		LastCheck: start,
 	}
-	
+
 	// Test basic connectivity
 	err := opt.pool.Ping(ctx)
 	if err != nil {
@@ -465,30 +465,30 @@ func (opt *DBOptimizer) PerformHealthCheck() error {
 		opt.updateHealthStatus(health)
 		return fmt.Errorf("database ping failed: %w", err)
 	}
-	
+
 	health.ResponseTime = time.Since(start)
-	
+
 	// Get connection pool stats
 	poolStats := opt.pool.Stat()
 	health.ActiveConnections = poolStats.AcquiredConns()
 	health.IdleConnections = poolStats.IdleConns()
 	health.MaxConnections = poolStats.MaxConns()
 	health.TotalConnections = poolStats.TotalConns()
-	
+
 	// Get database statistics
 	if err := opt.collectDatabaseStats(ctx, health); err != nil {
 		opt.logger.Warn("Failed to collect database statistics", "error", err)
 	}
-	
+
 	health.IsHealthy = true
 	opt.updateHealthStatus(health)
-	
+
 	// Update metrics
 	opt.metrics.HealthGauge.Set(1)
 	opt.metrics.ConnectionsGauge.WithLabelValues("active").Set(float64(health.ActiveConnections))
 	opt.metrics.ConnectionsGauge.WithLabelValues("idle").Set(float64(health.IdleConnections))
 	opt.metrics.ConnectionsGauge.WithLabelValues("max").Set(float64(health.MaxConnections))
-	
+
 	return nil
 }
 
@@ -502,7 +502,7 @@ func (opt *DBOptimizer) collectDatabaseStats(ctx context.Context, health *Databa
 	if err == nil && dbSize.Valid {
 		health.DatabaseSize = dbSize.Int64
 	}
-	
+
 	// Cache hit ratio
 	var cacheHit, cacheRead sql.NullFloat64
 	err = opt.pool.QueryRow(ctx, `
@@ -514,7 +514,7 @@ func (opt *DBOptimizer) collectDatabaseStats(ctx context.Context, health *Databa
 	if err == nil && cacheHit.Valid && cacheRead.Valid && cacheRead.Float64 > 0 {
 		health.CacheHitRatio = cacheHit.Float64 / cacheRead.Float64 * 100
 	}
-	
+
 	// Transaction and query rates (approximate)
 	var xactCommit, xactRollback sql.NullInt64
 	err = opt.pool.QueryRow(ctx, `
@@ -526,7 +526,7 @@ func (opt *DBOptimizer) collectDatabaseStats(ctx context.Context, health *Databa
 		// This is cumulative, so we'd need to track over time for true rate
 		health.TransactionsPerSec = float64(xactCommit.Int64 + xactRollback.Int64)
 	}
-	
+
 	return nil
 }
 
@@ -543,15 +543,15 @@ func (opt *DBOptimizer) GetPoolOptimizationSuggestions() []PoolOptimizationSugge
 	if !opt.config.EnablePoolOptimization || opt.pool == nil {
 		return nil
 	}
-	
+
 	poolStats := opt.pool.Stat()
 	health := opt.GetDatabaseHealth()
-	
+
 	var suggestions []PoolOptimizationSuggestion
-	
+
 	// Analyze connection pool utilization
 	utilizationRatio := float64(poolStats.AcquiredConns()) / float64(poolStats.MaxConns())
-	
+
 	if utilizationRatio > 0.9 {
 		suggestions = append(suggestions, PoolOptimizationSuggestion{
 			Parameter:  "max_connections",
@@ -562,7 +562,7 @@ func (opt *DBOptimizer) GetPoolOptimizationSuggestions() []PoolOptimizationSugge
 			Confidence: 0.8,
 		})
 	}
-	
+
 	if utilizationRatio < 0.3 && poolStats.MaxConns() > 10 {
 		suggestions = append(suggestions, PoolOptimizationSuggestion{
 			Parameter:  "max_connections",
@@ -573,7 +573,7 @@ func (opt *DBOptimizer) GetPoolOptimizationSuggestions() []PoolOptimizationSugge
 			Confidence: 0.6,
 		})
 	}
-	
+
 	// Analyze slow queries
 	slowQueries := opt.GetSlowQueries()
 	if len(slowQueries) > 10 {
@@ -586,7 +586,7 @@ func (opt *DBOptimizer) GetPoolOptimizationSuggestions() []PoolOptimizationSugge
 			Confidence: 0.9,
 		})
 	}
-	
+
 	// Analyze cache hit ratio
 	if health != nil && health.CacheHitRatio < 95 {
 		suggestions = append(suggestions, PoolOptimizationSuggestion{
@@ -598,36 +598,36 @@ func (opt *DBOptimizer) GetPoolOptimizationSuggestions() []PoolOptimizationSugge
 			Confidence: 0.7,
 		})
 	}
-	
+
 	return suggestions
 }
 
 // backgroundMonitor runs periodic health checks and maintenance
 func (opt *DBOptimizer) backgroundMonitor() {
 	defer opt.wg.Done()
-	
+
 	healthTicker := time.NewTicker(opt.config.HealthCheckInterval)
 	metricsTicker := time.NewTicker(opt.config.MetricsInterval)
 	cleanupTicker := time.NewTicker(opt.config.QueryStatsRetention)
-	
+
 	defer healthTicker.Stop()
 	defer metricsTicker.Stop()
 	defer cleanupTicker.Stop()
-	
+
 	for {
 		select {
 		case <-opt.ctx.Done():
 			return
-			
+
 		case <-healthTicker.C:
 			if err := opt.PerformHealthCheck(); err != nil {
 				opt.logger.Error("Health check failed", "error", err)
 				opt.metrics.HealthGauge.Set(0)
 			}
-			
+
 		case <-metricsTicker.C:
 			opt.updateMetrics()
-			
+
 		case <-cleanupTicker.C:
 			opt.cleanupOldStats()
 		}
@@ -637,21 +637,21 @@ func (opt *DBOptimizer) backgroundMonitor() {
 // poolOptimizer runs periodic pool optimization analysis
 func (opt *DBOptimizer) poolOptimizer() {
 	defer opt.wg.Done()
-	
+
 	ticker := time.NewTicker(opt.config.PoolOptimizationInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-opt.ctx.Done():
 			return
-			
+
 		case <-ticker.C:
 			suggestions := opt.GetPoolOptimizationSuggestions()
 			if len(suggestions) > 0 {
 				opt.logger.Info("Pool optimization suggestions available",
 					"count", len(suggestions))
-				
+
 				for _, suggestion := range suggestions {
 					opt.logger.Info("Pool optimization suggestion",
 						"parameter", suggestion.Parameter,
@@ -676,7 +676,7 @@ func (opt *DBOptimizer) updateMetrics() {
 // cleanupOldStats removes old query statistics
 func (opt *DBOptimizer) cleanupOldStats() {
 	cutoff := time.Now().Add(-opt.config.QueryStatsRetention)
-	
+
 	opt.queryStatsMux.Lock()
 	for query, stats := range opt.queryStats {
 		if stats.LastExecuted.Before(cutoff) {
@@ -684,7 +684,7 @@ func (opt *DBOptimizer) cleanupOldStats() {
 		}
 	}
 	opt.queryStatsMux.Unlock()
-	
+
 	opt.logger.Debug("Cleaned up old query statistics",
 		"cutoff", cutoff,
 		"remaining_stats", len(opt.queryStats))
@@ -697,7 +697,7 @@ func (opt *DBOptimizer) normalizeQuery(query string) string {
 	if len(query) > 200 {
 		query = query[:200] + "..."
 	}
-	
+
 	// Remove common parameter patterns (this is basic, could be improved)
 	// In a production system, you'd want more sophisticated query normalization
 	return query
@@ -707,7 +707,7 @@ func (opt *DBOptimizer) normalizeQuery(query string) string {
 func (opt *DBOptimizer) parseQuery(query string) (queryType, table, operation string) {
 	// This is a simplified parser - in production you'd want proper SQL parsing
 	query = strings.ToUpper(strings.TrimSpace(query))
-	
+
 	if strings.HasPrefix(query, "SELECT") {
 		queryType = "select"
 		operation = "read"
@@ -724,27 +724,27 @@ func (opt *DBOptimizer) parseQuery(query string) (queryType, table, operation st
 		queryType = "other"
 		operation = "other"
 	}
-	
+
 	// Extract table name (very basic)
 	table = "unknown"
 	// This would need proper SQL parsing for accurate table extraction
-	
+
 	return queryType, table, operation
 }
 
 // GetTopSlowQueries returns the slowest queries sorted by duration
 func (opt *DBOptimizer) GetTopSlowQueries(limit int) []SlowQuery {
 	queries := opt.GetSlowQueries()
-	
+
 	// Sort by duration descending
 	sort.Slice(queries, func(i, j int) bool {
 		return queries[i].Duration > queries[j].Duration
 	})
-	
+
 	if limit > 0 && len(queries) > limit {
 		queries = queries[:limit]
 	}
-	
+
 	return queries
 }
 
@@ -754,48 +754,48 @@ func (opt *DBOptimizer) GetQueryStatsSummary() map[string]interface{} {
 	slowQueries := opt.GetSlowQueries()
 	migrations := opt.GetMigrationHistory()
 	health := opt.GetDatabaseHealth()
-	
+
 	var totalQueries int64
 	var totalDuration time.Duration
 	var errorCount int64
-	
+
 	for _, stat := range stats {
 		totalQueries += stat.ExecutionCount
 		totalDuration += stat.TotalDuration
 		errorCount += stat.ErrorCount
 	}
-	
+
 	var avgDuration time.Duration
 	if totalQueries > 0 {
 		avgDuration = time.Duration(int64(totalDuration) / totalQueries)
 	}
-	
+
 	summary := map[string]interface{}{
-		"total_queries":      totalQueries,
-		"total_duration":     totalDuration,
-		"average_duration":   avgDuration,
-		"error_count":        errorCount,
-		"error_rate":         float64(errorCount) / float64(totalQueries) * 100,
-		"slow_queries":       len(slowQueries),
-		"unique_queries":     len(stats),
-		"migrations_count":   len(migrations),
-		"last_health_check":  opt.lastHealthCheck,
+		"total_queries":     totalQueries,
+		"total_duration":    totalDuration,
+		"average_duration":  avgDuration,
+		"error_count":       errorCount,
+		"error_rate":        float64(errorCount) / float64(totalQueries) * 100,
+		"slow_queries":      len(slowQueries),
+		"unique_queries":    len(stats),
+		"migrations_count":  len(migrations),
+		"last_health_check": opt.lastHealthCheck,
 	}
-	
+
 	if health != nil {
 		summary["health"] = health
 	}
-	
+
 	return summary
 }
 
 // Stop gracefully shuts down the database optimizer
 func (opt *DBOptimizer) Stop() error {
 	opt.logger.Info("Stopping database optimizer")
-	
+
 	opt.cancel()
 	opt.wg.Wait()
-	
+
 	opt.logger.Info("Database optimizer stopped")
 	return nil
 }

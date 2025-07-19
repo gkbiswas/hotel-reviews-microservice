@@ -42,21 +42,21 @@ const (
 
 // JWTService implements JWT-based authentication
 type JWTService struct {
-	secretKey     string
-	issuer        string
-	logger        *slog.Logger
+	secretKey      string
+	issuer         string
+	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryManager  *RetryManager
+	retryManager   *RetryManager
 }
 
 // NewJWTService creates a new JWT service with circuit breaker and retry support
 func NewJWTService(cfg *config.Config, logger *slog.Logger, cb *CircuitBreaker, retry *RetryManager) *JWTService {
 	return &JWTService{
-		secretKey:     cfg.Auth.JWTSecret,
-		issuer:        cfg.Auth.JWTIssuer,
-		logger:        logger,
+		secretKey:      cfg.Auth.JWTSecret,
+		issuer:         cfg.Auth.JWTIssuer,
+		logger:         logger,
 		circuitBreaker: cb,
-		retryManager:  retry,
+		retryManager:   retry,
 	}
 }
 
@@ -378,7 +378,7 @@ type AuthRepository struct {
 	db             *gorm.DB
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryManager    *RetryManager
+	retryManager   *RetryManager
 }
 
 // NewAuthRepository creates a new authentication repository
@@ -387,7 +387,7 @@ func NewAuthRepository(db *gorm.DB, logger *slog.Logger, cb *CircuitBreaker, ret
 		db:             db,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryManager:    retry,
+		retryManager:   retry,
 	}
 }
 
@@ -931,7 +931,7 @@ type RBACService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryManager    *RetryManager
+	retryManager   *RetryManager
 }
 
 // NewRBACService creates a new RBAC service
@@ -940,7 +940,7 @@ func NewRBACService(authRepo domain.AuthRepository, logger *slog.Logger, cb *Cir
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryManager:    retry,
+		retryManager:   retry,
 	}
 }
 
@@ -965,7 +965,7 @@ type ApiKeyService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryManager    *RetryManager
+	retryManager   *RetryManager
 }
 
 // NewApiKeyService creates a new API key service
@@ -974,7 +974,7 @@ func NewApiKeyService(authRepo domain.AuthRepository, logger *slog.Logger, cb *C
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryManager:    retry,
+		retryManager:   retry,
 	}
 }
 
@@ -1049,7 +1049,7 @@ type RateLimitService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryManager    *RetryManager
+	retryManager   *RetryManager
 }
 
 // NewRateLimitService creates a new rate limiting service
@@ -1058,7 +1058,7 @@ func NewRateLimitService(authRepo domain.AuthRepository, logger *slog.Logger, cb
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryManager:    retry,
+		retryManager:   retry,
 	}
 }
 
@@ -1100,7 +1100,7 @@ type AuditService struct {
 	authRepo       domain.AuthRepository
 	logger         *slog.Logger
 	circuitBreaker *CircuitBreaker
-	retryManager    *RetryManager
+	retryManager   *RetryManager
 }
 
 // NewAuditService creates a new audit service
@@ -1109,7 +1109,7 @@ func NewAuditService(authRepo domain.AuthRepository, logger *slog.Logger, cb *Ci
 		authRepo:       authRepo,
 		logger:         logger,
 		circuitBreaker: cb,
-		retryManager:    retry,
+		retryManager:   retry,
 	}
 }
 
@@ -1143,7 +1143,7 @@ type AuthenticationService struct {
 	auditService     *AuditService
 	logger           *slog.Logger
 	circuitBreaker   *CircuitBreaker
-	retryManager      *RetryManager
+	retryManager     *RetryManager
 }
 
 // NewAuthenticationService creates a comprehensive authentication service
@@ -1169,7 +1169,7 @@ func NewAuthenticationService(
 		auditService:     auditService,
 		logger:           logger,
 		circuitBreaker:   cb,
-		retryManager:      retry,
+		retryManager:     retry,
 	}
 }
 
@@ -1203,7 +1203,7 @@ func (a *AuthenticationService) Login(ctx context.Context, email, password, ipAd
 	if err := a.passwordService.ComparePassword(user.PasswordHash, password); err != nil {
 		// Increment failed attempts
 		_ = a.authRepo.IncrementFailedAttempts(ctx, user.ID)
-		
+
 		// Lock account if too many failed attempts
 		if user.FailedAttempts+1 >= MaxLoginAttempts {
 			lockUntil := time.Now().Add(AccountLockDuration)
@@ -1353,16 +1353,25 @@ func (a *AuthenticationService) ValidateToken(ctx context.Context, token string)
 
 // CheckPermission checks if a user has a specific permission
 func (a *AuthenticationService) CheckPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error) {
+	if a.rbacService == nil {
+		return false, fmt.Errorf("RBAC service not initialized")
+	}
 	return a.rbacService.CheckPermission(ctx, userID, resource, action)
 }
 
 // CreateApiKey creates a new API key
 func (a *AuthenticationService) CreateApiKey(ctx context.Context, userID uuid.UUID, name string, scopes []string, expiresAt *time.Time) (*domain.ApiKey, error) {
+	if a.apiKeyService == nil {
+		return nil, fmt.Errorf("API key service not initialized")
+	}
 	return a.apiKeyService.GenerateApiKey(ctx, userID, name, scopes, expiresAt)
 }
 
 // ValidateApiKey validates an API key
 func (a *AuthenticationService) ValidateApiKey(ctx context.Context, key string) (*domain.ApiKey, error) {
+	if a.apiKeyService == nil {
+		return nil, fmt.Errorf("API key service not initialized")
+	}
 	return a.apiKeyService.ValidateApiKey(ctx, key)
 }
 
@@ -1390,20 +1399,20 @@ func (a *AuthenticationService) Register(ctx context.Context, user *domain.User,
 	if err != nil {
 		return errors.Wrap(err, "failed to hash password")
 	}
-	
+
 	user.PasswordHash = hashedPassword
-	
+
 	// Create user
 	if err := a.authRepo.CreateUser(ctx, user); err != nil {
 		return errors.Wrap(err, "failed to create user")
 	}
-	
+
 	// Assign default role (if exists)
 	defaultRole, err := a.authRepo.GetRoleByName(ctx, "user")
 	if err == nil {
 		_ = a.authRepo.AssignRoleToUser(ctx, user.ID, defaultRole.ID)
 	}
-	
+
 	return nil
 }
 
@@ -1444,22 +1453,22 @@ func (a *AuthenticationService) ChangePassword(ctx context.Context, userID uuid.
 	if err != nil {
 		return errors.Wrap(err, "user not found")
 	}
-	
+
 	// Verify old password
 	if err := a.passwordService.ComparePassword(user.PasswordHash, oldPassword); err != nil {
 		return errors.New("invalid old password")
 	}
-	
+
 	// Hash new password
 	hashedPassword, err := a.passwordService.HashPassword(newPassword)
 	if err != nil {
 		return errors.Wrap(err, "failed to hash new password")
 	}
-	
+
 	// Update password
 	user.PasswordHash = hashedPassword
 	user.UpdatedAt = time.Now()
-	
+
 	return a.authRepo.UpdateUser(ctx, user)
 }
 
@@ -1470,28 +1479,28 @@ func (a *AuthenticationService) ResetPassword(ctx context.Context, email string)
 	// 1. Generate a reset token
 	// 2. Store it in the database
 	// 3. Send an email with the reset link
-	
+
 	user, err := a.authRepo.GetUserByEmail(ctx, email)
 	if err != nil {
 		return errors.Wrap(err, "user not found")
 	}
-	
+
 	// Generate new password (placeholder)
 	newPassword, err := a.passwordService.GenerateRandomPassword(12)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate password")
 	}
-	
+
 	// Hash password
 	hashedPassword, err := a.passwordService.HashPassword(newPassword)
 	if err != nil {
 		return errors.Wrap(err, "failed to hash password")
 	}
-	
+
 	// Update password
 	user.PasswordHash = hashedPassword
 	user.UpdatedAt = time.Now()
-	
+
 	return a.authRepo.UpdateUser(ctx, user)
 }
 

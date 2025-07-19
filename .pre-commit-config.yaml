@@ -1,0 +1,96 @@
+# Pre-commit hooks for code quality
+repos:
+  - repo: local
+    hooks:
+      # Go formatting
+      - id: gofmt
+        name: gofmt
+        description: Run gofmt on Go source files
+        entry: gofmt
+        language: system
+        args: [-w]
+        files: \.go$
+        
+      # Go imports
+      - id: goimports
+        name: goimports
+        description: Run goimports on Go source files
+        entry: goimports
+        language: system
+        args: [-w]
+        files: \.go$
+        
+      # Go vet
+      - id: go-vet
+        name: go vet
+        description: Run go vet on Go source files
+        entry: bash
+        language: system
+        args: [-c, 'go vet ./...']
+        files: \.go$
+        pass_filenames: false
+        
+      # Go mod tidy
+      - id: go-mod-tidy
+        name: go mod tidy
+        description: Run go mod tidy
+        entry: go
+        language: system
+        args: [mod, tidy]
+        files: go\.(mod|sum)$
+        pass_filenames: false
+        
+      # Go tests
+      - id: go-test
+        name: go test
+        description: Run Go tests
+        entry: go
+        language: system
+        args: [test, -short, ./...]
+        files: \.go$
+        pass_filenames: false
+        
+      # Golangci-lint (if available)
+      - id: golangci-lint
+        name: golangci-lint
+        description: Run golangci-lint
+        entry: bash
+        language: system
+        args: [-c, 'if command -v golangci-lint >/dev/null 2>&1; then golangci-lint run --config=.golangci.yml; else echo "golangci-lint not installed, skipping"; fi']
+        files: \.go$
+        pass_filenames: false
+
+  # Generic hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+        exclude: \.md$
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Security scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: go.sum
+        
+  # Docker linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        files: Dockerfile.*
+
+default_language_version:
+  python: python3

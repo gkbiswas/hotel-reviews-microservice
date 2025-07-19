@@ -21,7 +21,7 @@ type RateLimiter struct {
 func NewRateLimiter(maxRequests int, window time.Duration, redisClient *redis.Client) *RateLimiter {
 	// Create local rate limiter as fallback
 	localLimiter := rate.NewLimiter(rate.Limit(float64(maxRequests)/window.Seconds()), maxRequests)
-	
+
 	return &RateLimiter{
 		localLimiter: localLimiter,
 		redisClient:  redisClient,
@@ -39,7 +39,7 @@ func (r *RateLimiter) Allow(ctx context.Context, key string) (bool, error) {
 
 	// Use Redis for distributed rate limiting
 	redisKey := fmt.Sprintf("rate_limit:%s", key)
-	
+
 	// Get current count
 	count, err := r.redisClient.Get(ctx, redisKey).Int()
 	if err == redis.Nil {
@@ -86,7 +86,7 @@ func (r *RateLimiter) Reset(ctx context.Context, key string) error {
 // GetLimit returns the current limit and remaining requests for a key
 func (r *RateLimiter) GetLimit(ctx context.Context, key string) (limit, remaining int, resetAt time.Time, err error) {
 	limit = r.maxRequests
-	
+
 	if r.redisClient == nil {
 		// For local limiter, we can't get exact remaining
 		if r.localLimiter.Allow() {
@@ -99,7 +99,7 @@ func (r *RateLimiter) GetLimit(ctx context.Context, key string) (limit, remainin
 	}
 
 	redisKey := fmt.Sprintf("rate_limit:%s", key)
-	
+
 	// Get current count
 	count, err := r.redisClient.Get(ctx, redisKey).Int()
 	if err == redis.Nil {

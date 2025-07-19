@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
+	"github.com/google/uuid"
 )
 
 // NewReviewServiceWithAdapter creates a new ReviewService instance with logger adapter
@@ -21,13 +21,13 @@ func NewReviewServiceWithAdapter(
 ) ReviewService {
 	// Create a simple slog adapter
 	slogger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	
+
 	// Create a stub notification service for now
 	notificationService := &stubNotificationService{}
-	
-	// Create a stub metrics service for now  
+
+	// Create a stub metrics service for now
 	metricsService := &stubMetricsService{}
-	
+
 	return NewReviewServiceWithDeps(
 		reviewRepo,
 		s3Client,

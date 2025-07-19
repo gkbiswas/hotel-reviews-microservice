@@ -23,7 +23,7 @@ func NewLogrusAdapter(logger *logrus.Logger) Logger {
 // NewLogger creates a new logger with the specified level
 func NewLogger(name, level string) Logger {
 	logger := logrus.New()
-	
+
 	// Set log level
 	switch level {
 	case "debug":
@@ -37,7 +37,7 @@ func NewLogger(name, level string) Logger {
 	default:
 		logger.SetLevel(logrus.InfoLevel)
 	}
-	
+
 	// Set JSON formatter for structured logging
 	logger.SetFormatter(&logrus.JSONFormatter{
 		TimestampFormat: "2006-01-02T15:04:05.000Z07:00",
@@ -47,7 +47,7 @@ func NewLogger(name, level string) Logger {
 			logrus.FieldKeyMsg:   "message",
 		},
 	})
-	
+
 	return &LogrusAdapter{logger: logger}
 }
 
@@ -78,7 +78,7 @@ func (l *LogrusAdapter) Error(msg string, fields ...interface{}) {
 // fieldsToLogrusFields converts key-value pairs to logrus.Fields
 func (l *LogrusAdapter) fieldsToLogrusFields(fields []interface{}) logrus.Fields {
 	logrusFields := make(logrus.Fields)
-	
+
 	for i := 0; i < len(fields); i += 2 {
 		if i+1 < len(fields) {
 			if key, ok := fields[i].(string); ok {
@@ -86,6 +86,6 @@ func (l *LogrusAdapter) fieldsToLogrusFields(fields []interface{}) logrus.Fields
 			}
 		}
 	}
-	
+
 	return logrusFields
 }

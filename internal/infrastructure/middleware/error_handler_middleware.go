@@ -33,14 +33,14 @@ func (ehm *ErrorHandlerMiddleware) Handle(next http.Handler) http.Handler {
 			errorHandler:   ehm.errorHandler,
 			logger:         ehm.logger,
 		}
-		
+
 		// Set up panic recovery
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				ehm.handlePanic(eww, r, recovered)
 			}
 		}()
-		
+
 		// Continue with the next handler
 		next.ServeHTTP(eww, r)
 	})
@@ -49,18 +49,18 @@ func (ehm *ErrorHandlerMiddleware) Handle(next http.Handler) http.Handler {
 // errorAwareResponseWriter wraps http.ResponseWriter to provide error handling
 type errorAwareResponseWriter struct {
 	http.ResponseWriter
-	request        *http.Request
-	errorHandler   *infrastructure.ErrorHandler
-	logger         *logger.Logger
-	statusCode     int
-	bytesWritten   int64
-	headerWritten  bool
+	request       *http.Request
+	errorHandler  *infrastructure.ErrorHandler
+	logger        *logger.Logger
+	statusCode    int
+	bytesWritten  int64
+	headerWritten bool
 }
 
 // WriteHeader captures the status code and handles errors
 func (w *errorAwareResponseWriter) WriteHeader(statusCode int) {
 	w.statusCode = statusCode
-	
+
 	// Check if this is an error status code
 	if statusCode >= 400 && !w.headerWritten {
 		// Create error from status code
@@ -74,7 +74,7 @@ func (w *errorAwareResponseWriter) WriteHeader(statusCode int) {
 			}
 		}
 	}
-	
+
 	w.headerWritten = true
 	w.ResponseWriter.WriteHeader(statusCode)
 }
@@ -84,7 +84,7 @@ func (w *errorAwareResponseWriter) Write(data []byte) (int, error) {
 	if !w.headerWritten {
 		w.WriteHeader(http.StatusOK)
 	}
-	
+
 	n, err := w.ResponseWriter.Write(data)
 	w.bytesWritten += int64(n)
 	return n, err
@@ -95,100 +95,100 @@ func (w *errorAwareResponseWriter) createErrorFromStatusCode(statusCode int) err
 	switch statusCode {
 	case http.StatusBadRequest:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeValidation,
-			Code:        "BAD_REQUEST",
-			Message:     "Bad request",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeValidation,
+			Code:       "BAD_REQUEST",
+			Message:    "Bad request",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusUnauthorized:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeAuthentication,
-			Code:        "UNAUTHORIZED",
-			Message:     "Unauthorized",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeAuthentication,
+			Code:       "UNAUTHORIZED",
+			Message:    "Unauthorized",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusForbidden:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeAuthorization,
-			Code:        "FORBIDDEN",
-			Message:     "Forbidden",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeAuthorization,
+			Code:       "FORBIDDEN",
+			Message:    "Forbidden",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusNotFound:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeNotFound,
-			Code:        "NOT_FOUND",
-			Message:     "Resource not found",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeNotFound,
+			Code:       "NOT_FOUND",
+			Message:    "Resource not found",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusConflict:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeConflict,
-			Code:        "CONFLICT",
-			Message:     "Resource conflict",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeConflict,
+			Code:       "CONFLICT",
+			Message:    "Resource conflict",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusTooManyRequests:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeRateLimit,
-			Code:        "TOO_MANY_REQUESTS",
-			Message:     "Too many requests",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeRateLimit,
+			Code:       "TOO_MANY_REQUESTS",
+			Message:    "Too many requests",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusInternalServerError:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeSystem,
-			Code:        "INTERNAL_SERVER_ERROR",
-			Message:     "Internal server error",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeSystem,
+			Code:       "INTERNAL_SERVER_ERROR",
+			Message:    "Internal server error",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusBadGateway:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeNetwork,
-			Code:        "BAD_GATEWAY",
-			Message:     "Bad gateway",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeNetwork,
+			Code:       "BAD_GATEWAY",
+			Message:    "Bad gateway",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusServiceUnavailable:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeCircuitBreaker,
-			Code:        "SERVICE_UNAVAILABLE",
-			Message:     "Service unavailable",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeCircuitBreaker,
+			Code:       "SERVICE_UNAVAILABLE",
+			Message:    "Service unavailable",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	case http.StatusGatewayTimeout:
 		return &infrastructure.AppError{
-			Type:        infrastructure.ErrorTypeTimeout,
-			Code:        "GATEWAY_TIMEOUT",
-			Message:     "Gateway timeout",
-			HTTPStatus:  statusCode,
-			Timestamp:   time.Now(),
+			Type:       infrastructure.ErrorTypeTimeout,
+			Code:       "GATEWAY_TIMEOUT",
+			Message:    "Gateway timeout",
+			HTTPStatus: statusCode,
+			Timestamp:  time.Now(),
 		}
 	default:
 		if statusCode >= 500 {
 			return &infrastructure.AppError{
-				Type:        infrastructure.ErrorTypeSystem,
-				Code:        "SERVER_ERROR",
-				Message:     "Server error",
-				HTTPStatus:  statusCode,
-				Timestamp:   time.Now(),
+				Type:       infrastructure.ErrorTypeSystem,
+				Code:       "SERVER_ERROR",
+				Message:    "Server error",
+				HTTPStatus: statusCode,
+				Timestamp:  time.Now(),
 			}
 		} else if statusCode >= 400 {
 			return &infrastructure.AppError{
-				Type:        infrastructure.ErrorTypeClient,
-				Code:        "CLIENT_ERROR",
-				Message:     "Client error",
-				HTTPStatus:  statusCode,
-				Timestamp:   time.Now(),
+				Type:       infrastructure.ErrorTypeClient,
+				Code:       "CLIENT_ERROR",
+				Message:    "Client error",
+				HTTPStatus: statusCode,
+				Timestamp:  time.Now(),
 			}
 		}
 		return nil
@@ -201,15 +201,15 @@ func (w *errorAwareResponseWriter) updateResponseForError(appErr *infrastructure
 	w.Header().Set("X-Error-ID", appErr.ID)
 	w.Header().Set("X-Error-Type", string(appErr.Type))
 	w.Header().Set("X-Error-Code", appErr.Code)
-	
+
 	if appErr.CorrelationID != "" {
 		w.Header().Set("X-Correlation-ID", appErr.CorrelationID)
 	}
-	
+
 	if appErr.RetryAfter != nil {
 		w.Header().Set("Retry-After", appErr.RetryAfter.String())
 	}
-	
+
 	// Update status code if needed
 	if appErr.HTTPStatus != 0 && appErr.HTTPStatus != w.statusCode {
 		w.statusCode = appErr.HTTPStatus
@@ -220,11 +220,11 @@ func (w *errorAwareResponseWriter) updateResponseForError(appErr *infrastructure
 func (ehm *ErrorHandlerMiddleware) handlePanic(w *errorAwareResponseWriter, r *http.Request, recovered interface{}) {
 	// Create error from panic
 	panicErr := &infrastructure.AppError{
-		Type:        infrastructure.ErrorTypeSystem,
-		Category:    infrastructure.CategoryCritical,
-		Severity:    infrastructure.SeverityCritical,
-		Code:        "PANIC",
-		Message:     "Application panic occurred",
+		Type:     infrastructure.ErrorTypeSystem,
+		Category: infrastructure.CategoryCritical,
+		Severity: infrastructure.SeverityCritical,
+		Code:     "PANIC",
+		Message:  "Application panic occurred",
 		Details: map[string]interface{}{
 			"panic_value": recovered,
 			"request_uri": r.RequestURI,
@@ -233,15 +233,15 @@ func (ehm *ErrorHandlerMiddleware) handlePanic(w *errorAwareResponseWriter, r *h
 		Timestamp:  time.Now(),
 		HTTPStatus: http.StatusInternalServerError,
 	}
-	
+
 	// Handle the panic error
 	appErr := ehm.errorHandler.Handle(r.Context(), panicErr)
-	
+
 	// Write error response
 	if !w.headerWritten {
 		ehm.errorHandler.HandleHTTP(r.Context(), w, r, appErr)
 	}
-	
+
 	// Log the panic
 	ehm.logger.ErrorContext(r.Context(), "Application panic recovered",
 		"panic_value", recovered,
@@ -260,7 +260,7 @@ func NewErrorHandlerFunc(errorHandler *infrastructure.ErrorHandler) ErrorHandler
 		if err == nil {
 			return
 		}
-		
+
 		errorHandler.HandleHTTP(ctx, w, r, err)
 	}
 }
@@ -284,7 +284,7 @@ func (ehs *ErrorHandlerService) WrapError(ctx context.Context, err error, messag
 	if err == nil {
 		return nil
 	}
-	
+
 	// Create enhanced error
 	wrappedErr := &infrastructure.AppError{
 		Type:          infrastructure.ErrorTypeSystem,
@@ -299,7 +299,7 @@ func (ehs *ErrorHandlerService) WrapError(ctx context.Context, err error, messag
 		RequestID:     logger.GetRequestID(ctx),
 		UserID:        logger.GetUserID(ctx),
 	}
-	
+
 	return ehs.errorHandler.Handle(ctx, wrappedErr)
 }
 
@@ -308,14 +308,14 @@ func (ehs *ErrorHandlerService) HandleServiceError(ctx context.Context, err erro
 	if err == nil {
 		return nil
 	}
-	
+
 	// Create service error
 	serviceErr := &infrastructure.AppError{
-		Type:      infrastructure.ErrorTypeSystem,
-		Category:  infrastructure.CategoryTransient,
-		Severity:  infrastructure.SeverityMedium,
-		Code:      "SERVICE_ERROR",
-		Message:   err.Error(),
+		Type:     infrastructure.ErrorTypeSystem,
+		Category: infrastructure.CategoryTransient,
+		Severity: infrastructure.SeverityMedium,
+		Code:     "SERVICE_ERROR",
+		Message:  err.Error(),
 		Details: map[string]interface{}{
 			"service": service,
 		},
@@ -326,7 +326,7 @@ func (ehs *ErrorHandlerService) HandleServiceError(ctx context.Context, err erro
 		RequestID:     logger.GetRequestID(ctx),
 		UserID:        logger.GetUserID(ctx),
 	}
-	
+
 	return ehs.errorHandler.Handle(ctx, serviceErr)
 }
 
@@ -335,14 +335,14 @@ func (ehs *ErrorHandlerService) HandleDatabaseError(ctx context.Context, err err
 	if err == nil {
 		return nil
 	}
-	
+
 	// Create database error
 	dbErr := &infrastructure.AppError{
-		Type:      infrastructure.ErrorTypeDatabase,
-		Category:  infrastructure.CategoryTransient,
-		Severity:  infrastructure.SeverityHigh,
-		Code:      "DATABASE_ERROR",
-		Message:   err.Error(),
+		Type:     infrastructure.ErrorTypeDatabase,
+		Category: infrastructure.CategoryTransient,
+		Severity: infrastructure.SeverityHigh,
+		Code:     "DATABASE_ERROR",
+		Message:  err.Error(),
 		Details: map[string]interface{}{
 			"operation": operation,
 		},
@@ -354,7 +354,7 @@ func (ehs *ErrorHandlerService) HandleDatabaseError(ctx context.Context, err err
 		RequestID:     logger.GetRequestID(ctx),
 		UserID:        logger.GetUserID(ctx),
 	}
-	
+
 	return ehs.errorHandler.Handle(ctx, dbErr)
 }
 
@@ -363,14 +363,14 @@ func (ehs *ErrorHandlerService) HandleValidationError(ctx context.Context, err e
 	if err == nil {
 		return nil
 	}
-	
+
 	// Create validation error
 	validationErr := &infrastructure.AppError{
-		Type:      infrastructure.ErrorTypeValidation,
-		Category:  infrastructure.CategoryPermanent,
-		Severity:  infrastructure.SeverityLow,
-		Code:      "VALIDATION_ERROR",
-		Message:   err.Error(),
+		Type:        infrastructure.ErrorTypeValidation,
+		Category:    infrastructure.CategoryPermanent,
+		Severity:    infrastructure.SeverityLow,
+		Code:        "VALIDATION_ERROR",
+		Message:     err.Error(),
 		UserMessage: "Please check your input and try again.",
 		Details: map[string]interface{}{
 			"field": field,
@@ -382,7 +382,7 @@ func (ehs *ErrorHandlerService) HandleValidationError(ctx context.Context, err e
 		RequestID:     logger.GetRequestID(ctx),
 		UserID:        logger.GetUserID(ctx),
 	}
-	
+
 	return ehs.errorHandler.Handle(ctx, validationErr)
 }
 
@@ -391,14 +391,14 @@ func (ehs *ErrorHandlerService) HandleExternalServiceError(ctx context.Context, 
 	if err == nil {
 		return nil
 	}
-	
+
 	// Create external service error
 	extErr := &infrastructure.AppError{
-		Type:      infrastructure.ErrorTypeExternal,
-		Category:  infrastructure.CategoryTransient,
-		Severity:  infrastructure.SeverityMedium,
-		Code:      "EXTERNAL_SERVICE_ERROR",
-		Message:   err.Error(),
+		Type:     infrastructure.ErrorTypeExternal,
+		Category: infrastructure.CategoryTransient,
+		Severity: infrastructure.SeverityMedium,
+		Code:     "EXTERNAL_SERVICE_ERROR",
+		Message:  err.Error(),
 		Details: map[string]interface{}{
 			"external_service": service,
 		},
@@ -410,28 +410,28 @@ func (ehs *ErrorHandlerService) HandleExternalServiceError(ctx context.Context, 
 		RequestID:     logger.GetRequestID(ctx),
 		UserID:        logger.GetUserID(ctx),
 	}
-	
+
 	return ehs.errorHandler.Handle(ctx, extErr)
 }
 
 // CreateBusinessError creates a business logic error
 func (ehs *ErrorHandlerService) CreateBusinessError(ctx context.Context, code, message, userMessage string, details map[string]interface{}) error {
 	businessErr := &infrastructure.AppError{
-		Type:        infrastructure.ErrorTypeBusiness,
-		Category:    infrastructure.CategoryPermanent,
-		Severity:    infrastructure.SeverityMedium,
-		Code:        code,
-		Message:     message,
-		UserMessage: userMessage,
-		Details:     details,
-		Timestamp:   time.Now(),
-		HTTPStatus:  http.StatusBadRequest,
-		Retryable:   false,
+		Type:          infrastructure.ErrorTypeBusiness,
+		Category:      infrastructure.CategoryPermanent,
+		Severity:      infrastructure.SeverityMedium,
+		Code:          code,
+		Message:       message,
+		UserMessage:   userMessage,
+		Details:       details,
+		Timestamp:     time.Now(),
+		HTTPStatus:    http.StatusBadRequest,
+		Retryable:     false,
 		CorrelationID: logger.GetCorrelationID(ctx),
 		RequestID:     logger.GetRequestID(ctx),
 		UserID:        logger.GetUserID(ctx),
 	}
-	
+
 	return ehs.errorHandler.Handle(ctx, businessErr)
 }
 

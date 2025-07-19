@@ -20,7 +20,7 @@ type ReviewRepository interface {
 	DeleteByID(ctx context.Context, id uuid.UUID) error
 	Search(ctx context.Context, query string, filters map[string]interface{}, limit, offset int) ([]Review, error)
 	GetTotalCount(ctx context.Context, filters map[string]interface{}) (int64, error)
-	
+
 	// Hotel operations
 	CreateHotel(ctx context.Context, hotel *Hotel) error
 	GetHotelByID(ctx context.Context, id uuid.UUID) (*Hotel, error)
@@ -28,7 +28,7 @@ type ReviewRepository interface {
 	UpdateHotel(ctx context.Context, hotel *Hotel) error
 	DeleteHotel(ctx context.Context, id uuid.UUID) error
 	ListHotels(ctx context.Context, limit, offset int) ([]Hotel, error)
-	
+
 	// Provider operations
 	CreateProvider(ctx context.Context, provider *Provider) error
 	GetProviderByID(ctx context.Context, id uuid.UUID) (*Provider, error)
@@ -36,19 +36,19 @@ type ReviewRepository interface {
 	UpdateProvider(ctx context.Context, provider *Provider) error
 	DeleteProvider(ctx context.Context, id uuid.UUID) error
 	ListProviders(ctx context.Context, limit, offset int) ([]Provider, error)
-	
+
 	// ReviewerInfo operations
 	CreateReviewerInfo(ctx context.Context, reviewerInfo *ReviewerInfo) error
 	GetReviewerInfoByID(ctx context.Context, id uuid.UUID) (*ReviewerInfo, error)
 	GetReviewerInfoByEmail(ctx context.Context, email string) (*ReviewerInfo, error)
 	UpdateReviewerInfo(ctx context.Context, reviewerInfo *ReviewerInfo) error
 	DeleteReviewerInfo(ctx context.Context, id uuid.UUID) error
-	
+
 	// Review summary operations
 	CreateOrUpdateReviewSummary(ctx context.Context, summary *ReviewSummary) error
 	GetReviewSummaryByHotelID(ctx context.Context, hotelID uuid.UUID) (*ReviewSummary, error)
 	UpdateReviewSummary(ctx context.Context, hotelID uuid.UUID) error
-	
+
 	// Review processing status operations
 	CreateProcessingStatus(ctx context.Context, status *ReviewProcessingStatus) error
 	GetProcessingStatusByID(ctx context.Context, id uuid.UUID) (*ReviewProcessingStatus, error)
@@ -65,16 +65,16 @@ type S3Client interface {
 	GetFileURL(ctx context.Context, bucket, key string, expiration time.Duration) (string, error)
 	DeleteFile(ctx context.Context, bucket, key string) error
 	ListFiles(ctx context.Context, bucket, prefix string, limit int) ([]string, error)
-	
+
 	// File metadata operations
 	GetFileMetadata(ctx context.Context, bucket, key string) (map[string]string, error)
 	UpdateFileMetadata(ctx context.Context, bucket, key string, metadata map[string]string) error
-	
+
 	// Bucket operations
 	CreateBucket(ctx context.Context, bucket string) error
 	DeleteBucket(ctx context.Context, bucket string) error
 	BucketExists(ctx context.Context, bucket string) (bool, error)
-	
+
 	// File existence and size
 	FileExists(ctx context.Context, bucket, key string) (bool, error)
 	GetFileSize(ctx context.Context, bucket, key string) (int64, error)
@@ -86,17 +86,17 @@ type JSONProcessor interface {
 	ProcessFile(ctx context.Context, reader io.Reader, providerID uuid.UUID, processingID uuid.UUID) error
 	ValidateFile(ctx context.Context, reader io.Reader) error
 	CountRecords(ctx context.Context, reader io.Reader) (int, error)
-	
+
 	// Data transformation
 	ParseReview(ctx context.Context, jsonLine []byte, providerID uuid.UUID) (*Review, error)
 	ParseHotel(ctx context.Context, jsonLine []byte) (*Hotel, error)
 	ParseReviewerInfo(ctx context.Context, jsonLine []byte) (*ReviewerInfo, error)
-	
+
 	// Validation
 	ValidateReview(ctx context.Context, review *Review) error
 	ValidateHotel(ctx context.Context, hotel *Hotel) error
 	ValidateReviewerInfo(ctx context.Context, reviewerInfo *ReviewerInfo) error
-	
+
 	// Batch processing
 	ProcessBatch(ctx context.Context, reviews []Review) error
 	GetBatchSize() int
@@ -113,14 +113,14 @@ type ReviewService interface {
 	UpdateReview(ctx context.Context, review *Review) error
 	DeleteReview(ctx context.Context, id uuid.UUID) error
 	SearchReviews(ctx context.Context, query string, filters map[string]interface{}, limit, offset int) ([]Review, error)
-	
+
 	// Hotel operations
 	CreateHotel(ctx context.Context, hotel *Hotel) error
 	GetHotelByID(ctx context.Context, id uuid.UUID) (*Hotel, error)
 	UpdateHotel(ctx context.Context, hotel *Hotel) error
 	DeleteHotel(ctx context.Context, id uuid.UUID) error
 	ListHotels(ctx context.Context, limit, offset int) ([]Hotel, error)
-	
+
 	// Provider operations
 	CreateProvider(ctx context.Context, provider *Provider) error
 	GetProviderByID(ctx context.Context, id uuid.UUID) (*Provider, error)
@@ -128,25 +128,25 @@ type ReviewService interface {
 	UpdateProvider(ctx context.Context, provider *Provider) error
 	DeleteProvider(ctx context.Context, id uuid.UUID) error
 	ListProviders(ctx context.Context, limit, offset int) ([]Provider, error)
-	
+
 	// File processing operations
 	ProcessReviewFile(ctx context.Context, fileURL string, providerID uuid.UUID) (*ReviewProcessingStatus, error)
 	GetProcessingStatus(ctx context.Context, id uuid.UUID) (*ReviewProcessingStatus, error)
 	GetProcessingHistory(ctx context.Context, providerID uuid.UUID, limit, offset int) ([]ReviewProcessingStatus, error)
 	CancelProcessing(ctx context.Context, id uuid.UUID) error
-	
+
 	// Analytics operations
 	GetReviewSummary(ctx context.Context, hotelID uuid.UUID) (*ReviewSummary, error)
 	GetReviewStatsByProvider(ctx context.Context, providerID uuid.UUID, startDate, endDate time.Time) (map[string]interface{}, error)
 	GetReviewStatsByHotel(ctx context.Context, hotelID uuid.UUID, startDate, endDate time.Time) (map[string]interface{}, error)
 	GetTopRatedHotels(ctx context.Context, limit int) ([]Hotel, error)
 	GetRecentReviews(ctx context.Context, limit int) ([]Review, error)
-	
+
 	// Review validation and enrichment
 	ValidateReviewData(ctx context.Context, review *Review) error
 	EnrichReviewData(ctx context.Context, review *Review) error
 	DetectDuplicateReviews(ctx context.Context, review *Review) ([]Review, error)
-	
+
 	// Batch operations
 	ProcessReviewBatch(ctx context.Context, reviews []Review) error
 	ImportReviewsFromFile(ctx context.Context, fileURL string, providerID uuid.UUID) error
@@ -169,7 +169,7 @@ type CacheService interface {
 	Delete(ctx context.Context, key string) error
 	Exists(ctx context.Context, key string) (bool, error)
 	FlushAll(ctx context.Context) error
-	
+
 	// Specific cache operations
 	GetReviewSummary(ctx context.Context, hotelID uuid.UUID) (*ReviewSummary, error)
 	SetReviewSummary(ctx context.Context, hotelID uuid.UUID, summary *ReviewSummary, expiration time.Duration) error
@@ -181,7 +181,7 @@ type MetricsService interface {
 	IncrementCounter(ctx context.Context, name string, labels map[string]string) error
 	RecordHistogram(ctx context.Context, name string, value float64, labels map[string]string) error
 	RecordGauge(ctx context.Context, name string, value float64, labels map[string]string) error
-	
+
 	// Specific metrics
 	RecordProcessingTime(ctx context.Context, processingID uuid.UUID, duration time.Duration) error
 	RecordProcessingCount(ctx context.Context, providerID uuid.UUID, count int) error
@@ -215,7 +215,7 @@ type AuthRepository interface {
 	IncrementFailedAttempts(ctx context.Context, userID uuid.UUID) error
 	ResetFailedAttempts(ctx context.Context, userID uuid.UUID) error
 	LockUser(ctx context.Context, userID uuid.UUID, until time.Time) error
-	
+
 	// Role operations
 	CreateRole(ctx context.Context, role *Role) error
 	GetRoleByID(ctx context.Context, id uuid.UUID) (*Role, error)
@@ -223,7 +223,7 @@ type AuthRepository interface {
 	UpdateRole(ctx context.Context, role *Role) error
 	DeleteRole(ctx context.Context, id uuid.UUID) error
 	ListRoles(ctx context.Context, limit, offset int) ([]Role, error)
-	
+
 	// Permission operations
 	CreatePermission(ctx context.Context, permission *Permission) error
 	GetPermissionByID(ctx context.Context, id uuid.UUID) (*Permission, error)
@@ -231,19 +231,19 @@ type AuthRepository interface {
 	UpdatePermission(ctx context.Context, permission *Permission) error
 	DeletePermission(ctx context.Context, id uuid.UUID) error
 	ListPermissions(ctx context.Context, limit, offset int) ([]Permission, error)
-	
+
 	// User-Role assignments
 	AssignRoleToUser(ctx context.Context, userID, roleID uuid.UUID) error
 	RemoveRoleFromUser(ctx context.Context, userID, roleID uuid.UUID) error
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]Role, error)
 	GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]User, error)
-	
+
 	// Role-Permission assignments
 	AssignPermissionToRole(ctx context.Context, roleID, permissionID uuid.UUID) error
 	RemovePermissionFromRole(ctx context.Context, roleID, permissionID uuid.UUID) error
 	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]Permission, error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]Permission, error)
-	
+
 	// Session operations
 	CreateSession(ctx context.Context, session *Session) error
 	GetSessionByID(ctx context.Context, id uuid.UUID) (*Session, error)
@@ -253,7 +253,7 @@ type AuthRepository interface {
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	DeleteUserSessions(ctx context.Context, userID uuid.UUID) error
 	CleanupExpiredSessions(ctx context.Context) error
-	
+
 	// API Key operations
 	CreateApiKey(ctx context.Context, apiKey *ApiKey) error
 	GetApiKeyByID(ctx context.Context, id uuid.UUID) (*ApiKey, error)
@@ -262,12 +262,12 @@ type AuthRepository interface {
 	DeleteApiKey(ctx context.Context, id uuid.UUID) error
 	ListApiKeys(ctx context.Context, userID uuid.UUID, limit, offset int) ([]ApiKey, error)
 	UpdateApiKeyUsage(ctx context.Context, apiKeyID uuid.UUID) error
-	
+
 	// Audit Log operations
 	CreateAuditLog(ctx context.Context, auditLog *AuditLog) error
 	GetAuditLogByID(ctx context.Context, id uuid.UUID) (*AuditLog, error)
 	ListAuditLogs(ctx context.Context, userID *uuid.UUID, limit, offset int) ([]AuditLog, error)
-	
+
 	// Login Attempt operations
 	CreateLoginAttempt(ctx context.Context, attempt *LoginAttempt) error
 	GetLoginAttempts(ctx context.Context, email string, ipAddress string, since time.Time) ([]LoginAttempt, error)
@@ -282,7 +282,7 @@ type AuthService interface {
 	RefreshToken(ctx context.Context, refreshToken string) (*LoginResponse, error)
 	Logout(ctx context.Context, accessToken string) error
 	LogoutAll(ctx context.Context, userID uuid.UUID) error
-	
+
 	// User management
 	CreateUser(ctx context.Context, user *User, password string) error
 	GetUser(ctx context.Context, id uuid.UUID) (*User, error)
@@ -292,21 +292,21 @@ type AuthService interface {
 	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
 	ResetPassword(ctx context.Context, email string) error
 	VerifyEmail(ctx context.Context, token string) error
-	
+
 	// Role management
 	CreateRole(ctx context.Context, role *Role) error
 	GetRole(ctx context.Context, id uuid.UUID) (*Role, error)
 	UpdateRole(ctx context.Context, role *Role) error
 	DeleteRole(ctx context.Context, id uuid.UUID) error
 	ListRoles(ctx context.Context, limit, offset int) ([]Role, error)
-	
+
 	// Permission management
 	CreatePermission(ctx context.Context, permission *Permission) error
 	GetPermission(ctx context.Context, id uuid.UUID) (*Permission, error)
 	UpdatePermission(ctx context.Context, permission *Permission) error
 	DeletePermission(ctx context.Context, id uuid.UUID) error
 	ListPermissions(ctx context.Context, limit, offset int) ([]Permission, error)
-	
+
 	// RBAC operations
 	AssignRole(ctx context.Context, userID, roleID uuid.UUID) error
 	RemoveRole(ctx context.Context, userID, roleID uuid.UUID) error
@@ -314,13 +314,13 @@ type AuthService interface {
 	RemovePermission(ctx context.Context, roleID, permissionID uuid.UUID) error
 	CheckPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]Permission, error)
-	
+
 	// API Key management
 	CreateApiKey(ctx context.Context, userID uuid.UUID, name string, scopes []string, expiresAt *time.Time) (*ApiKey, error)
 	ValidateApiKey(ctx context.Context, key string) (*ApiKey, error)
 	DeleteApiKey(ctx context.Context, id uuid.UUID) error
 	ListApiKeys(ctx context.Context, userID uuid.UUID, limit, offset int) ([]ApiKey, error)
-	
+
 	// Security operations
 	ValidateToken(ctx context.Context, token string) (*User, error)
 	IsRateLimited(ctx context.Context, email, ipAddress string) (bool, error)

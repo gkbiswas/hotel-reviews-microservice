@@ -42,19 +42,19 @@ type DatabaseConfig struct {
 
 // S3Config represents AWS S3 configuration
 type S3Config struct {
-	Region          string        `mapstructure:"region" json:"region" validate:"required"`
-	AccessKeyID     string        `mapstructure:"access_key_id" json:"access_key_id" validate:"required"`
-	SecretAccessKey string        `mapstructure:"secret_access_key" json:"secret_access_key" validate:"required"`
-	SessionToken    string        `mapstructure:"session_token" json:"session_token"`
-	Bucket          string        `mapstructure:"bucket" json:"bucket" validate:"required"`
-	Endpoint        string        `mapstructure:"endpoint" json:"endpoint"`
-	UseSSL          bool          `mapstructure:"use_ssl" json:"use_ssl"`
-	ForcePathStyle  bool          `mapstructure:"force_path_style" json:"force_path_style"`
-	Timeout         time.Duration `mapstructure:"timeout" json:"timeout"`
-	RetryCount      int           `mapstructure:"retry_count" json:"retry_count"`
-	RetryDelay      time.Duration `mapstructure:"retry_delay" json:"retry_delay"`
-	UploadPartSize  int64         `mapstructure:"upload_part_size" json:"upload_part_size"`
-	DownloadPartSize int64        `mapstructure:"download_part_size" json:"download_part_size"`
+	Region           string        `mapstructure:"region" json:"region" validate:"required"`
+	AccessKeyID      string        `mapstructure:"access_key_id" json:"access_key_id" validate:"required"`
+	SecretAccessKey  string        `mapstructure:"secret_access_key" json:"secret_access_key" validate:"required"`
+	SessionToken     string        `mapstructure:"session_token" json:"session_token"`
+	Bucket           string        `mapstructure:"bucket" json:"bucket" validate:"required"`
+	Endpoint         string        `mapstructure:"endpoint" json:"endpoint"`
+	UseSSL           bool          `mapstructure:"use_ssl" json:"use_ssl"`
+	ForcePathStyle   bool          `mapstructure:"force_path_style" json:"force_path_style"`
+	Timeout          time.Duration `mapstructure:"timeout" json:"timeout"`
+	RetryCount       int           `mapstructure:"retry_count" json:"retry_count"`
+	RetryDelay       time.Duration `mapstructure:"retry_delay" json:"retry_delay"`
+	UploadPartSize   int64         `mapstructure:"upload_part_size" json:"upload_part_size"`
+	DownloadPartSize int64         `mapstructure:"download_part_size" json:"download_part_size"`
 }
 
 // ServerConfig represents HTTP server configuration
@@ -77,32 +77,32 @@ type ServerConfig struct {
 
 // LogConfig represents logging configuration
 type LogConfig struct {
-	Level           string `mapstructure:"level" json:"level" validate:"required,oneof=debug info warn error"`
-	Format          string `mapstructure:"format" json:"format" validate:"required,oneof=json text"`
-	Output          string `mapstructure:"output" json:"output" validate:"required,oneof=stdout stderr file"`
-	FilePath        string `mapstructure:"file_path" json:"file_path"`
-	MaxSize         int    `mapstructure:"max_size" json:"max_size"`
-	MaxBackups      int    `mapstructure:"max_backups" json:"max_backups"`
-	MaxAge          int    `mapstructure:"max_age" json:"max_age"`
-	Compress        bool   `mapstructure:"compress" json:"compress"`
-	EnableCaller    bool   `mapstructure:"enable_caller" json:"enable_caller"`
-	EnableStacktrace bool  `mapstructure:"enable_stacktrace" json:"enable_stacktrace"`
+	Level            string `mapstructure:"level" json:"level" validate:"required,oneof=debug info warn error"`
+	Format           string `mapstructure:"format" json:"format" validate:"required,oneof=json text"`
+	Output           string `mapstructure:"output" json:"output" validate:"required,oneof=stdout stderr file"`
+	FilePath         string `mapstructure:"file_path" json:"file_path"`
+	MaxSize          int    `mapstructure:"max_size" json:"max_size"`
+	MaxBackups       int    `mapstructure:"max_backups" json:"max_backups"`
+	MaxAge           int    `mapstructure:"max_age" json:"max_age"`
+	Compress         bool   `mapstructure:"compress" json:"compress"`
+	EnableCaller     bool   `mapstructure:"enable_caller" json:"enable_caller"`
+	EnableStacktrace bool   `mapstructure:"enable_stacktrace" json:"enable_stacktrace"`
 }
 
 // CacheConfig represents cache configuration
 type CacheConfig struct {
-	Type        string        `mapstructure:"type" json:"type" validate:"required,oneof=redis memory"`
-	Host        string        `mapstructure:"host" json:"host"`
-	Port        int           `mapstructure:"port" json:"port"`
-	Password    string        `mapstructure:"password" json:"password"`
-	Database    int           `mapstructure:"database" json:"database"`
-	PoolSize    int           `mapstructure:"pool_size" json:"pool_size"`
-	MinIdleConns int          `mapstructure:"min_idle_conns" json:"min_idle_conns"`
-	DialTimeout time.Duration `mapstructure:"dial_timeout" json:"dial_timeout"`
-	ReadTimeout time.Duration `mapstructure:"read_timeout" json:"read_timeout"`
+	Type         string        `mapstructure:"type" json:"type" validate:"required,oneof=redis memory"`
+	Host         string        `mapstructure:"host" json:"host"`
+	Port         int           `mapstructure:"port" json:"port"`
+	Password     string        `mapstructure:"password" json:"password"`
+	Database     int           `mapstructure:"database" json:"database"`
+	PoolSize     int           `mapstructure:"pool_size" json:"pool_size"`
+	MinIdleConns int           `mapstructure:"min_idle_conns" json:"min_idle_conns"`
+	DialTimeout  time.Duration `mapstructure:"dial_timeout" json:"dial_timeout"`
+	ReadTimeout  time.Duration `mapstructure:"read_timeout" json:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout" json:"write_timeout"`
-	TTL         time.Duration `mapstructure:"ttl" json:"ttl"`
-	MaxMemory   int64         `mapstructure:"max_memory" json:"max_memory"`
+	TTL          time.Duration `mapstructure:"ttl" json:"ttl"`
+	MaxMemory    int64         `mapstructure:"max_memory" json:"max_memory"`
 }
 
 // MetricsConfig represents metrics configuration
@@ -137,25 +137,25 @@ type EmailConfig struct {
 
 // SlackConfig represents Slack notification configuration
 type SlackConfig struct {
-	Enabled     bool   `mapstructure:"enabled" json:"enabled"`
-	WebhookURL  string `mapstructure:"webhook_url" json:"webhook_url"`
-	Channel     string `mapstructure:"channel" json:"channel"`
-	Username    string `mapstructure:"username" json:"username"`
-	IconEmoji   string `mapstructure:"icon_emoji" json:"icon_emoji"`
-	IconURL     string `mapstructure:"icon_url" json:"icon_url"`
+	Enabled    bool   `mapstructure:"enabled" json:"enabled"`
+	WebhookURL string `mapstructure:"webhook_url" json:"webhook_url"`
+	Channel    string `mapstructure:"channel" json:"channel"`
+	Username   string `mapstructure:"username" json:"username"`
+	IconEmoji  string `mapstructure:"icon_emoji" json:"icon_emoji"`
+	IconURL    string `mapstructure:"icon_url" json:"icon_url"`
 }
 
 // ProcessingConfig represents file processing configuration
 type ProcessingConfig struct {
-	BatchSize           int           `mapstructure:"batch_size" json:"batch_size"`
-	WorkerCount         int           `mapstructure:"worker_count" json:"worker_count"`
-	MaxFileSize         int64         `mapstructure:"max_file_size" json:"max_file_size"`
-	ProcessingTimeout   time.Duration `mapstructure:"processing_timeout" json:"processing_timeout"`
-	MaxRetries          int           `mapstructure:"max_retries" json:"max_retries"`
-	RetryDelay          time.Duration `mapstructure:"retry_delay" json:"retry_delay"`
-	EnableValidation    bool          `mapstructure:"enable_validation" json:"enable_validation"`
-	EnableDuplicateCheck bool         `mapstructure:"enable_duplicate_check" json:"enable_duplicate_check"`
-	TempDirectory       string        `mapstructure:"temp_directory" json:"temp_directory"`
+	BatchSize            int           `mapstructure:"batch_size" json:"batch_size"`
+	WorkerCount          int           `mapstructure:"worker_count" json:"worker_count"`
+	MaxFileSize          int64         `mapstructure:"max_file_size" json:"max_file_size"`
+	ProcessingTimeout    time.Duration `mapstructure:"processing_timeout" json:"processing_timeout"`
+	MaxRetries           int           `mapstructure:"max_retries" json:"max_retries"`
+	RetryDelay           time.Duration `mapstructure:"retry_delay" json:"retry_delay"`
+	EnableValidation     bool          `mapstructure:"enable_validation" json:"enable_validation"`
+	EnableDuplicateCheck bool          `mapstructure:"enable_duplicate_check" json:"enable_duplicate_check"`
+	TempDirectory        string        `mapstructure:"temp_directory" json:"temp_directory"`
 }
 
 // SecurityConfig represents security configuration
@@ -172,27 +172,27 @@ type SecurityConfig struct {
 
 // AuthConfig represents authentication configuration
 type AuthConfig struct {
-	JWTSecret            string        `mapstructure:"jwt_secret" json:"jwt_secret" validate:"required"`
-	JWTIssuer            string        `mapstructure:"jwt_issuer" json:"jwt_issuer"`
-	AccessTokenExpiry    time.Duration `mapstructure:"access_token_expiry" json:"access_token_expiry"`
-	RefreshTokenExpiry   time.Duration `mapstructure:"refresh_token_expiry" json:"refresh_token_expiry"`
-	MaxLoginAttempts     int           `mapstructure:"max_login_attempts" json:"max_login_attempts"`
-	LoginAttemptWindow   time.Duration `mapstructure:"login_attempt_window" json:"login_attempt_window"`
-	AccountLockDuration  time.Duration `mapstructure:"account_lock_duration" json:"account_lock_duration"`
-	PasswordMinLength    int           `mapstructure:"password_min_length" json:"password_min_length"`
-	PasswordMaxLength    int           `mapstructure:"password_max_length" json:"password_max_length"`
-	RequireStrongPassword bool         `mapstructure:"require_strong_password" json:"require_strong_password"`
-	EnableTwoFactor      bool          `mapstructure:"enable_two_factor" json:"enable_two_factor"`
-	EnableEmailVerification bool       `mapstructure:"enable_email_verification" json:"enable_email_verification"`
-	EnablePasswordReset  bool          `mapstructure:"enable_password_reset" json:"enable_password_reset"`
-	EnableSessionCleanup bool          `mapstructure:"enable_session_cleanup" json:"enable_session_cleanup"`
-	SessionCleanupInterval time.Duration `mapstructure:"session_cleanup_interval" json:"session_cleanup_interval"`
-	EnableAuditLogging   bool          `mapstructure:"enable_audit_logging" json:"enable_audit_logging"`
-	EnableRateLimiting   bool          `mapstructure:"enable_rate_limiting" json:"enable_rate_limiting"`
-	BCryptCost           int           `mapstructure:"bcrypt_cost" json:"bcrypt_cost"`
-	ApiKeyLength         int           `mapstructure:"api_key_length" json:"api_key_length"`
-	ApiKeyPrefix         string        `mapstructure:"api_key_prefix" json:"api_key_prefix"`
-	DefaultRole          string        `mapstructure:"default_role" json:"default_role"`
+	JWTSecret               string        `mapstructure:"jwt_secret" json:"jwt_secret" validate:"required"`
+	JWTIssuer               string        `mapstructure:"jwt_issuer" json:"jwt_issuer"`
+	AccessTokenExpiry       time.Duration `mapstructure:"access_token_expiry" json:"access_token_expiry"`
+	RefreshTokenExpiry      time.Duration `mapstructure:"refresh_token_expiry" json:"refresh_token_expiry"`
+	MaxLoginAttempts        int           `mapstructure:"max_login_attempts" json:"max_login_attempts"`
+	LoginAttemptWindow      time.Duration `mapstructure:"login_attempt_window" json:"login_attempt_window"`
+	AccountLockDuration     time.Duration `mapstructure:"account_lock_duration" json:"account_lock_duration"`
+	PasswordMinLength       int           `mapstructure:"password_min_length" json:"password_min_length"`
+	PasswordMaxLength       int           `mapstructure:"password_max_length" json:"password_max_length"`
+	RequireStrongPassword   bool          `mapstructure:"require_strong_password" json:"require_strong_password"`
+	EnableTwoFactor         bool          `mapstructure:"enable_two_factor" json:"enable_two_factor"`
+	EnableEmailVerification bool          `mapstructure:"enable_email_verification" json:"enable_email_verification"`
+	EnablePasswordReset     bool          `mapstructure:"enable_password_reset" json:"enable_password_reset"`
+	EnableSessionCleanup    bool          `mapstructure:"enable_session_cleanup" json:"enable_session_cleanup"`
+	SessionCleanupInterval  time.Duration `mapstructure:"session_cleanup_interval" json:"session_cleanup_interval"`
+	EnableAuditLogging      bool          `mapstructure:"enable_audit_logging" json:"enable_audit_logging"`
+	EnableRateLimiting      bool          `mapstructure:"enable_rate_limiting" json:"enable_rate_limiting"`
+	BCryptCost              int           `mapstructure:"bcrypt_cost" json:"bcrypt_cost"`
+	ApiKeyLength            int           `mapstructure:"api_key_length" json:"api_key_length"`
+	ApiKeyPrefix            string        `mapstructure:"api_key_prefix" json:"api_key_prefix"`
+	DefaultRole             string        `mapstructure:"default_role" json:"default_role"`
 }
 
 // KafkaConfig represents Kafka configuration
@@ -222,10 +222,10 @@ type KafkaConfig struct {
 // Load loads configuration from environment variables and config files
 func Load() (*Config, error) {
 	v := viper.New()
-	
+
 	// Set default values
 	setDefaults(v)
-	
+
 	// Configure viper
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -233,15 +233,15 @@ func Load() (*Config, error) {
 	v.AddConfigPath("./configs")
 	v.AddConfigPath("/etc/hotel-reviews")
 	v.AddConfigPath("$HOME/.hotel-reviews")
-	
+
 	// Enable environment variable support
 	v.SetEnvPrefix("HOTEL_REVIEWS")
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	
+
 	// Explicitly bind environment variables for required fields
 	bindEnvironmentVariables(v)
-	
+
 	// Read configuration file
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -249,18 +249,18 @@ func Load() (*Config, error) {
 		}
 		// Config file not found, continue with environment variables and defaults
 	}
-	
+
 	// Unmarshal configuration
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
-	
+
 	// Validate configuration
 	if err := validate(&config); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
-	
+
 	return &config, nil
 }
 
@@ -279,7 +279,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("database.conn_max_idle_time", "HOTEL_REVIEWS_DATABASE_CONN_MAX_IDLE_TIME")
 	v.BindEnv("database.timezone", "HOTEL_REVIEWS_DATABASE_TIMEZONE")
 	v.BindEnv("database.log_level", "HOTEL_REVIEWS_DATABASE_LOG_LEVEL")
-	
+
 	// S3 configuration
 	v.BindEnv("s3.region", "HOTEL_REVIEWS_S3_REGION")
 	v.BindEnv("s3.access_key_id", "HOTEL_REVIEWS_S3_ACCESS_KEY_ID")
@@ -294,7 +294,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("s3.retry_delay", "HOTEL_REVIEWS_S3_RETRY_DELAY")
 	v.BindEnv("s3.upload_part_size", "HOTEL_REVIEWS_S3_UPLOAD_PART_SIZE")
 	v.BindEnv("s3.download_part_size", "HOTEL_REVIEWS_S3_DOWNLOAD_PART_SIZE")
-	
+
 	// Server configuration
 	v.BindEnv("server.host", "HOTEL_REVIEWS_SERVER_HOST")
 	v.BindEnv("server.port", "HOTEL_REVIEWS_SERVER_PORT")
@@ -310,7 +310,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("server.tls_cert_file", "HOTEL_REVIEWS_SERVER_TLS_CERT_FILE")
 	v.BindEnv("server.tls_key_file", "HOTEL_REVIEWS_SERVER_TLS_KEY_FILE")
 	v.BindEnv("server.trusted_proxies", "HOTEL_REVIEWS_SERVER_TRUSTED_PROXIES")
-	
+
 	// Log configuration
 	v.BindEnv("log.level", "HOTEL_REVIEWS_LOG_LEVEL")
 	v.BindEnv("log.format", "HOTEL_REVIEWS_LOG_FORMAT")
@@ -322,7 +322,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("log.compress", "HOTEL_REVIEWS_LOG_COMPRESS")
 	v.BindEnv("log.enable_caller", "HOTEL_REVIEWS_LOG_ENABLE_CALLER")
 	v.BindEnv("log.enable_stacktrace", "HOTEL_REVIEWS_LOG_ENABLE_STACKTRACE")
-	
+
 	// Cache configuration
 	v.BindEnv("cache.type", "HOTEL_REVIEWS_CACHE_TYPE")
 	v.BindEnv("cache.host", "HOTEL_REVIEWS_CACHE_HOST")
@@ -336,7 +336,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("cache.write_timeout", "HOTEL_REVIEWS_CACHE_WRITE_TIMEOUT")
 	v.BindEnv("cache.ttl", "HOTEL_REVIEWS_CACHE_TTL")
 	v.BindEnv("cache.max_memory", "HOTEL_REVIEWS_CACHE_MAX_MEMORY")
-	
+
 	// Metrics configuration
 	v.BindEnv("metrics.enabled", "HOTEL_REVIEWS_METRICS_ENABLED")
 	v.BindEnv("metrics.type", "HOTEL_REVIEWS_METRICS_TYPE")
@@ -347,7 +347,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("metrics.service_name", "HOTEL_REVIEWS_METRICS_SERVICE_NAME")
 	v.BindEnv("metrics.environment", "HOTEL_REVIEWS_METRICS_ENVIRONMENT")
 	v.BindEnv("metrics.version", "HOTEL_REVIEWS_METRICS_VERSION")
-	
+
 	// Notification configuration
 	v.BindEnv("notification.email.enabled", "HOTEL_REVIEWS_NOTIFICATION_EMAIL_ENABLED")
 	v.BindEnv("notification.email.host", "HOTEL_REVIEWS_NOTIFICATION_EMAIL_HOST")
@@ -362,7 +362,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("notification.slack.username", "HOTEL_REVIEWS_NOTIFICATION_SLACK_USERNAME")
 	v.BindEnv("notification.slack.icon_emoji", "HOTEL_REVIEWS_NOTIFICATION_SLACK_ICON_EMOJI")
 	v.BindEnv("notification.slack.icon_url", "HOTEL_REVIEWS_NOTIFICATION_SLACK_ICON_URL")
-	
+
 	// Processing configuration
 	v.BindEnv("processing.batch_size", "HOTEL_REVIEWS_PROCESSING_BATCH_SIZE")
 	v.BindEnv("processing.worker_count", "HOTEL_REVIEWS_PROCESSING_WORKER_COUNT")
@@ -373,7 +373,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("processing.enable_validation", "HOTEL_REVIEWS_PROCESSING_ENABLE_VALIDATION")
 	v.BindEnv("processing.enable_duplicate_check", "HOTEL_REVIEWS_PROCESSING_ENABLE_DUPLICATE_CHECK")
 	v.BindEnv("processing.temp_directory", "HOTEL_REVIEWS_PROCESSING_TEMP_DIRECTORY")
-	
+
 	// Security configuration
 	v.BindEnv("security.jwt_secret", "HOTEL_REVIEWS_SECURITY_JWT_SECRET")
 	v.BindEnv("security.jwt_expiration", "HOTEL_REVIEWS_SECURITY_JWT_EXPIRATION")
@@ -383,7 +383,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("security.api_key_header", "HOTEL_REVIEWS_SECURITY_API_KEY_HEADER")
 	v.BindEnv("security.enable_encryption", "HOTEL_REVIEWS_SECURITY_ENABLE_ENCRYPTION")
 	v.BindEnv("security.encryption_key", "HOTEL_REVIEWS_SECURITY_ENCRYPTION_KEY")
-	
+
 	// Authentication configuration
 	v.BindEnv("auth.jwt_secret", "HOTEL_REVIEWS_AUTH_JWT_SECRET")
 	v.BindEnv("auth.jwt_issuer", "HOTEL_REVIEWS_AUTH_JWT_ISSUER")
@@ -406,7 +406,7 @@ func bindEnvironmentVariables(v *viper.Viper) {
 	v.BindEnv("auth.api_key_length", "HOTEL_REVIEWS_AUTH_API_KEY_LENGTH")
 	v.BindEnv("auth.api_key_prefix", "HOTEL_REVIEWS_AUTH_API_KEY_PREFIX")
 	v.BindEnv("auth.default_role", "HOTEL_REVIEWS_AUTH_DEFAULT_ROLE")
-	
+
 	// Kafka configuration
 	v.BindEnv("kafka.brokers", "HOTEL_REVIEWS_KAFKA_BROKERS")
 	v.BindEnv("kafka.review_topic", "HOTEL_REVIEWS_KAFKA_REVIEW_TOPIC")
@@ -441,7 +441,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.conn_max_idle_time", "5m")
 	v.SetDefault("database.timezone", "UTC")
 	v.SetDefault("database.log_level", "warn")
-	
+
 	// S3 defaults (required fields have no defaults)
 	v.SetDefault("s3.use_ssl", true)
 	v.SetDefault("s3.force_path_style", false)
@@ -450,7 +450,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("s3.retry_delay", "1s")
 	v.SetDefault("s3.upload_part_size", 5*1024*1024)   // 5MB
 	v.SetDefault("s3.download_part_size", 5*1024*1024) // 5MB
-	
+
 	// Server defaults
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
@@ -464,7 +464,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.enable_metrics", true)
 	v.SetDefault("server.enable_pprof", false)
 	v.SetDefault("server.trusted_proxies", []string{})
-	
+
 	// Log defaults
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.format", "json")
@@ -475,7 +475,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("log.compress", true)
 	v.SetDefault("log.enable_caller", true)
 	v.SetDefault("log.enable_stacktrace", false)
-	
+
 	// Cache defaults
 	v.SetDefault("cache.type", "redis")
 	v.SetDefault("cache.host", "localhost")
@@ -488,7 +488,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("cache.write_timeout", "3s")
 	v.SetDefault("cache.ttl", "1h")
 	v.SetDefault("cache.max_memory", 100*1024*1024) // 100MB
-	
+
 	// Metrics defaults
 	v.SetDefault("metrics.enabled", true)
 	v.SetDefault("metrics.type", "prometheus")
@@ -499,7 +499,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metrics.service_name", "hotel-reviews-api")
 	v.SetDefault("metrics.environment", "development")
 	v.SetDefault("metrics.version", "1.0.0")
-	
+
 	// Notification defaults
 	v.SetDefault("notification.email.enabled", false)
 	v.SetDefault("notification.email.port", 587)
@@ -507,7 +507,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("notification.slack.enabled", false)
 	v.SetDefault("notification.slack.username", "Hotel Reviews Bot")
 	v.SetDefault("notification.slack.icon_emoji", ":hotel:")
-	
+
 	// Processing defaults
 	v.SetDefault("processing.batch_size", 1000)
 	v.SetDefault("processing.worker_count", 4)
@@ -518,7 +518,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("processing.enable_validation", true)
 	v.SetDefault("processing.enable_duplicate_check", true)
 	v.SetDefault("processing.temp_directory", "/tmp/hotel-reviews")
-	
+
 	// Security defaults
 	v.SetDefault("security.jwt_expiration", "24h")
 	v.SetDefault("security.rate_limit", 1000)
@@ -526,7 +526,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("security.enable_api_key", false)
 	v.SetDefault("security.api_key_header", "X-API-Key")
 	v.SetDefault("security.enable_encryption", false)
-	
+
 	// Authentication defaults
 	v.SetDefault("auth.jwt_issuer", "hotel-reviews-api")
 	v.SetDefault("auth.access_token_expiry", "15m")
@@ -548,7 +548,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("auth.api_key_length", 32)
 	v.SetDefault("auth.api_key_prefix", "hr_")
 	v.SetDefault("auth.default_role", "user")
-	
+
 	// Kafka defaults
 	v.SetDefault("kafka.brokers", []string{"localhost:9092"})
 	v.SetDefault("kafka.review_topic", "hotel-reviews")
@@ -588,7 +588,7 @@ func validate(config *Config) error {
 	if config.Database.Name == "" {
 		return fmt.Errorf("database name is required")
 	}
-	
+
 	// Validate S3 configuration
 	if config.S3.Region == "" {
 		return fmt.Errorf("S3 region is required")
@@ -602,43 +602,43 @@ func validate(config *Config) error {
 	if config.S3.Bucket == "" {
 		return fmt.Errorf("S3 bucket is required")
 	}
-	
+
 	// Validate server configuration
 	if config.Server.Port <= 0 || config.Server.Port > 65535 {
 		return fmt.Errorf("server port must be between 1 and 65535")
 	}
-	
+
 	// Validate log configuration
 	validLogLevels := []string{"debug", "info", "warn", "error"}
 	if !contains(validLogLevels, config.Log.Level) {
 		return fmt.Errorf("log level must be one of: %s", strings.Join(validLogLevels, ", "))
 	}
-	
+
 	validLogFormats := []string{"json", "text"}
 	if !contains(validLogFormats, config.Log.Format) {
 		return fmt.Errorf("log format must be one of: %s", strings.Join(validLogFormats, ", "))
 	}
-	
+
 	validLogOutputs := []string{"stdout", "stderr", "file"}
 	if !contains(validLogOutputs, config.Log.Output) {
 		return fmt.Errorf("log output must be one of: %s", strings.Join(validLogOutputs, ", "))
 	}
-	
+
 	if config.Log.Output == "file" && config.Log.FilePath == "" {
 		return fmt.Errorf("log file path is required when output is file")
 	}
-	
+
 	// Validate cache configuration
 	validCacheTypes := []string{"redis", "memory"}
 	if !contains(validCacheTypes, config.Cache.Type) {
 		return fmt.Errorf("cache type must be one of: %s", strings.Join(validCacheTypes, ", "))
 	}
-	
+
 	// Validate security configuration
 	if config.Security.JWTSecret == "" {
 		return fmt.Errorf("JWT secret is required")
 	}
-	
+
 	// Validate authentication configuration
 	if config.Auth.JWTSecret == "" {
 		return fmt.Errorf("authentication JWT secret is required")
@@ -679,7 +679,7 @@ func validate(config *Config) error {
 	if config.Auth.DefaultRole == "" {
 		return fmt.Errorf("default role is required")
 	}
-	
+
 	// Validate TLS configuration
 	if config.Server.TLSCertFile != "" && config.Server.TLSKeyFile == "" {
 		return fmt.Errorf("TLS key file is required when TLS cert file is provided")
@@ -687,7 +687,7 @@ func validate(config *Config) error {
 	if config.Server.TLSKeyFile != "" && config.Server.TLSCertFile == "" {
 		return fmt.Errorf("TLS cert file is required when TLS key file is provided")
 	}
-	
+
 	// Validate file paths exist
 	if config.Server.TLSCertFile != "" {
 		if _, err := os.Stat(config.Server.TLSCertFile); os.IsNotExist(err) {
@@ -699,7 +699,7 @@ func validate(config *Config) error {
 			return fmt.Errorf("TLS key file does not exist: %s", config.Server.TLSKeyFile)
 		}
 	}
-	
+
 	// Validate Kafka configuration
 	if len(config.Kafka.Brokers) == 0 {
 		return fmt.Errorf("at least one Kafka broker is required")
@@ -728,13 +728,13 @@ func validate(config *Config) error {
 	if config.Kafka.ReplicationFactor <= 0 {
 		return fmt.Errorf("Kafka replication factor must be positive")
 	}
-	
+
 	// Validate Kafka compression type
 	validCompressionTypes := []string{"gzip", "snappy", "lz4", "zstd", "none"}
 	if !contains(validCompressionTypes, config.Kafka.CompressionType) {
 		return fmt.Errorf("Kafka compression type must be one of: %s", strings.Join(validCompressionTypes, ", "))
 	}
-	
+
 	// Validate SASL configuration
 	if config.Kafka.EnableSASL {
 		if config.Kafka.SASLUsername == "" {
@@ -744,7 +744,7 @@ func validate(config *Config) error {
 			return fmt.Errorf("SASL password is required when SASL is enabled")
 		}
 	}
-	
+
 	return nil
 }
 

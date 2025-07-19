@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
@@ -22,17 +22,17 @@ type CircuitBreakerIntegration struct {
 // NewCircuitBreakerIntegration creates a new circuit breaker integration
 func NewCircuitBreakerIntegration(logger *logger.Logger) *CircuitBreakerIntegration {
 	manager := NewCircuitBreakerManager(logger)
-	
+
 	// Create service-specific circuit breakers
 	dbBreaker := NewDatabaseCircuitBreaker(logger)
 	cacheBreaker := NewCacheCircuitBreaker(logger)
 	s3Breaker := NewS3CircuitBreaker(logger)
-	
+
 	// Add circuit breakers to manager
 	manager.AddCircuitBreaker("database", dbBreaker)
 	manager.AddCircuitBreaker("cache", cacheBreaker)
 	manager.AddCircuitBreaker("s3", s3Breaker)
-	
+
 	return &CircuitBreakerIntegration{
 		manager:      manager,
 		dbBreaker:    dbBreaker,
@@ -51,21 +51,21 @@ func (i *CircuitBreakerIntegration) SetupHealthChecks(db *gorm.DB, redisClient *
 			if err != nil {
 				return err
 			}
-			
+
 			ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
-			
+
 			return sqlDB.PingContext(ctx)
 		})
 	}
-	
+
 	// Cache health check
 	if redisClient != nil {
 		i.cacheBreaker.SetHealthCheck(func(ctx context.Context) error {
 			return redisClient.Ping(ctx).Err()
 		})
 	}
-	
+
 	// S3 health check is not set up as it doesn't have a simple ping operation
 }
 
@@ -90,11 +90,11 @@ func (w *DatabaseWrapper) ExecuteQuery(ctx context.Context, queryFunc func(*gorm
 	_, err := w.breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 		// Add context to the database session
 		dbWithCtx := w.db.WithContext(ctx)
-		
+
 		// Execute the query
 		return nil, queryFunc(dbWithCtx)
 	}, w.createDatabaseFallback())
-	
+
 	return err
 }
 
@@ -106,17 +106,17 @@ func (w *DatabaseWrapper) ExecuteTransaction(ctx context.Context, txFunc func(*g
 		if tx.Error != nil {
 			return nil, tx.Error
 		}
-		
+
 		// Execute transaction function
 		if err := txFunc(tx); err != nil {
 			tx.Rollback()
 			return nil, err
 		}
-		
+
 		// Commit transaction
 		return nil, tx.Commit().Error
 	}, w.createDatabaseFallback())
-	
+
 	return err
 }
 
@@ -155,7 +155,7 @@ func (w *DatabaseWrapper) createDatabaseFallback() FallbackFunc {
 			"error", err,
 			"circuit_state", w.breaker.GetState(),
 		)
-		
+
 		// In a real application, this might return cached data or default values
 		// For now, we'll return a specific error indicating fallback was used
 		return nil, &DatabaseCircuitBreakerError{
@@ -186,15 +186,15 @@ func (w *CacheWrapper) Get(ctx context.Context, key string) (string, error) {
 	result, err := w.breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 		return w.client.Get(ctx, key).Result()
 	}, w.createCacheFallback())
-	
+
 	if err != nil {
 		return "", err
 	}
-	
+
 	if result == nil {
 		return "", redis.Nil
 	}
-	
+
 	return result.(string), nil
 }
 
@@ -203,7 +203,7 @@ func (w *CacheWrapper) Set(ctx context.Context, key string, value interface{}, e
 	_, err := w.breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 		return nil, w.client.Set(ctx, key, value, expiration).Err()
 	}, w.createCacheFallback())
-	
+
 	return err
 }
 
@@ -212,7 +212,7 @@ func (w *CacheWrapper) Del(ctx context.Context, keys ...string) error {
 	_, err := w.breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 		return nil, w.client.Del(ctx, keys...).Err()
 	}, w.createCacheFallback())
-	
+
 	return err
 }
 
@@ -221,15 +221,15 @@ func (w *CacheWrapper) HGet(ctx context.Context, key, field string) (string, err
 	result, err := w.breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 		return w.client.HGet(ctx, key, field).Result()
 	}, w.createCacheFallback())
-	
+
 	if err != nil {
 		return "", err
 	}
-	
+
 	if result == nil {
 		return "", redis.Nil
 	}
-	
+
 	return result.(string), nil
 }
 
@@ -238,7 +238,7 @@ func (w *CacheWrapper) HSet(ctx context.Context, key string, values ...interface
 	_, err := w.breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 		return nil, w.client.HSet(ctx, key, values...).Err()
 	}, w.createCacheFallback())
-	
+
 	return err
 }
 
@@ -249,7 +249,7 @@ func (w *CacheWrapper) createCacheFallback() FallbackFunc {
 			"error", err,
 			"circuit_state", w.breaker.GetState(),
 		)
-		
+
 		// For cache operations, we typically continue without cache
 		// Return nil to indicate cache miss
 		return nil, nil
@@ -282,7 +282,7 @@ func (w *S3Wrapper) createS3Fallback() FallbackFunc {
 			"error", err,
 			"circuit_state", w.breaker.GetState(),
 		)
-		
+
 		return nil, &S3CircuitBreakerError{
 			OriginalError: err,
 			Message:       "S3 service is unavailable",
@@ -340,39 +340,39 @@ func (i *CircuitBreakerIntegration) Close() {
 // GetHealthStatus returns the health status of all circuit breakers
 func (i *CircuitBreakerIntegration) GetHealthStatus() map[string]interface{} {
 	status := make(map[string]interface{})
-	
+
 	breakers := i.manager.GetAllCircuitBreakers()
 	overallHealthy := true
-	
+
 	for name, breaker := range breakers {
 		metrics := breaker.GetMetrics()
-		
+
 		isHealthy := !breaker.IsOpen()
 		if !isHealthy {
 			overallHealthy = false
 		}
-		
+
 		status[name] = map[string]interface{}{
-			"healthy":       isHealthy,
-			"state":         metrics.CurrentState.String(),
+			"healthy":        isHealthy,
+			"state":          metrics.CurrentState.String(),
 			"total_requests": metrics.TotalRequests,
-			"success_rate":  fmt.Sprintf("%.2f%%", metrics.SuccessRate),
-			"failure_rate":  fmt.Sprintf("%.2f%%", metrics.FailureRate),
-			"last_failure":  metrics.LastFailure,
-			"last_success":  metrics.LastSuccess,
+			"success_rate":   fmt.Sprintf("%.2f%%", metrics.SuccessRate),
+			"failure_rate":   fmt.Sprintf("%.2f%%", metrics.FailureRate),
+			"last_failure":   metrics.LastFailure,
+			"last_success":   metrics.LastSuccess,
 		}
 	}
-	
+
 	status["overall_healthy"] = overallHealthy
 	status["timestamp"] = time.Now().UTC()
-	
+
 	return status
 }
 
 // ResetAllCircuitBreakers resets all circuit breakers to their initial state
 func (i *CircuitBreakerIntegration) ResetAllCircuitBreakers() {
 	breakers := i.manager.GetAllCircuitBreakers()
-	
+
 	for name, breaker := range breakers {
 		breaker.Reset()
 		i.logger.Info("Circuit breaker reset", "name", name)
@@ -385,7 +385,7 @@ func (i *CircuitBreakerIntegration) IsServiceAvailable(serviceName string) bool 
 	if !exists {
 		return true // If no circuit breaker exists, assume service is available
 	}
-	
+
 	return !breaker.IsOpen()
 }
 

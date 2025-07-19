@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
+	"gorm.io/gorm"
 )
 
 // Config holds configuration for monitoring services
@@ -18,7 +18,7 @@ type Config struct {
 	// Metrics configuration
 	MetricsEnabled bool
 	MetricsPath    string
-	
+
 	// Tracing configuration
 	TracingEnabled      bool
 	TracingServiceName  string
@@ -26,36 +26,36 @@ type Config struct {
 	TracingEnvironment  string
 	JaegerEndpoint      string
 	TracingSamplingRate float64
-	
+
 	// Health check configuration
-	HealthEnabled         bool
-	HealthPath           string
-	HealthCheckInterval  time.Duration
-	
+	HealthEnabled       bool
+	HealthPath          string
+	HealthCheckInterval time.Duration
+
 	// Business metrics configuration
-	BusinessMetricsEnabled bool
+	BusinessMetricsEnabled  bool
 	BusinessMetricsInterval time.Duration
-	
+
 	// SLO monitoring configuration
-	SLOMonitoringEnabled bool
+	SLOMonitoringEnabled  bool
 	SLOMonitoringInterval time.Duration
 }
 
 // Service represents the main monitoring service
 type Service struct {
-	config           *Config
-	logger           *logrus.Logger
-	
+	config *Config
+	logger *logrus.Logger
+
 	// Core monitoring services
-	metricsService   *MonitoringService
-	tracingService   *TracingService
-	healthService    *HealthService
-	businessMetrics  *BusinessMetrics
-	sloManager       *SLOManager
-	
+	metricsService  *MonitoringService
+	tracingService  *TracingService
+	healthService   *HealthService
+	businessMetrics *BusinessMetrics
+	sloManager      *SLOManager
+
 	// Dependencies
-	db               *gorm.DB
-	redisClient      *redis.Client
+	db          *gorm.DB
+	redisClient *redis.Client
 }
 
 // NewService creates a new monitoring service
@@ -66,12 +66,12 @@ func NewService(config *Config, logger *logrus.Logger, db *gorm.DB, redisClient 
 		db:          db,
 		redisClient: redisClient,
 	}
-	
+
 	// Initialize monitoring services
 	if err := service.initializeServices(); err != nil {
 		return nil, fmt.Errorf("failed to initialize monitoring services: %w", err)
 	}
-	
+
 	return service, nil
 }
 
@@ -82,18 +82,18 @@ func (s *Service) initializeServices() error {
 		s.metricsService = NewMonitoringService(s.logger)
 		s.logger.Info("Metrics service initialized")
 	}
-	
+
 	// Initialize tracing service
 	if s.config.TracingEnabled {
 		tracingConfig := &TracingConfig{
-			ServiceName:     s.config.TracingServiceName,
-			ServiceVersion:  s.config.TracingVersion,
-			Environment:     s.config.TracingEnvironment,
-			JaegerEndpoint:  s.config.JaegerEndpoint,
-			SamplingRate:    s.config.TracingSamplingRate,
-			Enabled:         s.config.TracingEnabled,
+			ServiceName:    s.config.TracingServiceName,
+			ServiceVersion: s.config.TracingVersion,
+			Environment:    s.config.TracingEnvironment,
+			JaegerEndpoint: s.config.JaegerEndpoint,
+			SamplingRate:   s.config.TracingSamplingRate,
+			Enabled:        s.config.TracingEnabled,
 		}
-		
+
 		var err error
 		s.tracingService, err = NewTracingService(tracingConfig, s.logger)
 		if err != nil {
@@ -101,41 +101,41 @@ func (s *Service) initializeServices() error {
 		}
 		s.logger.Info("Tracing service initialized")
 	}
-	
+
 	// Initialize health service
 	if s.config.HealthEnabled {
 		s.healthService = NewHealthService(s.logger)
-		
+
 		// Add health checkers
 		if s.db != nil {
 			dbChecker := NewDatabaseHealthChecker(s.db, "database", s.logger)
 			s.healthService.AddChecker(dbChecker)
 		}
-		
+
 		if s.redisClient != nil {
 			redisChecker := NewRedisHealthChecker(s.redisClient, "redis", s.logger)
 			s.healthService.AddChecker(redisChecker)
 		}
-		
+
 		// Add S3 health checker (placeholder)
 		s3Checker := NewS3HealthChecker("hotel-reviews-files", "s3", s.logger)
 		s.healthService.AddChecker(s3Checker)
-		
+
 		s.logger.Info("Health service initialized")
 	}
-	
+
 	// Initialize business metrics
 	if s.config.BusinessMetricsEnabled {
 		s.businessMetrics = NewBusinessMetrics(s.logger)
 		s.logger.Info("Business metrics service initialized")
 	}
-	
+
 	// Initialize SLO manager
 	if s.config.SLOMonitoringEnabled && s.metricsService != nil {
 		s.sloManager = NewSLOManager(s.metricsService.GetMetrics(), s.logger)
 		s.logger.Info("SLO manager initialized")
 	}
-	
+
 	return nil
 }
 
@@ -146,25 +146,25 @@ func (s *Service) Start(ctx context.Context) error {
 		s.metricsService.StartSystemMetricsCollector(ctx)
 		s.logger.Info("System metrics collection started")
 	}
-	
+
 	// Start periodic health checks
 	if s.healthService != nil {
 		s.healthService.StartPeriodicHealthChecks(ctx, s.config.HealthCheckInterval)
 		s.logger.Info("Periodic health checks started")
 	}
-	
+
 	// Start business metrics collection
 	if s.businessMetrics != nil {
 		s.businessMetrics.StartBusinessMetricsCollection(ctx)
 		s.logger.Info("Business metrics collection started")
 	}
-	
+
 	// Start SLO monitoring
 	if s.sloManager != nil {
 		s.sloManager.StartSLOMonitoring(ctx, s.config.SLOMonitoringInterval)
 		s.logger.Info("SLO monitoring started")
 	}
-	
+
 	return nil
 }
 
@@ -176,7 +176,7 @@ func (s *Service) Stop(ctx context.Context) error {
 			s.logger.WithError(err).Error("Failed to close tracing service")
 		}
 	}
-	
+
 	s.logger.Info("Monitoring services stopped")
 	return nil
 }
@@ -225,7 +225,7 @@ func (s *Service) registerWithServeMux(mux *http.ServeMux) {
 		mux.Handle(s.config.MetricsPath, promhttp.Handler())
 		s.logger.Info("Metrics endpoint registered", "path", s.config.MetricsPath)
 	}
-	
+
 	// Health endpoints
 	if s.healthService != nil {
 		mux.Handle(s.config.HealthPath, s.healthService.GetHTTPHandler())
@@ -234,7 +234,7 @@ func (s *Service) registerWithServeMux(mux *http.ServeMux) {
 		mux.Handle("/liveness", s.healthService.LivenessHandler())
 		s.logger.Info("Health endpoints registered", "path", s.config.HealthPath)
 	}
-	
+
 	// SLO report endpoint
 	if s.sloManager != nil {
 		mux.HandleFunc("/slo-report", s.handleSLOReport)
@@ -247,7 +247,7 @@ func (s *Service) registerWithGorillaMux(router interface{}) {
 	// Use reflection or type assertion to work with gorilla mux
 	// For now, we'll use a simple approach
 	if r, ok := router.(interface {
-		Handle(string, http.Handler) 
+		Handle(string, http.Handler)
 		HandleFunc(string, func(http.ResponseWriter, *http.Request))
 	}); ok {
 		// Metrics endpoint
@@ -255,7 +255,7 @@ func (s *Service) registerWithGorillaMux(router interface{}) {
 			r.Handle(s.config.MetricsPath, promhttp.Handler())
 			s.logger.Info("Metrics endpoint registered", "path", s.config.MetricsPath)
 		}
-		
+
 		// Health endpoints
 		if s.healthService != nil {
 			r.Handle(s.config.HealthPath, s.healthService.GetHTTPHandler())
@@ -264,7 +264,7 @@ func (s *Service) registerWithGorillaMux(router interface{}) {
 			r.Handle("/liveness", s.healthService.LivenessHandler())
 			s.logger.Info("Health endpoints registered", "path", s.config.HealthPath)
 		}
-		
+
 		// SLO report endpoint
 		if s.sloManager != nil {
 			r.HandleFunc("/slo-report", s.handleSLOReport)
@@ -276,25 +276,25 @@ func (s *Service) registerWithGorillaMux(router interface{}) {
 // handleSLOReport handles SLO report requests
 func (s *Service) handleSLOReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	report, err := s.sloManager.GetSLOReport(ctx)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate SLO report: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Simple JSON response (in production, use a proper JSON library)
 	fmt.Fprintf(w, `{
 		"total_slos": %d,
 		"violated_slos": %d,
 		"slo_success_rate": %.4f,
 		"timestamp": "%s"
-	}`, 
-		report["total_slos"], 
-		report["violated_slos"], 
-		report["slo_success_rate"], 
+	}`,
+		report["total_slos"],
+		report["violated_slos"],
+		report["slo_success_rate"],
 		report["timestamp"])
 }
 
@@ -372,28 +372,28 @@ func (s *Service) TraceFileProcessing(ctx context.Context, provider, fileURL str
 // GetDefaultConfig returns default monitoring configuration
 func GetDefaultConfig() *Config {
 	return &Config{
-		MetricsEnabled:            true,
-		MetricsPath:              "/metrics",
-		TracingEnabled:           true,
-		TracingServiceName:       "hotel-reviews-api",
-		TracingVersion:           "1.0.0",
-		TracingEnvironment:       "development",
-		JaegerEndpoint:           "http://localhost:14268/api/traces",
-		TracingSamplingRate:      0.1,
-		HealthEnabled:            true,
-		HealthPath:               "/health",
-		HealthCheckInterval:      30 * time.Second,
-		BusinessMetricsEnabled:   true,
-		BusinessMetricsInterval:  1 * time.Minute,
-		SLOMonitoringEnabled:     true,
-		SLOMonitoringInterval:    1 * time.Minute,
+		MetricsEnabled:          true,
+		MetricsPath:             "/metrics",
+		TracingEnabled:          true,
+		TracingServiceName:      "hotel-reviews-api",
+		TracingVersion:          "1.0.0",
+		TracingEnvironment:      "development",
+		JaegerEndpoint:          "http://localhost:14268/api/traces",
+		TracingSamplingRate:     0.1,
+		HealthEnabled:           true,
+		HealthPath:              "/health",
+		HealthCheckInterval:     30 * time.Second,
+		BusinessMetricsEnabled:  true,
+		BusinessMetricsInterval: 1 * time.Minute,
+		SLOMonitoringEnabled:    true,
+		SLOMonitoringInterval:   1 * time.Minute,
 	}
 }
 
 // LoadConfigFromEnv loads monitoring configuration from environment variables
 func LoadConfigFromEnv() *Config {
 	config := GetDefaultConfig()
-	
+
 	// This would typically read from environment variables
 	// For now, return default config
 	return config

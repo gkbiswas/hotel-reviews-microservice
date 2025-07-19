@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
 )
 
@@ -170,7 +171,7 @@ func s3RetryExample(logger *logger.Logger) {
 	config.DeadLetterHandler = func(ctx context.Context, operation string, err error, attempts int, metadata map[string]interface{}) {
 		log.Printf("Dead letter: Operation=%s, Error=%v, Attempts=%d, Metadata=%+v",
 			operation, err, attempts, metadata)
-		
+
 		// In a real scenario, you might:
 		// 1. Send to a dead letter queue (SQS, Kafka, etc.)
 		// 2. Store in database for later processing
@@ -216,10 +217,10 @@ func customRetryExample(logger *logger.Logger) {
 	config.CustomConditions = []infrastructure.RetryCondition{
 		func(err error, attempt int) bool {
 			// Only retry if it's a network-related error
-			return err != nil && 
-				   (contains(err.Error(), "network") || 
-				    contains(err.Error(), "connection") ||
-				    contains(err.Error(), "timeout"))
+			return err != nil &&
+				(contains(err.Error(), "network") ||
+					contains(err.Error(), "connection") ||
+					contains(err.Error(), "timeout"))
 		},
 	}
 
@@ -415,7 +416,7 @@ func metricsExample(logger *logger.Logger) {
 
 // Helper function
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > len(substr) && s[len(s)-len(substr):] == substr) ||
 		(len(s) > len(substr) && s[:len(substr)] == substr) ||
 		(len(s) > len(substr) && s[len(s)/2-len(substr)/2:len(s)/2+len(substr)/2] == substr))
@@ -444,13 +445,13 @@ func contextPropagationExample(logger *logger.Logger) {
 	operation := func(ctx context.Context, attempt int) (interface{}, error) {
 		userID := ctx.Value("user_id")
 		requestID := ctx.Value("request_id")
-		
+
 		log.Printf("Attempt %d: Processing for user %v, request %v", attempt, userID, requestID)
-		
+
 		if attempt <= 1 {
 			return nil, errors.New("temporary failure")
 		}
-		
+
 		return map[string]interface{}{
 			"user_id":    userID,
 			"request_id": requestID,
@@ -479,29 +480,29 @@ func adaptiveRetryExample(logger *logger.Logger) {
 			if err == nil {
 				return false
 			}
-			
+
 			errorStr := err.Error()
-			
+
 			// Rate limit errors: use longer delays
 			if contains(errorStr, "rate limit") {
 				return attempt <= 3
 			}
-			
+
 			// Network errors: retry more aggressively
 			if contains(errorStr, "network") || contains(errorStr, "connection") {
 				return attempt <= 5
 			}
-			
+
 			// Server errors: moderate retry
 			if contains(errorStr, "500") || contains(errorStr, "502") || contains(errorStr, "503") {
 				return attempt <= 3
 			}
-			
+
 			// Client errors: don't retry
 			if contains(errorStr, "400") || contains(errorStr, "401") || contains(errorStr, "403") {
 				return false
 			}
-			
+
 			// Default: retry once
 			return attempt <= 1
 		},
@@ -521,7 +522,7 @@ func adaptiveRetryExample(logger *logger.Logger) {
 
 	for _, errorType := range errorTypes {
 		log.Printf("Testing error type: %s", errorType)
-		
+
 		operation := func(ctx context.Context, attempt int) (interface{}, error) {
 			return nil, errors.New(errorType)
 		}

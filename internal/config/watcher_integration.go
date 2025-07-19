@@ -103,15 +103,15 @@ func (cm *ConfigManager) setupConfigurationWatching() error {
 
 	// Register environment variable callbacks
 	envCallbacks := map[string]func(string, interface{}, interface{}) error{
-		"env:APP_LOG_LEVEL":        cm.handleLogLevelChange,
-		"env:APP_DB_HOST":          cm.handleDatabaseHostChange,
-		"env:APP_DB_PORT":          cm.handleDatabasePortChange,
-		"env:APP_REDIS_HOST":       cm.handleRedisHostChange,
-		"env:APP_REDIS_PORT":       cm.handleRedisPortChange,
-		"env:APP_SERVER_PORT":      cm.handleServerPortChange,
-		"env:APP_JWT_SECRET":       cm.handleJWTSecretChange,
-		"env:APP_ENVIRONMENT":      cm.handleEnvironmentChange,
-		"env:APP_MAX_CONNECTIONS":  cm.handleMaxConnectionsChange,
+		"env:APP_LOG_LEVEL":       cm.handleLogLevelChange,
+		"env:APP_DB_HOST":         cm.handleDatabaseHostChange,
+		"env:APP_DB_PORT":         cm.handleDatabasePortChange,
+		"env:APP_REDIS_HOST":      cm.handleRedisHostChange,
+		"env:APP_REDIS_PORT":      cm.handleRedisPortChange,
+		"env:APP_SERVER_PORT":     cm.handleServerPortChange,
+		"env:APP_JWT_SECRET":      cm.handleJWTSecretChange,
+		"env:APP_ENVIRONMENT":     cm.handleEnvironmentChange,
+		"env:APP_MAX_CONNECTIONS": cm.handleMaxConnectionsChange,
 	}
 
 	for envKey, callback := range envCallbacks {
@@ -130,7 +130,7 @@ func (cm *ConfigManager) setupConfigurationWatching() error {
 		cm.logger.Info("Watching main configuration file", "path", configPath)
 	} else {
 		cm.logger.Info("Configuration file not found, using defaults", "path", configPath)
-		
+
 		// Register default configuration
 		defaultConfig := GetDefaultConfig()
 		if err := cm.watcher.RegisterConfig("app_config", defaultConfig); err != nil {
@@ -142,7 +142,7 @@ func (cm *ConfigManager) setupConfigurationWatching() error {
 	// Watch environment variables
 	envVars := []string{
 		"APP_LOG_LEVEL", "APP_DB_HOST", "APP_DB_PORT", "APP_REDIS_HOST",
-		"APP_REDIS_PORT", "APP_SERVER_PORT", "APP_JWT_SECRET", 
+		"APP_REDIS_PORT", "APP_SERVER_PORT", "APP_JWT_SECRET",
 		"APP_ENVIRONMENT", "APP_MAX_CONNECTIONS",
 	}
 
@@ -229,11 +229,11 @@ func (cm *ConfigManager) handleLogLevelChange(configName string, oldConfig, newC
 		configCopy := *config
 		configCopy.App.LogLevel = newLevel
 		// Note: Monitoring config doesn't have LogLevel field, handle separately if needed
-		
+
 		if err := cm.reconfigureLogging(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure logging: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -248,11 +248,11 @@ func (cm *ConfigManager) handleDatabaseHostChange(configName string, oldConfig, 
 	if config != nil {
 		configCopy := *config
 		configCopy.Database.Host = newHost
-		
+
 		if err := cm.reconfigureDatabase(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure database: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -267,11 +267,11 @@ func (cm *ConfigManager) handleDatabasePortChange(configName string, oldConfig, 
 	if config != nil {
 		configCopy := *config
 		configCopy.Database.Port = newPort
-		
+
 		if err := cm.reconfigureDatabase(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure database: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -286,11 +286,11 @@ func (cm *ConfigManager) handleRedisHostChange(configName string, oldConfig, new
 	if config != nil {
 		configCopy := *config
 		configCopy.Redis.Host = newHost
-		
+
 		if err := cm.reconfigureRedis(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure Redis: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -305,11 +305,11 @@ func (cm *ConfigManager) handleRedisPortChange(configName string, oldConfig, new
 	if config != nil {
 		configCopy := *config
 		configCopy.Redis.Port = newPort
-		
+
 		if err := cm.reconfigureRedis(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure Redis: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -324,11 +324,11 @@ func (cm *ConfigManager) handleServerPortChange(configName string, oldConfig, ne
 	if config != nil {
 		configCopy := *config
 		configCopy.Server.Port = newPort
-		
+
 		if err := cm.reconfigureServer(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure server: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -337,7 +337,7 @@ func (cm *ConfigManager) handleServerPortChange(configName string, oldConfig, ne
 
 func (cm *ConfigManager) handleJWTSecretChange(configName string, oldConfig, newConfig interface{}) error {
 	newSecret := newConfig.(string)
-	
+
 	if len(newSecret) < 32 {
 		return fmt.Errorf("JWT secret must be at least 32 characters long")
 	}
@@ -348,11 +348,11 @@ func (cm *ConfigManager) handleJWTSecretChange(configName string, oldConfig, new
 	if config != nil {
 		configCopy := *config
 		configCopy.Auth.JWTSecret = newSecret
-		
+
 		if err := cm.reconfigureAuth(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure auth: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -367,12 +367,12 @@ func (cm *ConfigManager) handleEnvironmentChange(configName string, oldConfig, n
 	if config != nil {
 		configCopy := *config
 		configCopy.App.Environment = newEnv
-		
+
 		// Environment changes may require full reconfiguration
 		if err := cm.reconfigureComponents(config, &configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure for new environment: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -387,11 +387,11 @@ func (cm *ConfigManager) handleMaxConnectionsChange(configName string, oldConfig
 	if config != nil {
 		configCopy := *config
 		configCopy.Database.MaxConns = newMaxConns
-		
+
 		if err := cm.reconfigureDatabase(&configCopy); err != nil {
 			return fmt.Errorf("failed to reconfigure database connections: %w", err)
 		}
-		
+
 		cm.setConfig(&configCopy)
 	}
 
@@ -498,7 +498,7 @@ func (cm *ConfigManager) reconfigureDatabase(config *AppConfig) error {
 		"host", config.Database.Host,
 		"port", config.Database.Port,
 		"max_conns", config.Database.MaxConns)
-	
+
 	// Implementation would reconfigure the database pool
 	// This is a placeholder for actual database reconfiguration
 	return nil
@@ -509,7 +509,7 @@ func (cm *ConfigManager) reconfigureRedis(config *AppConfig) error {
 		"host", config.Redis.Host,
 		"port", config.Redis.Port,
 		"pool_size", config.Redis.PoolSize)
-	
+
 	// Implementation would reconfigure the Redis client
 	// This is a placeholder for actual Redis reconfiguration
 	return nil
@@ -529,7 +529,7 @@ func (cm *ConfigManager) reconfigureServer(config *AppConfig) error {
 		"host", config.Server.Host,
 		"port", config.Server.Port,
 		"tls_enabled", config.Server.EnableTLS)
-	
+
 	// For server reconfiguration, we might need to restart the server
 	// This is a placeholder for actual server reconfiguration
 	return nil
@@ -548,7 +548,7 @@ func (cm *ConfigManager) reconfigureEventHandler(config *AppConfig) error {
 	cm.logger.Info("Reconfiguring event handler",
 		"max_workers", config.EventHandler.MaxWorkers,
 		"buffer_size", config.EventHandler.BufferSize)
-	
+
 	if cm.eventHandler != nil {
 		// Implementation would reconfigure the event handler
 		// This is a placeholder for actual event handler reconfiguration
@@ -571,7 +571,7 @@ func (cm *ConfigManager) mapToStruct(input interface{}, output interface{}) erro
 			mapstructure.StringToTimeDurationHookFunc(),
 			mapstructure.StringToSliceHookFunc(","),
 		),
-		WeaklyTypedInput: true, // Allow type coercion
+		WeaklyTypedInput: true,  // Allow type coercion
 		ErrorUnused:      false, // Don't error on unused fields
 	}
 
@@ -612,11 +612,11 @@ func (cm *ConfigManager) getConfigChanges(oldConfig, newConfig *AppConfig) map[s
 func (cm *ConfigManager) GetConfig() *AppConfig {
 	cm.configMutex.RLock()
 	defer cm.configMutex.RUnlock()
-	
+
 	if cm.config == nil {
 		return nil
 	}
-	
+
 	// Return a copy to prevent external modifications
 	configCopy := *cm.config
 	return &configCopy
@@ -634,24 +634,24 @@ func (cm *ConfigManager) GetConfigHistory() []infrastructure.ConfigSnapshot {
 
 func (cm *ConfigManager) RollbackConfig(targetHash string) error {
 	cm.logger.Info("Rolling back configuration", "target_hash", targetHash)
-	
+
 	if err := cm.watcher.RollbackConfig("app_config", targetHash); err != nil {
 		cm.errorCount++
 		return fmt.Errorf("rollback failed: %w", err)
 	}
-	
+
 	cm.logger.Info("Configuration rollback completed", "target_hash", targetHash)
 	return nil
 }
 
 func (cm *ConfigManager) GetMetrics() map[string]interface{} {
 	watcherMetrics := cm.watcher.GetMetrics()
-	
+
 	// Add our own metrics
 	watcherMetrics["config_reload_count"] = cm.reloadCount
 	watcherMetrics["config_error_count"] = cm.errorCount
 	watcherMetrics["last_config_reload"] = cm.lastReloadTime
-	
+
 	return watcherMetrics
 }
 
@@ -659,23 +659,23 @@ func (cm *ConfigManager) HealthCheck() error {
 	if err := cm.watcher.HealthCheck(); err != nil {
 		return fmt.Errorf("config watcher health check failed: %w", err)
 	}
-	
+
 	if cm.config == nil {
 		return fmt.Errorf("no configuration loaded")
 	}
-	
+
 	return nil
 }
 
 func (cm *ConfigManager) Stop() error {
 	cm.logger.Info("Stopping configuration manager")
-	
+
 	cm.cancel()
-	
+
 	if cm.watcher != nil {
 		return cm.watcher.Stop()
 	}
-	
+
 	return nil
 }
 

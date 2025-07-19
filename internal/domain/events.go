@@ -32,24 +32,24 @@ const (
 	FileProcessingRetryEventType     EventType = "FileProcessingRetry"
 
 	// Review Processing Events
-	ReviewProcessedEventType        EventType = "ReviewProcessed"
-	ReviewValidatedEventType        EventType = "ReviewValidated"
-	ReviewEnrichedEventType         EventType = "ReviewEnriched"
-	ReviewBatchProcessedEventType   EventType = "ReviewBatchProcessed"
-	ReviewProcessingFailedEventType EventType = "ReviewProcessingFailed"
+	ReviewProcessedEventType         EventType = "ReviewProcessed"
+	ReviewValidatedEventType         EventType = "ReviewValidated"
+	ReviewEnrichedEventType          EventType = "ReviewEnriched"
+	ReviewBatchProcessedEventType    EventType = "ReviewBatchProcessed"
+	ReviewProcessingFailedEventType  EventType = "ReviewProcessingFailed"
 	ReviewDuplicateDetectedEventType EventType = "ReviewDuplicateDetected"
 
 	// Hotel Events
-	HotelCreatedEventType         EventType = "HotelCreated"
-	HotelUpdatedEventType         EventType = "HotelUpdated"
-	HotelSummaryUpdatedEventType  EventType = "HotelSummaryUpdated"
+	HotelCreatedEventType          EventType = "HotelCreated"
+	HotelUpdatedEventType          EventType = "HotelUpdated"
+	HotelSummaryUpdatedEventType   EventType = "HotelSummaryUpdated"
 	HotelAnalyticsUpdatedEventType EventType = "HotelAnalyticsUpdated"
 
 	// Provider Events
 	ProviderActivatedEventType   EventType = "ProviderActivated"
 	ProviderDeactivatedEventType EventType = "ProviderDeactivated"
-	ProviderErrorEvent       EventType = "ProviderError"
-	ProviderSyncedEvent      EventType = "ProviderSynced"
+	ProviderErrorEvent           EventType = "ProviderError"
+	ProviderSyncedEvent          EventType = "ProviderSynced"
 
 	// System Events
 	SystemHealthCheckEvent EventType = "SystemHealthCheck"
@@ -72,43 +72,43 @@ const (
 type DomainEvent interface {
 	// GetID returns the unique identifier of the event
 	GetID() uuid.UUID
-	
+
 	// GetType returns the type of the event
 	GetType() EventType
-	
+
 	// GetVersion returns the schema version of the event
 	GetVersion() EventVersion
-	
+
 	// GetAggregateID returns the ID of the aggregate that generated this event
 	GetAggregateID() uuid.UUID
-	
+
 	// GetAggregateType returns the type of the aggregate
 	GetAggregateType() string
-	
+
 	// GetOccurredAt returns when the event occurred
 	GetOccurredAt() time.Time
-	
+
 	// GetSequenceNumber returns the sequence number of this event for the aggregate
 	GetSequenceNumber() int64
-	
+
 	// GetCorrelationID returns the correlation ID for tracing
 	GetCorrelationID() string
-	
+
 	// GetCausationID returns the ID of the event that caused this event
 	GetCausationID() string
-	
+
 	// GetMetadata returns additional metadata
 	GetMetadata() map[string]interface{}
-	
+
 	// GetPayload returns the event payload
 	GetPayload() interface{}
-	
+
 	// Validate validates the event
 	Validate() error
-	
+
 	// Serialize serializes the event to JSON
 	Serialize() ([]byte, error)
-	
+
 	// IsReplayable returns true if the event can be replayed
 	IsReplayable() bool
 }
@@ -224,33 +224,33 @@ func (e *BaseEvent) IsReplayable() bool {
 
 // FileProcessingStartedEventPayload represents the payload for file processing started event
 type FileProcessingStartedEventPayload struct {
-	JobID            uuid.UUID         `json:"job_id"`
-	ProviderID       uuid.UUID         `json:"provider_id"`
-	ProviderName     string            `json:"provider_name"`
-	FileURL          string            `json:"file_url"`
-	FileName         string            `json:"file_name"`
-	FileSize         int64             `json:"file_size"`
-	EstimatedRecords int64             `json:"estimated_records"`
+	JobID            uuid.UUID              `json:"job_id"`
+	ProviderID       uuid.UUID              `json:"provider_id"`
+	ProviderName     string                 `json:"provider_name"`
+	FileURL          string                 `json:"file_url"`
+	FileName         string                 `json:"file_name"`
+	FileSize         int64                  `json:"file_size"`
+	EstimatedRecords int64                  `json:"estimated_records"`
 	ProcessingConfig map[string]interface{} `json:"processing_config"`
-	StartedBy        string            `json:"started_by"`
-	Priority         int               `json:"priority"`
-	TimeoutAt        time.Time         `json:"timeout_at"`
+	StartedBy        string                 `json:"started_by"`
+	Priority         int                    `json:"priority"`
+	TimeoutAt        time.Time              `json:"timeout_at"`
 }
 
 // FileProcessingStartedEvent represents a file processing started event
 type FileProcessingStartedEvent struct {
 	BaseEvent
-	JobID            uuid.UUID `json:"job_id"`
-	ProviderID       uuid.UUID `json:"provider_id"`
-	ProviderName     string    `json:"provider_name"`
-	FileURL          string    `json:"file_url"`
-	FileName         string    `json:"file_name"`
-	FileSize         int64     `json:"file_size"`
-	EstimatedRecords int64     `json:"estimated_records"`
+	JobID            uuid.UUID              `json:"job_id"`
+	ProviderID       uuid.UUID              `json:"provider_id"`
+	ProviderName     string                 `json:"provider_name"`
+	FileURL          string                 `json:"file_url"`
+	FileName         string                 `json:"file_name"`
+	FileSize         int64                  `json:"file_size"`
+	EstimatedRecords int64                  `json:"estimated_records"`
 	ProcessingConfig map[string]interface{} `json:"processing_config"`
-	StartedBy        string    `json:"started_by"`
-	Priority         int       `json:"priority"`
-	TimeoutAt        time.Time `json:"timeout_at"`
+	StartedBy        string                 `json:"started_by"`
+	Priority         int                    `json:"priority"`
+	TimeoutAt        time.Time              `json:"timeout_at"`
 }
 
 // NewFileProcessingStartedEvent creates a new file processing started event
@@ -371,14 +371,14 @@ func NewFileProcessingProgressEvent(
 
 // FileProcessingCompletedEventPayload represents the payload for file processing completed event
 type FileProcessingCompletedEventPayload struct {
-	JobID              uuid.UUID     `json:"job_id"`
-	RecordsProcessed   int64         `json:"records_processed"`
-	RecordsTotal       int64         `json:"records_total"`
-	RecordsFailed      int64         `json:"records_failed"`
-	RecordsSkipped     int64         `json:"records_skipped"`
-	ProcessingDuration time.Duration `json:"processing_duration"`
-	ProcessingRate     float64       `json:"processing_rate"`
-	CompletedAt        time.Time     `json:"completed_at"`
+	JobID              uuid.UUID              `json:"job_id"`
+	RecordsProcessed   int64                  `json:"records_processed"`
+	RecordsTotal       int64                  `json:"records_total"`
+	RecordsFailed      int64                  `json:"records_failed"`
+	RecordsSkipped     int64                  `json:"records_skipped"`
+	ProcessingDuration time.Duration          `json:"processing_duration"`
+	ProcessingRate     float64                `json:"processing_rate"`
+	CompletedAt        time.Time              `json:"completed_at"`
 	Summary            map[string]interface{} `json:"summary"`
 	Metrics            map[string]interface{} `json:"metrics"`
 }
@@ -386,14 +386,14 @@ type FileProcessingCompletedEventPayload struct {
 // FileProcessingCompletedEvent represents a file processing completed event
 type FileProcessingCompletedEvent struct {
 	BaseEvent
-	JobID              uuid.UUID     `json:"job_id"`
-	RecordsProcessed   int64         `json:"records_processed"`
-	RecordsTotal       int64         `json:"records_total"`
-	RecordsFailed      int64         `json:"records_failed"`
-	RecordsSkipped     int64         `json:"records_skipped"`
-	ProcessingDuration time.Duration `json:"processing_duration"`
-	ProcessingRate     float64       `json:"processing_rate"`
-	CompletedAt        time.Time     `json:"completed_at"`
+	JobID              uuid.UUID              `json:"job_id"`
+	RecordsProcessed   int64                  `json:"records_processed"`
+	RecordsTotal       int64                  `json:"records_total"`
+	RecordsFailed      int64                  `json:"records_failed"`
+	RecordsSkipped     int64                  `json:"records_skipped"`
+	ProcessingDuration time.Duration          `json:"processing_duration"`
+	ProcessingRate     float64                `json:"processing_rate"`
+	CompletedAt        time.Time              `json:"completed_at"`
 	Summary            map[string]interface{} `json:"summary"`
 	Metrics            map[string]interface{} `json:"metrics"`
 }
@@ -433,36 +433,36 @@ func NewFileProcessingCompletedEvent(
 
 // FileProcessingFailedEventPayload represents the payload for file processing failed event
 type FileProcessingFailedEventPayload struct {
-	JobID              uuid.UUID     `json:"job_id"`
-	ErrorMessage       string        `json:"error_message"`
-	ErrorCode          string        `json:"error_code"`
-	ErrorType          string        `json:"error_type"`
-	RecordsProcessed   int64         `json:"records_processed"`
-	RecordsTotal       int64         `json:"records_total"`
-	ProcessingDuration time.Duration `json:"processing_duration"`
-	FailedAt           time.Time     `json:"failed_at"`
-	RetryCount         int           `json:"retry_count"`
-	MaxRetries         int           `json:"max_retries"`
-	IsRetryable        bool          `json:"is_retryable"`
-	StackTrace         string        `json:"stack_trace,omitempty"`
+	JobID              uuid.UUID              `json:"job_id"`
+	ErrorMessage       string                 `json:"error_message"`
+	ErrorCode          string                 `json:"error_code"`
+	ErrorType          string                 `json:"error_type"`
+	RecordsProcessed   int64                  `json:"records_processed"`
+	RecordsTotal       int64                  `json:"records_total"`
+	ProcessingDuration time.Duration          `json:"processing_duration"`
+	FailedAt           time.Time              `json:"failed_at"`
+	RetryCount         int                    `json:"retry_count"`
+	MaxRetries         int                    `json:"max_retries"`
+	IsRetryable        bool                   `json:"is_retryable"`
+	StackTrace         string                 `json:"stack_trace,omitempty"`
 	Context            map[string]interface{} `json:"context,omitempty"`
 }
 
 // FileProcessingFailedEvent represents a file processing failed event
 type FileProcessingFailedEvent struct {
 	BaseEvent
-	JobID              uuid.UUID     `json:"job_id"`
-	ErrorMessage       string        `json:"error_message"`
-	ErrorCode          string        `json:"error_code"`
-	ErrorType          string        `json:"error_type"`
-	RecordsProcessed   int64         `json:"records_processed"`
-	RecordsTotal       int64         `json:"records_total"`
-	ProcessingDuration time.Duration `json:"processing_duration"`
-	FailedAt           time.Time     `json:"failed_at"`
-	RetryCount         int           `json:"retry_count"`
-	MaxRetries         int           `json:"max_retries"`
-	IsRetryable        bool          `json:"is_retryable"`
-	StackTrace         string        `json:"stack_trace,omitempty"`
+	JobID              uuid.UUID              `json:"job_id"`
+	ErrorMessage       string                 `json:"error_message"`
+	ErrorCode          string                 `json:"error_code"`
+	ErrorType          string                 `json:"error_type"`
+	RecordsProcessed   int64                  `json:"records_processed"`
+	RecordsTotal       int64                  `json:"records_total"`
+	ProcessingDuration time.Duration          `json:"processing_duration"`
+	FailedAt           time.Time              `json:"failed_at"`
+	RetryCount         int                    `json:"retry_count"`
+	MaxRetries         int                    `json:"max_retries"`
+	IsRetryable        bool                   `json:"is_retryable"`
+	StackTrace         string                 `json:"stack_trace,omitempty"`
 	Context            map[string]interface{} `json:"context,omitempty"`
 }
 
@@ -652,31 +652,31 @@ func NewReviewBatchProcessedEvent(
 type EventStore interface {
 	// AppendEvents appends events to the store
 	AppendEvents(ctx context.Context, aggregateID uuid.UUID, expectedVersion int64, events []DomainEvent) error
-	
+
 	// GetEvents retrieves events for an aggregate
 	GetEvents(ctx context.Context, aggregateID uuid.UUID, fromVersion int64) ([]DomainEvent, error)
-	
+
 	// GetEventsWithSnapshots retrieves events with snapshots
 	GetEventsWithSnapshots(ctx context.Context, aggregateID uuid.UUID, fromVersion int64) ([]DomainEvent, *Snapshot, error)
-	
+
 	// GetEventsByType retrieves events by type
 	GetEventsByType(ctx context.Context, eventType EventType, fromTime time.Time, limit int) ([]DomainEvent, error)
-	
+
 	// GetEventsByCorrelationID retrieves events by correlation ID
 	GetEventsByCorrelationID(ctx context.Context, correlationID string) ([]DomainEvent, error)
-	
+
 	// SaveSnapshot saves a snapshot
 	SaveSnapshot(ctx context.Context, snapshot *Snapshot) error
-	
+
 	// GetSnapshot gets the latest snapshot for an aggregate
 	GetSnapshot(ctx context.Context, aggregateID uuid.UUID) (*Snapshot, error)
-	
+
 	// GetAllEvents retrieves all events with pagination
 	GetAllEvents(ctx context.Context, offset, limit int) ([]DomainEvent, error)
-	
+
 	// GetEventsCount returns the total count of events
 	GetEventsCount(ctx context.Context) (int64, error)
-	
+
 	// DeleteEvents deletes events (for testing/cleanup)
 	DeleteEvents(ctx context.Context, aggregateID uuid.UUID) error
 }
@@ -691,15 +691,14 @@ type Snapshot struct {
 	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
-
 // EventHandler represents the interface for handling events
 type EventHandler interface {
 	// HandleEvent handles a single event
 	HandleEvent(ctx context.Context, event DomainEvent) error
-	
+
 	// CanHandle returns true if the handler can handle the event type
 	CanHandle(eventType EventType) bool
-	
+
 	// GetHandledEventTypes returns the event types this handler can handle
 	GetHandledEventTypes() []EventType
 }
@@ -708,19 +707,19 @@ type EventHandler interface {
 type EventBus interface {
 	// Subscribe subscribes a handler to event types
 	Subscribe(handler EventHandler, eventTypes ...EventType) error
-	
+
 	// Unsubscribe unsubscribes a handler from event types
 	Unsubscribe(handler EventHandler, eventTypes ...EventType) error
-	
+
 	// PublishEvent publishes an event to all subscribers
 	PublishEvent(ctx context.Context, event DomainEvent) error
-	
+
 	// PublishEvents publishes multiple events to all subscribers
 	PublishEvents(ctx context.Context, events []DomainEvent) error
-	
+
 	// Start starts the event bus
 	Start(ctx context.Context) error
-	
+
 	// Stop stops the event bus
 	Stop() error
 }
@@ -729,22 +728,22 @@ type EventBus interface {
 type AggregateRoot interface {
 	// GetID returns the aggregate ID
 	GetID() uuid.UUID
-	
+
 	// GetVersion returns the current version
 	GetVersion() int64
-	
+
 	// GetUncommittedEvents returns uncommitted events
 	GetUncommittedEvents() []DomainEvent
-	
+
 	// ClearUncommittedEvents clears uncommitted events
 	ClearUncommittedEvents()
-	
+
 	// LoadFromHistory loads the aggregate from historical events
 	LoadFromHistory(events []DomainEvent) error
-	
+
 	// ApplyEvent applies an event to the aggregate
 	ApplyEvent(event DomainEvent) error
-	
+
 	// GetType returns the aggregate type
 	GetType() string
 }
@@ -753,10 +752,10 @@ type AggregateRoot interface {
 type EventMigrator interface {
 	// MigrateEvent migrates an event from one version to another
 	MigrateEvent(event DomainEvent, targetVersion EventVersion) (DomainEvent, error)
-	
+
 	// CanMigrate returns true if the migrator can migrate the event
 	CanMigrate(fromVersion, toVersion EventVersion) bool
-	
+
 	// GetSupportedVersions returns the supported versions
 	GetSupportedVersions() []EventVersion
 }
@@ -765,10 +764,10 @@ type EventMigrator interface {
 type EventSerializer interface {
 	// Serialize serializes an event to bytes
 	Serialize(event DomainEvent) ([]byte, error)
-	
+
 	// Deserialize deserializes bytes to an event
 	Deserialize(data []byte, eventType EventType, version EventVersion) (DomainEvent, error)
-	
+
 	// GetSupportedVersions returns the supported versions
 	GetSupportedVersions() []EventVersion
 }
@@ -777,13 +776,13 @@ type EventSerializer interface {
 type EventRegistry interface {
 	// RegisterEventType registers an event type
 	RegisterEventType(eventType EventType, factory EventFactory) error
-	
+
 	// GetEventFactory returns the factory for an event type
 	GetEventFactory(eventType EventType) (EventFactory, error)
-	
+
 	// GetRegisteredEventTypes returns all registered event types
 	GetRegisteredEventTypes() []EventType
-	
+
 	// IsRegistered returns true if the event type is registered
 	IsRegistered(eventType EventType) bool
 }
@@ -792,13 +791,13 @@ type EventRegistry interface {
 type EventFactory interface {
 	// CreateEvent creates a new event instance
 	CreateEvent() DomainEvent
-	
+
 	// CreateEventFromPayload creates an event from payload
 	CreateEventFromPayload(payload interface{}) (DomainEvent, error)
-	
+
 	// GetEventType returns the event type this factory creates
 	GetEventType() EventType
-	
+
 	// GetSupportedVersions returns the supported versions
 	GetSupportedVersions() []EventVersion
 }
@@ -807,13 +806,13 @@ type EventFactory interface {
 type EventProjector interface {
 	// Project projects an event to update read models
 	Project(ctx context.Context, event DomainEvent) error
-	
+
 	// CanProject returns true if the projector can project the event
 	CanProject(eventType EventType) bool
-	
+
 	// GetProjectedEventTypes returns the event types this projector handles
 	GetProjectedEventTypes() []EventType
-	
+
 	// Reset resets the projection
 	Reset(ctx context.Context) error
 }
@@ -822,13 +821,13 @@ type EventProjector interface {
 type EventReplayService interface {
 	// ReplayEvents replays events from a specific point in time
 	ReplayEvents(ctx context.Context, fromTime time.Time, toTime time.Time) error
-	
+
 	// ReplayEventsForAggregate replays events for a specific aggregate
 	ReplayEventsForAggregate(ctx context.Context, aggregateID uuid.UUID, fromVersion int64) error
-	
+
 	// ReplayEventsByType replays events of a specific type
 	ReplayEventsByType(ctx context.Context, eventType EventType, fromTime time.Time) error
-	
+
 	// GetReplayStatus returns the current replay status
 	GetReplayStatus(ctx context.Context) (*ReplayStatus, error)
 }
@@ -863,28 +862,28 @@ type EventMetrics struct {
 type EventHealthChecker interface {
 	// CheckHealth checks the health of the event system
 	CheckHealth(ctx context.Context) (*EventHealthStatus, error)
-	
+
 	// CheckEventStore checks the health of the event store
 	CheckEventStore(ctx context.Context) error
-	
+
 	// CheckEventBus checks the health of the event bus
 	CheckEventBus(ctx context.Context) error
-	
+
 	// CheckEventPublisher checks the health of the event publisher
 	CheckEventPublisher(ctx context.Context) error
-	
+
 	// GetMetrics returns event system metrics
 	GetMetrics(ctx context.Context) (*EventMetrics, error)
 }
 
 // EventHealthStatus represents the health status of the event system
 type EventHealthStatus struct {
-	IsHealthy        bool                   `json:"is_healthy"`
-	EventStore       string                 `json:"event_store"`
-	EventBus         string                 `json:"event_bus"`
-	EventPublisher   string                 `json:"event_publisher"`
-	LastCheck        time.Time              `json:"last_check"`
-	Metrics          *EventMetrics          `json:"metrics,omitempty"`
-	Issues           []string               `json:"issues,omitempty"`
-	ComponentStatus  map[string]interface{} `json:"component_status,omitempty"`
+	IsHealthy       bool                   `json:"is_healthy"`
+	EventStore      string                 `json:"event_store"`
+	EventBus        string                 `json:"event_bus"`
+	EventPublisher  string                 `json:"event_publisher"`
+	LastCheck       time.Time              `json:"last_check"`
+	Metrics         *EventMetrics          `json:"metrics,omitempty"`
+	Issues          []string               `json:"issues,omitempty"`
+	ComponentStatus map[string]interface{} `json:"component_status,omitempty"`
 }

@@ -15,21 +15,21 @@ import (
 func TestErrorHandler_Handle(t *testing.T) {
 	// Create logger
 	loggerInstance := logger.NewDefault()
-	
+
 	// Create error handler
 	config := DefaultErrorHandlerConfig()
 	// Disable metrics to avoid conflicts in tests
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
-	
+
 	t.Run("Handle nil error", func(t *testing.T) {
 		result := errorHandler.Handle(ctx, nil)
 		assert.Nil(t, result)
 	})
-	
+
 	t.Run("Handle AppError", func(t *testing.T) {
 		appErr := &AppError{
 			Type:      ErrorTypeValidation,
@@ -37,7 +37,7 @@ func TestErrorHandler_Handle(t *testing.T) {
 			Message:   "Test error message",
 			Timestamp: time.Now(),
 		}
-		
+
 		result := errorHandler.Handle(ctx, appErr)
 		assert.NotNil(t, result)
 		assert.Equal(t, appErr.Type, result.Type)
@@ -45,10 +45,10 @@ func TestErrorHandler_Handle(t *testing.T) {
 		assert.Equal(t, appErr.Message, result.Message)
 		assert.True(t, result.Logged)
 	})
-	
+
 	t.Run("Handle regular error", func(t *testing.T) {
 		regularErr := errors.New("regular error")
-		
+
 		result := errorHandler.Handle(ctx, regularErr)
 		assert.NotNil(t, result)
 		assert.Equal(t, regularErr.Error(), result.Message)
@@ -65,7 +65,7 @@ func TestErrorHandler_ClassifyError(t *testing.T) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	testCases := []struct {
 		name           string
 		error          error
@@ -133,7 +133,7 @@ func TestErrorHandler_ClassifyError(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pattern := errorHandler.classifyError(tc.error)
@@ -150,45 +150,45 @@ func TestErrorHandler_HTTPResponse(t *testing.T) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
-	
+
 	t.Run("JSON response", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set("Accept", "application/json")
 		w := httptest.NewRecorder()
-		
+
 		testErr := errors.New("test error")
 		errorHandler.HandleHTTP(ctx, w, req, testErr)
-		
+
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
 		assert.NotEmpty(t, w.Header().Get("X-Error-ID"))
 		assert.NotEmpty(t, w.Header().Get("X-Error-Type"))
 	})
-	
+
 	t.Run("XML response", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set("Accept", "application/xml")
 		w := httptest.NewRecorder()
-		
+
 		testErr := errors.New("test error")
 		errorHandler.HandleHTTP(ctx, w, req, testErr)
-		
+
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.Contains(t, w.Header().Get("Content-Type"), "application/xml")
 		assert.NotEmpty(t, w.Header().Get("X-Error-ID"))
 		assert.NotEmpty(t, w.Header().Get("X-Error-Type"))
 	})
-	
+
 	t.Run("Text response", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
 		req.Header.Set("Accept", "text/plain")
 		w := httptest.NewRecorder()
-		
+
 		testErr := errors.New("test error")
 		errorHandler.HandleHTTP(ctx, w, req, testErr)
-		
+
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.Contains(t, w.Header().Get("Content-Type"), "text/plain")
 		assert.NotEmpty(t, w.Header().Get("X-Error-ID"))
@@ -203,7 +203,7 @@ func TestErrorHandler_ErrorPatterns(t *testing.T) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	// Add custom pattern
 	customPattern := ErrorPattern{
 		Type:           ErrorTypeBusiness,
@@ -213,14 +213,14 @@ func TestErrorHandler_ErrorPatterns(t *testing.T) {
 		Severity:       SeverityMedium,
 		Retryable:      false,
 	}
-	
+
 	errorHandler.AddErrorPattern(customPattern)
-	
+
 	// Test custom pattern matching
 	testErr := errors.New("custom error occurred")
 	ctx := context.Background()
 	result := errorHandler.Handle(ctx, testErr)
-	
+
 	assert.NotNil(t, result)
 	assert.Equal(t, ErrorTypeBusiness, result.Type)
 	assert.Equal(t, http.StatusBadRequest, result.HTTPStatus)
@@ -234,19 +234,19 @@ func TestErrorHandler_ErrorStats(t *testing.T) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
-	
+
 	// Handle multiple errors
 	for i := 0; i < 5; i++ {
 		testErr := errors.New("test error")
 		errorHandler.Handle(ctx, testErr)
 	}
-	
+
 	// Check error stats
 	stats := errorHandler.GetErrorStats()
 	assert.NotEmpty(t, stats)
-	
+
 	// Find system error stats
 	found := false
 	for _, metrics := range stats {
@@ -268,10 +268,10 @@ func TestErrorHandler_HealthCheck(t *testing.T) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	// Initially should be healthy
 	assert.True(t, errorHandler.IsHealthy())
-	
+
 	// Get health status
 	healthStatus := errorHandler.GetHealthStatus()
 	assert.NotNil(t, healthStatus)
@@ -287,20 +287,20 @@ func TestAppError_Methods(t *testing.T) {
 			Code:    "TEST_ERROR",
 			Message: "Test error message",
 		}
-		
+
 		assert.Equal(t, "Test error message", appErr.Error())
 	})
-	
+
 	t.Run("Error method with empty message", func(t *testing.T) {
 		appErr := &AppError{
 			Type: ErrorTypeValidation,
 			Code: "TEST_ERROR",
 		}
-		
+
 		expected := "error type: validation, code: TEST_ERROR"
 		assert.Equal(t, expected, appErr.Error())
 	})
-	
+
 	t.Run("IsRetryable method", func(t *testing.T) {
 		// Test retryable error
 		retryableErr := &AppError{
@@ -308,14 +308,14 @@ func TestAppError_Methods(t *testing.T) {
 			Retryable: false, // Category should override
 		}
 		assert.True(t, retryableErr.IsRetryable())
-		
+
 		// Test non-retryable error
 		nonRetryableErr := &AppError{
 			Category:  CategoryNonRetryable,
 			Retryable: true, // Category should override
 		}
 		assert.False(t, nonRetryableErr.IsRetryable())
-		
+
 		// Test with Retryable flag
 		retryableFlagErr := &AppError{
 			Category:  CategoryPermanent,
@@ -323,21 +323,21 @@ func TestAppError_Methods(t *testing.T) {
 		}
 		assert.True(t, retryableFlagErr.IsRetryable())
 	})
-	
+
 	t.Run("IsCritical method", func(t *testing.T) {
 		// Test critical severity
 		criticalErr := &AppError{
 			Severity: SeverityCritical,
 		}
 		assert.True(t, criticalErr.IsCritical())
-		
+
 		// Test critical category
 		criticalCatErr := &AppError{
 			Severity: SeverityMedium,
 			Category: CategoryCritical,
 		}
 		assert.True(t, criticalCatErr.IsCritical())
-		
+
 		// Test non-critical
 		nonCriticalErr := &AppError{
 			Severity: SeverityLow,
@@ -345,47 +345,47 @@ func TestAppError_Methods(t *testing.T) {
 		}
 		assert.False(t, nonCriticalErr.IsCritical())
 	})
-	
+
 	t.Run("IsTemporary method", func(t *testing.T) {
 		// Test temporary error
 		tempErr := &AppError{
 			Category: CategoryTransient,
 		}
 		assert.True(t, tempErr.IsTemporary())
-		
+
 		// Test non-temporary error
 		nonTempErr := &AppError{
 			Category: CategoryPermanent,
 		}
 		assert.False(t, nonTempErr.IsTemporary())
 	})
-	
+
 	t.Run("ToJSON method", func(t *testing.T) {
 		appErr := &AppError{
 			Type:    ErrorTypeValidation,
 			Code:    "TEST_ERROR",
 			Message: "Test error message",
 		}
-		
+
 		jsonData, err := appErr.ToJSON()
 		assert.NoError(t, err)
 		assert.NotEmpty(t, jsonData)
 		assert.Contains(t, string(jsonData), "TEST_ERROR")
 	})
-	
+
 	t.Run("ToXML method", func(t *testing.T) {
 		appErr := &AppError{
 			Type:    ErrorTypeValidation,
 			Code:    "TEST_ERROR",
 			Message: "Test error message",
 		}
-		
+
 		xmlData, err := appErr.ToXML()
 		assert.NoError(t, err)
 		assert.NotEmpty(t, xmlData)
 		assert.Contains(t, string(xmlData), "TEST_ERROR")
 	})
-	
+
 	t.Run("Unwrap method", func(t *testing.T) {
 		originalErr := errors.New("original error")
 		appErr := &AppError{
@@ -394,7 +394,7 @@ func TestAppError_Methods(t *testing.T) {
 			Message: "Test error message",
 			Cause:   originalErr,
 		}
-		
+
 		unwrapped := appErr.Unwrap()
 		assert.Equal(t, originalErr, unwrapped)
 	})
@@ -403,7 +403,7 @@ func TestAppError_Methods(t *testing.T) {
 func TestErrorHandlerConfig(t *testing.T) {
 	t.Run("Default config", func(t *testing.T) {
 		config := DefaultErrorHandlerConfig()
-		
+
 		assert.NotNil(t, config)
 		assert.True(t, config.EnableMetrics)
 		assert.True(t, config.EnableAlerting)
@@ -430,12 +430,12 @@ func TestErrorHandler_Integration(t *testing.T) {
 	config.EnableMetrics = true
 	config.EnableAlerting = true
 	config.EnableErrorAggregation = true
-	
+
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
-	
+
 	// Simulate multiple errors
 	errors := []error{
 		errors.New("database connection failed"),
@@ -444,27 +444,27 @@ func TestErrorHandler_Integration(t *testing.T) {
 		errors.New("authentication failed"),
 		errors.New("rate limit exceeded"),
 	}
-	
+
 	var handledErrors []*AppError
 	for _, err := range errors {
 		handledErr := errorHandler.Handle(ctx, err)
 		handledErrors = append(handledErrors, handledErr)
 	}
-	
+
 	// Verify all errors were handled
 	assert.Len(t, handledErrors, 5)
-	
+
 	// Verify error stats
 	stats := errorHandler.GetErrorStats()
 	assert.NotEmpty(t, stats)
-	
+
 	// Verify health status
 	healthStatus := errorHandler.GetHealthStatus()
 	assert.NotNil(t, healthStatus)
-	
+
 	// Wait a bit for background processes
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Check if error handler is still healthy
 	isHealthy := errorHandler.IsHealthy()
 	assert.NotNil(t, isHealthy) // Just verify it doesn't panic
@@ -477,19 +477,19 @@ func TestErrorHandler_Concurrency(t *testing.T) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
-	
+
 	// Run concurrent error handling
 	const numGoroutines = 10
 	const errorsPerGoroutine = 100
-	
+
 	done := make(chan bool, numGoroutines)
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		go func(goroutineID int) {
 			defer func() { done <- true }()
-			
+
 			for j := 0; j < errorsPerGoroutine; j++ {
 				testErr := errors.New("concurrent test error")
 				result := errorHandler.Handle(ctx, testErr)
@@ -498,7 +498,7 @@ func TestErrorHandler_Concurrency(t *testing.T) {
 			}
 		}(i)
 	}
-	
+
 	// Wait for all goroutines to complete
 	for i := 0; i < numGoroutines; i++ {
 		select {
@@ -508,11 +508,11 @@ func TestErrorHandler_Concurrency(t *testing.T) {
 			t.Fatal("Goroutine timed out")
 		}
 	}
-	
+
 	// Verify error stats
 	stats := errorHandler.GetErrorStats()
 	assert.NotEmpty(t, stats)
-	
+
 	// Check total error count
 	totalErrors := int64(0)
 	for _, metrics := range stats {
@@ -528,12 +528,12 @@ func BenchmarkErrorHandler_Handle(b *testing.B) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
 	testErr := errors.New("benchmark test error")
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		errorHandler.Handle(ctx, testErr)
 	}
@@ -546,16 +546,16 @@ func BenchmarkErrorHandler_HandleHTTP(b *testing.B) {
 	config.EnableMetrics = false
 	errorHandler := NewErrorHandler(config, loggerInstance, nil, nil)
 	defer errorHandler.Close()
-	
+
 	ctx := context.Background()
 	testErr := errors.New("benchmark test error")
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest("GET", "/test", nil)
 		w := httptest.NewRecorder()
-		
+
 		errorHandler.HandleHTTP(ctx, w, req, testErr)
 	}
 }

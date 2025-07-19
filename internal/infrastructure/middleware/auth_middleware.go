@@ -234,30 +234,30 @@ func (m *AuthMiddleware) RateLimitMiddleware(next http.Handler) http.Handler {
 func (m *AuthMiddleware) AuditMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Create a response writer that captures the status code
 		wrappedWriter := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		
+
 		// Process request
 		next.ServeHTTP(wrappedWriter, r)
-		
+
 		// Log audit information
 		go func() {
 			ctx := context.Background()
-			
+
 			var userID *uuid.UUID
 			if user, ok := r.Context().Value("user").(*domain.User); ok {
 				userID = &user.ID
 			}
-			
+
 			// Extract resource and action from URL path
 			resource, action := m.extractResourceAndAction(r.URL.Path, r.Method)
-			
+
 			// Skip audit for health checks and metrics
 			if resource == "health" || resource == "metrics" {
 				return
 			}
-			
+
 			err := m.authService.AuditAction(
 				ctx,
 				userID,
@@ -269,12 +269,12 @@ func (m *AuthMiddleware) AuditMiddleware(next http.Handler) http.Handler {
 				m.getClientIP(r),
 				r.Header.Get("User-Agent"),
 			)
-			
+
 			if err != nil {
 				m.logger.Error("audit logging failed", "error", err)
 			}
 		}()
-		
+
 		// Log request details
 		m.logger.Info("request processed",
 			"method", r.Method,
@@ -328,13 +328,13 @@ func (m *AuthMiddleware) OptionalAuthMiddleware(next http.Handler) http.Handler 
 func (m *AuthMiddleware) writeErrorResponse(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	response := map[string]interface{}{
-		"error":   message,
-		"code":    statusCode,
-		"time":    time.Now().UTC().Format(time.RFC3339),
+		"error": message,
+		"code":  statusCode,
+		"time":  time.Now().UTC().Format(time.RFC3339),
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -345,12 +345,12 @@ func (m *AuthMiddleware) getClientIP(r *http.Request) string {
 		parts := strings.Split(xff, ",")
 		return strings.TrimSpace(parts[0])
 	}
-	
+
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	
+
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
 }
@@ -363,13 +363,13 @@ func (m *AuthMiddleware) isAuthEndpoint(path string) bool {
 		"/api/v1/auth/forgot-password",
 		"/api/v1/auth/reset-password",
 	}
-	
+
 	for _, endpoint := range authEndpoints {
 		if path == endpoint {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -381,12 +381,12 @@ func (m *AuthMiddleware) extractEmailFromRequest(r *http.Request) string {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			return ""
 		}
-		
+
 		if email, ok := body["email"].(string); ok {
 			return email
 		}
 	}
-	
+
 	return ""
 }
 
@@ -396,13 +396,13 @@ func (m *AuthMiddleware) extractResourceAndAction(path, method string) (string, 
 	if len(parts) < 3 {
 		return "unknown", strings.ToLower(method)
 	}
-	
+
 	// Skip "api" and "v1" parts
 	resource := parts[2]
 	if len(parts) > 3 && parts[3] != "" {
 		resource = parts[3]
 	}
-	
+
 	// Map HTTP methods to actions
 	actionMap := map[string]string{
 		"GET":    "read",
@@ -411,12 +411,12 @@ func (m *AuthMiddleware) extractResourceAndAction(path, method string) (string, 
 		"PATCH":  "update",
 		"DELETE": "delete",
 	}
-	
+
 	action := actionMap[strings.ToUpper(method)]
 	if action == "" {
 		action = strings.ToLower(method)
 	}
-	
+
 	return resource, action
 }
 
@@ -514,23 +514,23 @@ func (c *AuthMiddlewareChain) SetupRoutes(router *mux.Router) {
 	// Public routes (no authentication required)
 	publicRouter := router.PathPrefix("/api/v1/public").Subrouter()
 	publicRouter.Use(c.ForPublicEndpoints())
-	
+
 	// Authentication routes (with rate limiting)
 	authRouter := router.PathPrefix("/api/v1/auth").Subrouter()
 	authRouter.Use(c.ForAuthEndpoints())
-	
+
 	// Protected routes (requires authentication)
 	protectedRouter := router.PathPrefix("/api/v1/protected").Subrouter()
 	protectedRouter.Use(c.ForProtectedEndpoints())
-	
+
 	// Service routes (requires API key)
 	serviceRouter := router.PathPrefix("/api/v1/service").Subrouter()
 	serviceRouter.Use(c.ForServiceEndpoints())
-	
+
 	// Admin routes (requires admin role)
 	adminRouter := router.PathPrefix("/api/v1/admin").Subrouter()
 	adminRouter.Use(c.ForAdminEndpoints())
-	
+
 	// Routes with specific permissions
 	reviewRouter := router.PathPrefix("/api/v1/reviews").Subrouter()
 	reviewRouter.Use(c.ForProtectedEndpoints())

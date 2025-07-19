@@ -171,7 +171,7 @@ func (s *S3ClientWrapper) GetFileSize(ctx context.Context, bucket, key string) (
 	if err != nil {
 		return 0, err
 	}
-	
+
 	if output.ContentLength != nil {
 		return *output.ContentLength, nil
 	}

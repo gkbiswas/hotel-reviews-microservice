@@ -42,10 +42,10 @@ func (m *CircuitBreakerMiddleware) HTTPMiddleware(serviceName string) gin.Handle
 		result, err := breaker.ExecuteWithFallback(ctx, func(ctx context.Context) (interface{}, error) {
 			// Create a new context for the handler
 			c.Request = c.Request.WithContext(ctx)
-			
+
 			// Execute the handler
 			c.Next()
-			
+
 			// Check if there was an error (status >= 500)
 			if c.Writer.Status() >= 500 {
 				return nil, &HTTPError{
@@ -53,7 +53,7 @@ func (m *CircuitBreakerMiddleware) HTTPMiddleware(serviceName string) gin.Handle
 					Message:    "HTTP error occurred",
 				}
 			}
-			
+
 			return nil, nil
 		}, m.createHTTPFallback(c, serviceName))
 
@@ -66,7 +66,7 @@ func (m *CircuitBreakerMiddleware) HTTPMiddleware(serviceName string) gin.Handle
 					"method", c.Request.Method,
 					"error", err,
 				)
-				
+
 				c.JSON(http.StatusServiceUnavailable, gin.H{
 					"error":   "Service temporarily unavailable",
 					"service": serviceName,
@@ -75,7 +75,7 @@ func (m *CircuitBreakerMiddleware) HTTPMiddleware(serviceName string) gin.Handle
 				c.Abort()
 				return
 			}
-			
+
 			// If fallback was executed, the response might already be set
 			if result != nil {
 				m.logger.Info("Circuit breaker fallback executed",
@@ -97,7 +97,7 @@ func (m *CircuitBreakerMiddleware) createHTTPFallback(c *gin.Context, serviceNam
 			"method", c.Request.Method,
 			"original_error", err,
 		)
-		
+
 		// Provide a generic fallback response
 		switch c.Request.URL.Path {
 		case "/health":
@@ -114,7 +114,7 @@ func (m *CircuitBreakerMiddleware) createHTTPFallback(c *gin.Context, serviceNam
 				"message": "Please try again later",
 			})
 		}
-		
+
 		return "fallback_executed", nil
 	}
 }
@@ -152,7 +152,7 @@ func (m *DatabaseMiddleware) ExecuteQuery(ctx context.Context, queryFunc func(ct
 func (m *DatabaseMiddleware) createDBFallback() infrastructure.FallbackFunc {
 	return func(ctx context.Context, err error) (interface{}, error) {
 		m.logger.Warn("Database circuit breaker fallback executed", "error", err)
-		
+
 		// Return cached data or default values
 		// This is a placeholder - in real implementation, you would
 		// return cached data or appropriate fallback response
@@ -196,7 +196,7 @@ func (m *CacheMiddleware) ExecuteCache(ctx context.Context, cacheFunc func(ctx c
 func (m *CacheMiddleware) createCacheFallback() infrastructure.FallbackFunc {
 	return func(ctx context.Context, err error) (interface{}, error) {
 		m.logger.Info("Cache circuit breaker fallback executed", "error", err)
-		
+
 		// For cache operations, fallback usually means proceed without cache
 		return nil, nil
 	}
@@ -225,7 +225,7 @@ func (m *S3Middleware) ExecuteS3Operation(ctx context.Context, s3Func func(ctx c
 func (m *S3Middleware) createS3Fallback() infrastructure.FallbackFunc {
 	return func(ctx context.Context, err error) (interface{}, error) {
 		m.logger.Warn("S3 circuit breaker fallback executed", "error", err)
-		
+
 		// For S3 operations, fallback might mean using local storage
 		// or returning an error indicating the operation failed
 		return nil, &S3FallbackError{
@@ -263,36 +263,36 @@ func NewCircuitBreakerHealthCheck(manager *infrastructure.CircuitBreakerManager,
 func (h *CircuitBreakerHealthCheck) HealthCheckHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		breakers := h.manager.GetAllCircuitBreakers()
-		
+
 		status := "healthy"
 		statusCode := http.StatusOK
 		breakerStatus := make(map[string]interface{})
-		
+
 		for name, breaker := range breakers {
 			metrics := breaker.GetMetrics()
-			
+
 			breakerInfo := gin.H{
-				"state":           metrics.CurrentState.String(),
-				"total_requests":  metrics.TotalRequests,
-				"success_rate":    metrics.SuccessRate,
-				"failure_rate":    metrics.FailureRate,
-				"last_failure":    metrics.LastFailure,
-				"last_success":    metrics.LastSuccess,
+				"state":          metrics.CurrentState.String(),
+				"total_requests": metrics.TotalRequests,
+				"success_rate":   metrics.SuccessRate,
+				"failure_rate":   metrics.FailureRate,
+				"last_failure":   metrics.LastFailure,
+				"last_success":   metrics.LastSuccess,
 			}
-			
+
 			breakerStatus[name] = breakerInfo
-			
+
 			// If any breaker is open, mark overall status as degraded
 			if breaker.IsOpen() {
 				status = "degraded"
 				statusCode = http.StatusPartialContent
 			}
 		}
-		
+
 		c.JSON(statusCode, gin.H{
-			"status":          status,
+			"status":           status,
 			"circuit_breakers": breakerStatus,
-			"timestamp":       time.Now().UTC(),
+			"timestamp":        time.Now().UTC(),
 		})
 	}
 }
@@ -301,7 +301,7 @@ func (h *CircuitBreakerHealthCheck) HealthCheckHandler() gin.HandlerFunc {
 func (h *CircuitBreakerHealthCheck) MetricsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		metrics := h.manager.GetMetrics()
-		
+
 		c.JSON(http.StatusOK, gin.H{
 			"metrics":   metrics,
 			"timestamp": time.Now().UTC(),
@@ -311,9 +311,9 @@ func (h *CircuitBreakerHealthCheck) MetricsHandler() gin.HandlerFunc {
 
 // CircuitBreakerConfig provides configuration for circuit breaker middleware
 type CircuitBreakerConfig struct {
-	Enabled      bool                                         `json:"enabled"`
+	Enabled      bool                                            `json:"enabled"`
 	Services     map[string]*infrastructure.CircuitBreakerConfig `json:"services"`
-	GlobalConfig *infrastructure.CircuitBreakerConfig         `json:"global_config"`
+	GlobalConfig *infrastructure.CircuitBreakerConfig            `json:"global_config"`
 }
 
 // DefaultCircuitBreakerConfig returns default configuration
@@ -322,70 +322,70 @@ func DefaultCircuitBreakerConfig() *CircuitBreakerConfig {
 		Enabled: true,
 		Services: map[string]*infrastructure.CircuitBreakerConfig{
 			"database": {
-				Name:                 "database",
-				FailureThreshold:     3,
-				SuccessThreshold:     2,
-				ConsecutiveFailures:  2,
-				MinimumRequestCount:  5,
-				RequestTimeout:       10 * time.Second,
-				OpenTimeout:          30 * time.Second,
-				HalfOpenTimeout:      15 * time.Second,
-				WindowSize:           30 * time.Second,
-				WindowBuckets:        6,
-				MaxRetries:           2,
-				RetryDelay:           500 * time.Millisecond,
-				RetryBackoffFactor:   2.0,
-				FailFast:             true,
-				EnableFallback:       true,
-				EnableMetrics:        true,
-				EnableLogging:        true,
-				HealthCheckInterval:  15 * time.Second,
-				HealthCheckTimeout:   3 * time.Second,
-				EnableHealthCheck:    true,
+				Name:                "database",
+				FailureThreshold:    3,
+				SuccessThreshold:    2,
+				ConsecutiveFailures: 2,
+				MinimumRequestCount: 5,
+				RequestTimeout:      10 * time.Second,
+				OpenTimeout:         30 * time.Second,
+				HalfOpenTimeout:     15 * time.Second,
+				WindowSize:          30 * time.Second,
+				WindowBuckets:       6,
+				MaxRetries:          2,
+				RetryDelay:          500 * time.Millisecond,
+				RetryBackoffFactor:  2.0,
+				FailFast:            true,
+				EnableFallback:      true,
+				EnableMetrics:       true,
+				EnableLogging:       true,
+				HealthCheckInterval: 15 * time.Second,
+				HealthCheckTimeout:  3 * time.Second,
+				EnableHealthCheck:   true,
 			},
 			"cache": {
-				Name:                 "cache",
-				FailureThreshold:     10,
-				SuccessThreshold:     5,
-				ConsecutiveFailures:  5,
-				MinimumRequestCount:  20,
-				RequestTimeout:       5 * time.Second,
-				OpenTimeout:          15 * time.Second,
-				HalfOpenTimeout:      10 * time.Second,
-				WindowSize:           30 * time.Second,
-				WindowBuckets:        6,
-				MaxRetries:           1,
-				RetryDelay:           100 * time.Millisecond,
-				RetryBackoffFactor:   1.5,
-				FailFast:             false,
-				EnableFallback:       true,
-				EnableMetrics:        true,
-				EnableLogging:        true,
-				HealthCheckInterval:  10 * time.Second,
-				HealthCheckTimeout:   2 * time.Second,
-				EnableHealthCheck:    true,
+				Name:                "cache",
+				FailureThreshold:    10,
+				SuccessThreshold:    5,
+				ConsecutiveFailures: 5,
+				MinimumRequestCount: 20,
+				RequestTimeout:      5 * time.Second,
+				OpenTimeout:         15 * time.Second,
+				HalfOpenTimeout:     10 * time.Second,
+				WindowSize:          30 * time.Second,
+				WindowBuckets:       6,
+				MaxRetries:          1,
+				RetryDelay:          100 * time.Millisecond,
+				RetryBackoffFactor:  1.5,
+				FailFast:            false,
+				EnableFallback:      true,
+				EnableMetrics:       true,
+				EnableLogging:       true,
+				HealthCheckInterval: 10 * time.Second,
+				HealthCheckTimeout:  2 * time.Second,
+				EnableHealthCheck:   true,
 			},
 			"s3": {
-				Name:                 "s3",
-				FailureThreshold:     5,
-				SuccessThreshold:     3,
-				ConsecutiveFailures:  3,
-				MinimumRequestCount:  10,
-				RequestTimeout:       30 * time.Second,
-				OpenTimeout:          60 * time.Second,
-				HalfOpenTimeout:      30 * time.Second,
-				WindowSize:           60 * time.Second,
-				WindowBuckets:        10,
-				MaxRetries:           3,
-				RetryDelay:           1 * time.Second,
-				RetryBackoffFactor:   2.0,
-				FailFast:             true,
-				EnableFallback:       true,
-				EnableMetrics:        true,
-				EnableLogging:        true,
-				HealthCheckInterval:  30 * time.Second,
-				HealthCheckTimeout:   5 * time.Second,
-				EnableHealthCheck:    false,
+				Name:                "s3",
+				FailureThreshold:    5,
+				SuccessThreshold:    3,
+				ConsecutiveFailures: 3,
+				MinimumRequestCount: 10,
+				RequestTimeout:      30 * time.Second,
+				OpenTimeout:         60 * time.Second,
+				HalfOpenTimeout:     30 * time.Second,
+				WindowSize:          60 * time.Second,
+				WindowBuckets:       10,
+				MaxRetries:          3,
+				RetryDelay:          1 * time.Second,
+				RetryBackoffFactor:  2.0,
+				FailFast:            true,
+				EnableFallback:      true,
+				EnableMetrics:       true,
+				EnableLogging:       true,
+				HealthCheckInterval: 30 * time.Second,
+				HealthCheckTimeout:  5 * time.Second,
+				EnableHealthCheck:   false,
 			},
 		},
 		GlobalConfig: infrastructure.DefaultCircuitBreakerConfig(),

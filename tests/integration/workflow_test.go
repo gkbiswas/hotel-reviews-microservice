@@ -39,27 +39,43 @@ import (
 // MockEventPublisher implements domain.EventPublisher for testing
 type MockEventPublisher struct{}
 
-func (m *MockEventPublisher) PublishReviewCreated(ctx context.Context, review *domain.Review) error { return nil }
-func (m *MockEventPublisher) PublishReviewUpdated(ctx context.Context, review *domain.Review) error { return nil }
-func (m *MockEventPublisher) PublishReviewDeleted(ctx context.Context, reviewID uuid.UUID) error { return nil }
-func (m *MockEventPublisher) PublishProcessingStarted(ctx context.Context, processingID uuid.UUID, providerID uuid.UUID) error { return nil }
-func (m *MockEventPublisher) PublishProcessingCompleted(ctx context.Context, processingID uuid.UUID, recordsProcessed int) error { return nil }
-func (m *MockEventPublisher) PublishProcessingFailed(ctx context.Context, processingID uuid.UUID, errorMsg string) error { return nil }
-func (m *MockEventPublisher) PublishHotelCreated(ctx context.Context, hotel *domain.Hotel) error { return nil }
-func (m *MockEventPublisher) PublishHotelUpdated(ctx context.Context, hotel *domain.Hotel) error { return nil }
+func (m *MockEventPublisher) PublishReviewCreated(ctx context.Context, review *domain.Review) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishReviewUpdated(ctx context.Context, review *domain.Review) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishReviewDeleted(ctx context.Context, reviewID uuid.UUID) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishProcessingStarted(ctx context.Context, processingID uuid.UUID, providerID uuid.UUID) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishProcessingCompleted(ctx context.Context, processingID uuid.UUID, recordsProcessed int) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishProcessingFailed(ctx context.Context, processingID uuid.UUID, errorMsg string) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishHotelCreated(ctx context.Context, hotel *domain.Hotel) error {
+	return nil
+}
+func (m *MockEventPublisher) PublishHotelUpdated(ctx context.Context, hotel *domain.Hotel) error {
+	return nil
+}
 
 // TestContainers holds all the containers for integration tests
 type TestContainers struct {
-	postgresContainer  *postgres.PostgresContainer
-	redisContainer     testcontainers.Container
-	kafkaContainer     testcontainers.Container
+	postgresContainer   *postgres.PostgresContainer
+	redisContainer      testcontainers.Container
+	kafkaContainer      testcontainers.Container
 	localstackContainer *localstack.LocalStackContainer
-	
+
 	// Connection details
 	postgresConnectionString string
-	redisAddr               string
-	kafkaBrokers            []string
-	s3Endpoint              string
+	redisAddr                string
+	kafkaBrokers             []string
+	s3Endpoint               string
 }
 
 // SetupTestContainers initializes all test containers
@@ -116,16 +132,16 @@ func SetupTestContainers(t *testing.T) *TestContainers {
 			Image:        "apache/kafka:3.7.0",
 			ExposedPorts: []string{"9092/tcp"},
 			Env: map[string]string{
-				"KAFKA_NODE_ID":                     "1",
-				"KAFKA_PROCESS_ROLES":               "broker,controller",
-				"KAFKA_CONTROLLER_QUORUM_VOTERS":    "1@localhost:29093",
-				"KAFKA_LISTENERS":                   "PLAINTEXT://:9092,CONTROLLER://:29093",
-				"KAFKA_ADVERTISED_LISTENERS":        "PLAINTEXT://localhost:9092",
-				"KAFKA_CONTROLLER_LISTENER_NAMES":   "CONTROLLER",
-				"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+				"KAFKA_NODE_ID":                          "1",
+				"KAFKA_PROCESS_ROLES":                    "broker,controller",
+				"KAFKA_CONTROLLER_QUORUM_VOTERS":         "1@localhost:29093",
+				"KAFKA_LISTENERS":                        "PLAINTEXT://:9092,CONTROLLER://:29093",
+				"KAFKA_ADVERTISED_LISTENERS":             "PLAINTEXT://localhost:9092",
+				"KAFKA_CONTROLLER_LISTENER_NAMES":        "CONTROLLER",
+				"KAFKA_LISTENER_SECURITY_PROTOCOL_MAP":   "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
 				"KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
-				"KAFKA_AUTO_CREATE_TOPICS_ENABLE":    "true",
-				"KAFKA_CLUSTER_ID":                   "test-cluster",
+				"KAFKA_AUTO_CREATE_TOPICS_ENABLE":        "true",
+				"KAFKA_CLUSTER_ID":                       "test-cluster",
 			},
 			WaitingFor: wait.ForLog("Kafka Server started").
 				WithStartupTimeout(60 * time.Second),
@@ -164,25 +180,25 @@ func SetupTestContainers(t *testing.T) *TestContainers {
 // Cleanup terminates all containers
 func (tc *TestContainers) Cleanup(t *testing.T) {
 	ctx := context.Background()
-	
+
 	if tc.postgresContainer != nil {
 		if err := tc.postgresContainer.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate PostgreSQL container: %v", err)
 		}
 	}
-	
+
 	if tc.redisContainer != nil {
 		if err := tc.redisContainer.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate Redis container: %v", err)
 		}
 	}
-	
+
 	if tc.kafkaContainer != nil {
 		if err := tc.kafkaContainer.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate Kafka container: %v", err)
 		}
 	}
-	
+
 	if tc.localstackContainer != nil {
 		if err := tc.localstackContainer.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate LocalStack container: %v", err)
@@ -423,7 +439,7 @@ func TestCompleteWorkflow(t *testing.T) {
 	}, testLogger)
 	cacheService := infrastructure.NewRedisCacheService(redisClient, testLogger)
 	jsonProcessor := infrastructure.NewJSONLinesProcessor(repository, testLogger)
-	
+
 	// Create a simple event publisher adapter
 	eventPublisher := &MockEventPublisher{}
 
@@ -439,7 +455,7 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// Create test router
 	router := mux.NewRouter()
-	
+
 	// Setup basic routes for integration testing
 	router.HandleFunc("/providers", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -447,9 +463,9 @@ func TestCompleteWorkflow(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id": uuid.New(),
-				"name": "Test Provider",
-				"base_url": "https://testprovider.com",
+				"id":        uuid.New(),
+				"name":      "Test Provider",
+				"base_url":  "https://testprovider.com",
 				"is_active": true,
 			})
 		case http.MethodGet:
@@ -457,29 +473,29 @@ func TestCompleteWorkflow(t *testing.T) {
 			json.NewEncoder(w).Encode([]map[string]interface{}{})
 		}
 	}).Methods("POST", "GET")
-	
+
 	router.HandleFunc("/hotels", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id": uuid.New(),
-				"name": "Test Hotel",
+				"id":       uuid.New(),
+				"name":     "Test Hotel",
 				"location": "Test City",
 			})
 		}
 	}).Methods("POST")
-	
+
 	router.HandleFunc("/reviews", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"id": uuid.New(),
-				"rating": 4.5,
-				"title": "Great hotel",
+				"id":      uuid.New(),
+				"rating":  4.5,
+				"title":   "Great hotel",
 				"comment": "Had a wonderful stay",
 			})
 		case http.MethodGet:
@@ -499,7 +515,7 @@ func TestCompleteWorkflow(t *testing.T) {
 			"base_url":  "https://testprovider.com",
 			"is_active": true,
 		}
-		
+
 		body, _ := json.Marshal(providerReq)
 		resp, err := http.Post(server.URL+"/providers", "application/json", bytes.NewReader(body))
 		require.NoError(t, err)
@@ -524,7 +540,7 @@ func TestCompleteWorkflow(t *testing.T) {
 			"latitude":    40.7128,
 			"longitude":   -74.0060,
 		}
-		
+
 		body, _ := json.Marshal(hotelReq)
 		resp, err := http.Post(server.URL+"/hotels", "application/json", bytes.NewReader(body))
 		require.NoError(t, err)
@@ -543,21 +559,21 @@ func TestCompleteWorkflow(t *testing.T) {
 		// Create test JSONL data
 		reviews := []map[string]interface{}{
 			{
-				"review_id":    "test-review-1",
-				"hotel_name":   "Test Hotel",
-				"rating":       4.5,
-				"title":        "Great stay!",
-				"comment":      "Really enjoyed our stay at this hotel.",
-				"review_date":  time.Now().Format(time.RFC3339),
+				"review_id":     "test-review-1",
+				"hotel_name":    "Test Hotel",
+				"rating":        4.5,
+				"title":         "Great stay!",
+				"comment":       "Really enjoyed our stay at this hotel.",
+				"review_date":   time.Now().Format(time.RFC3339),
 				"reviewer_name": "John Doe",
 			},
 			{
-				"review_id":    "test-review-2",
-				"hotel_name":   "Test Hotel",
-				"rating":       3.0,
-				"title":        "Average experience",
-				"comment":      "The hotel was okay, nothing special.",
-				"review_date":  time.Now().Format(time.RFC3339),
+				"review_id":     "test-review-2",
+				"hotel_name":    "Test Hotel",
+				"rating":        3.0,
+				"title":         "Average experience",
+				"comment":       "The hotel was okay, nothing special.",
+				"review_date":   time.Now().Format(time.RFC3339),
 				"reviewer_name": "Jane Smith",
 			},
 		}
@@ -593,7 +609,7 @@ func TestCompleteWorkflow(t *testing.T) {
 			"file_url":    fmt.Sprintf("s3://%s/test-reviews.jsonl", bucketName),
 			"provider_id": providers[0].ID.String(),
 		}
-		
+
 		body, _ := json.Marshal(processReq)
 		resp, err := http.Post(server.URL+"/process", "application/json", bytes.NewReader(body))
 		require.NoError(t, err)
@@ -862,12 +878,12 @@ func BenchmarkWorkflow(b *testing.B) {
 // createTestJSONLFile creates a test JSONL file with specified number of reviews
 func createTestJSONLFile(t *testing.T, numReviews int) io.Reader {
 	var buf bytes.Buffer
-	
+
 	for i := 0; i < numReviews; i++ {
 		review := map[string]interface{}{
 			"review_id":     fmt.Sprintf("review-%d", i),
 			"hotel_name":    fmt.Sprintf("Hotel %d", i%10),
-			"rating":        float64(1 + (i%5)),
+			"rating":        float64(1 + (i % 5)),
 			"title":         fmt.Sprintf("Review title %d", i),
 			"comment":       fmt.Sprintf("This is review comment number %d with some text.", i),
 			"review_date":   time.Now().Add(-time.Duration(i) * time.Hour).Format(time.RFC3339),
@@ -875,38 +891,38 @@ func createTestJSONLFile(t *testing.T, numReviews int) io.Reader {
 			"trip_type":     []string{"business", "leisure", "family"}[i%3],
 			"language":      []string{"en", "es", "fr", "de"}[i%4],
 		}
-		
+
 		line, _ := json.Marshal(review)
 		buf.Write(line)
 		buf.WriteString("\n")
 	}
-	
+
 	return &buf
 }
 
 // waitForProcessing waits for a processing job to complete
 func waitForProcessing(t *testing.T, serverURL, processingID string, timeout time.Duration) {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(serverURL + "/processing/" + processingID)
 		require.NoError(t, err)
-		
+
 		var response map[string]interface{}
 		err = json.NewDecoder(resp.Body).Decode(&response)
 		resp.Body.Close()
 		require.NoError(t, err)
-		
+
 		data := response["data"].(map[string]interface{})
 		status := data["status"].(string)
-		
+
 		if status == "completed" || status == "failed" {
 			return
 		}
-		
+
 		time.Sleep(500 * time.Millisecond)
 	}
-	
+
 	t.Fatalf("Processing did not complete within timeout")
 }
 
@@ -917,7 +933,7 @@ func verifyDatabaseState(t *testing.T, db *sql.DB, expectedReviews, expectedHote
 	err := db.QueryRow("SELECT COUNT(*) FROM reviews").Scan(&reviewCount)
 	require.NoError(t, err)
 	assert.Equal(t, expectedReviews, reviewCount)
-	
+
 	// Count hotels
 	var hotelCount int
 	err = db.QueryRow("SELECT COUNT(*) FROM hotels").Scan(&hotelCount)
@@ -932,12 +948,12 @@ func TestRetryMechanism(t *testing.T) {
 		// Simulate temporary S3 failures
 		// Verify retry attempts
 	})
-	
+
 	t.Run("Database Temporary Failure", func(t *testing.T) {
 		// Simulate temporary database failures
 		// Verify retry attempts and eventual success
 	})
-	
+
 	t.Run("Kafka Temporary Failure", func(t *testing.T) {
 		// Simulate temporary Kafka failures
 		// Verify message retry and dead letter queue
@@ -950,7 +966,7 @@ func TestCircuitBreaker(t *testing.T) {
 	t.Run("S3 Circuit Breaker", func(t *testing.T) {
 		// Test circuit breaker opening on repeated S3 failures
 	})
-	
+
 	t.Run("Database Circuit Breaker", func(t *testing.T) {
 		// Test circuit breaker for database operations
 	})
@@ -964,7 +980,7 @@ func TestMetricsCollection(t *testing.T) {
 		// Verify record count metrics
 		// Verify error rate metrics
 	})
-	
+
 	t.Run("API Metrics", func(t *testing.T) {
 		// Verify API request count
 		// Verify API latency metrics

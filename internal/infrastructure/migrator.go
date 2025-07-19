@@ -28,7 +28,7 @@ func NewMigrator(pool *pgxpool.Pool, logger interface{}) *Migrator {
 func (m *Migrator) Up() error {
 	// Get standard database/sql connection from pgxpool
 	db := stdlib.OpenDBFromPool(m.pool)
-	
+
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
@@ -53,7 +53,7 @@ func (m *Migrator) Up() error {
 // Down rolls back the last migration
 func (m *Migrator) Down() error {
 	db := stdlib.OpenDBFromPool(m.pool)
-	
+
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
@@ -78,7 +78,7 @@ func (m *Migrator) Down() error {
 // Version returns the current migration version
 func (m *Migrator) Version() (uint, bool, error) {
 	db := stdlib.OpenDBFromPool(m.pool)
-	
+
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to create migration driver: %w", err)

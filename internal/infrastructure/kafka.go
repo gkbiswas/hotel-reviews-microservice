@@ -52,19 +52,19 @@ const (
 	ProcessingCancelledEvent EventType = "processing.cancelled"
 
 	// Review Events
-	ReviewCreatedEvent    EventType = "review.created"
-	ReviewUpdatedEvent    EventType = "review.updated"
-	ReviewDeletedEvent    EventType = "review.deleted"
-	ReviewValidatedEvent  EventType = "review.validated"
-	ReviewEnrichedEvent   EventType = "review.enriched"
-	ReviewBatchCreated    EventType = "review.batch.created"
-	ReviewBatchFailed     EventType = "review.batch.failed"
+	ReviewCreatedEvent   EventType = "review.created"
+	ReviewUpdatedEvent   EventType = "review.updated"
+	ReviewDeletedEvent   EventType = "review.deleted"
+	ReviewValidatedEvent EventType = "review.validated"
+	ReviewEnrichedEvent  EventType = "review.enriched"
+	ReviewBatchCreated   EventType = "review.batch.created"
+	ReviewBatchFailed    EventType = "review.batch.failed"
 
 	// Hotel Events
-	HotelCreatedEvent       EventType = "hotel.created"
-	HotelUpdatedEvent       EventType = "hotel.updated"
-	HotelSummaryUpdated     EventType = "hotel.summary.updated"
-	HotelAnalyticsUpdated   EventType = "hotel.analytics.updated"
+	HotelCreatedEvent     EventType = "hotel.created"
+	HotelUpdatedEvent     EventType = "hotel.updated"
+	HotelSummaryUpdated   EventType = "hotel.summary.updated"
+	HotelAnalyticsUpdated EventType = "hotel.analytics.updated"
 
 	// Provider Events
 	ProviderConnectedEvent    EventType = "provider.connected"
@@ -79,18 +79,18 @@ const (
 
 // BaseEvent represents the base structure for all events
 type BaseEvent struct {
-	ID          string                 `json:"id"`
-	Type        EventType              `json:"type"`
-	Source      string                 `json:"source"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Version     string                 `json:"version"`
-	CorrelationID string               `json:"correlation_id,omitempty"`
-	UserID      string                 `json:"user_id,omitempty"`
-	SessionID   string                 `json:"session_id,omitempty"`
-	TraceID     string                 `json:"trace_id,omitempty"`
-	SpanID      string                 `json:"span_id,omitempty"`
-	Data        map[string]interface{} `json:"data"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID            string                 `json:"id"`
+	Type          EventType              `json:"type"`
+	Source        string                 `json:"source"`
+	Timestamp     time.Time              `json:"timestamp"`
+	Version       string                 `json:"version"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
+	UserID        string                 `json:"user_id,omitempty"`
+	SessionID     string                 `json:"session_id,omitempty"`
+	TraceID       string                 `json:"trace_id,omitempty"`
+	SpanID        string                 `json:"span_id,omitempty"`
+	Data          map[string]interface{} `json:"data"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // ProcessingEvent represents file processing events
@@ -124,14 +124,14 @@ type ReviewEvent struct {
 // HotelEvent represents hotel-related events
 type HotelEvent struct {
 	BaseEvent
-	HotelID         uuid.UUID `json:"hotel_id"`
-	HotelName       string    `json:"hotel_name"`
-	City            string    `json:"city,omitempty"`
-	Country         string    `json:"country,omitempty"`
-	TotalReviews    int       `json:"total_reviews,omitempty"`
-	AverageRating   float64   `json:"average_rating,omitempty"`
-	PreviousRating  float64   `json:"previous_rating,omitempty"`
-	RatingChange    float64   `json:"rating_change,omitempty"`
+	HotelID        uuid.UUID `json:"hotel_id"`
+	HotelName      string    `json:"hotel_name"`
+	City           string    `json:"city,omitempty"`
+	Country        string    `json:"country,omitempty"`
+	TotalReviews   int       `json:"total_reviews,omitempty"`
+	AverageRating  float64   `json:"average_rating,omitempty"`
+	PreviousRating float64   `json:"previous_rating,omitempty"`
+	RatingChange   float64   `json:"rating_change,omitempty"`
 }
 
 // ProviderEvent represents provider-related events
@@ -147,11 +147,11 @@ type ProviderEvent struct {
 // SystemEvent represents system-level events
 type SystemEvent struct {
 	BaseEvent
-	Component     string                 `json:"component"`
-	Status        string                 `json:"status"`
-	Message       string                 `json:"message,omitempty"`
-	Metrics       map[string]interface{} `json:"metrics,omitempty"`
-	ErrorDetails  map[string]interface{} `json:"error_details,omitempty"`
+	Component    string                 `json:"component"`
+	Status       string                 `json:"status"`
+	Message      string                 `json:"message,omitempty"`
+	Metrics      map[string]interface{} `json:"metrics,omitempty"`
+	ErrorDetails map[string]interface{} `json:"error_details,omitempty"`
 }
 
 // KafkaProducer handles publishing events to Kafka
@@ -172,14 +172,14 @@ func NewKafkaProducer(config *KafkaConfig, logger *logger.Logger) (*KafkaProduce
 
 	// Create Kafka writer
 	writer := &kafka.Writer{
-		Addr:                   kafka.TCP(config.Brokers...),
-		BatchSize:              config.BatchSize,
-		BatchTimeout:           config.BatchTimeout,
-		RequiredAcks:           kafka.RequireAll,
-		Async:                  false,
-		WriteTimeout:           config.ProducerFlushTimeout,
-		ReadTimeout:            config.ConsumerTimeout,
-		ErrorLogger:            kafka.LoggerFunc(func(msg string, args ...interface{}) {
+		Addr:         kafka.TCP(config.Brokers...),
+		BatchSize:    config.BatchSize,
+		BatchTimeout: config.BatchTimeout,
+		RequiredAcks: kafka.RequireAll,
+		Async:        false,
+		WriteTimeout: config.ProducerFlushTimeout,
+		ReadTimeout:  config.ConsumerTimeout,
+		ErrorLogger: kafka.LoggerFunc(func(msg string, args ...interface{}) {
 			logger.Error("Kafka producer error", "message", fmt.Sprintf(msg, args...))
 		}),
 	}
@@ -981,7 +981,7 @@ func NewRetryableEventHandler(handler EventHandler, maxRetries int, retryDelay t
 // Handle handles an event with retry logic
 func (h *RetryableEventHandler) Handle(ctx context.Context, event interface{}) error {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= h.maxRetries; attempt++ {
 		if attempt > 0 {
 			h.logger.InfoContext(ctx, "Retrying event handling",
@@ -991,7 +991,7 @@ func (h *RetryableEventHandler) Handle(ctx context.Context, event interface{}) e
 			)
 			time.Sleep(h.retryDelay)
 		}
-		
+
 		if err := h.handler.Handle(ctx, event); err != nil {
 			lastErr = err
 			h.logger.WarnContext(ctx, "Event handling failed",
@@ -1001,10 +1001,10 @@ func (h *RetryableEventHandler) Handle(ctx context.Context, event interface{}) e
 			)
 			continue
 		}
-		
+
 		return nil
 	}
-	
+
 	return fmt.Errorf("event handling failed after %d attempts: %w", h.maxRetries, lastErr)
 }
 

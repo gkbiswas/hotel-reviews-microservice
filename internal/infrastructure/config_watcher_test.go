@@ -11,17 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
-
 )
 
 // Test configuration structures
 type TestConfig struct {
-	Name        string        `json:"name" validate:"required"`
-	Port        int           `json:"port" validate:"min=1,max=65535"`
-	Timeout     time.Duration `json:"timeout" validate:"required"`
-	Features    []string      `json:"features"`
+	Name        string         `json:"name" validate:"required"`
+	Port        int            `json:"port" validate:"min=1,max=65535"`
+	Timeout     time.Duration  `json:"timeout" validate:"required"`
+	Features    []string       `json:"features"`
 	Database    DatabaseConfig `json:"database"`
-	EnableDebug bool          `json:"enable_debug"`
+	EnableDebug bool           `json:"enable_debug"`
 }
 
 // DatabaseConfig is defined in database_config.go
@@ -71,20 +70,20 @@ func createTestLogger() *mockLogger {
 
 func createTestConfig() TestConfig {
 	return TestConfig{
-		Name:    "test-service",
-		Port:    8080,
-		Timeout: 30 * time.Second,
+		Name:     "test-service",
+		Port:     8080,
+		Timeout:  30 * time.Second,
 		Features: []string{"auth", "logging"},
 		Database: DatabaseConfig{
-			Host:     "localhost",
-			Port:     5432,
-			Database: "testdb",
-			Username: "testuser",
-			Password: "testpass",
-			SSLMode:  "disable",
-			MaxConns: 10,
-			MinConns: 2,
-			ConnTTL:  time.Hour,
+			Host:         "localhost",
+			Port:         5432,
+			Database:     "testdb",
+			Username:     "testuser",
+			Password:     "testpass",
+			SSLMode:      "disable",
+			MaxConns:     10,
+			MinConns:     2,
+			ConnTTL:      time.Hour,
 			QueryTimeout: 30 * time.Second,
 		},
 		EnableDebug: true,
@@ -265,7 +264,7 @@ func TestConfigWatcher_WatchEnvVar(t *testing.T) {
 	t.Run("watch existing environment variable", func(t *testing.T) {
 		envVar := "TEST_CONFIG_VAR"
 		expectedValue := "test_value"
-		
+
 		// Set environment variable
 		os.Setenv(envVar, expectedValue)
 		defer os.Unsetenv(envVar)
@@ -297,7 +296,7 @@ func TestConfigWatcher_FileChanges(t *testing.T) {
 	logger := createTestLogger()
 	options := DefaultConfigWatcherOptions()
 	options.WatchIntervalSec = 1 // Faster polling for tests
-	
+
 	watcher, err := NewConfigWatcher(logger, options)
 	require.NoError(t, err)
 	defer watcher.Stop()
@@ -309,7 +308,7 @@ func TestConfigWatcher_FileChanges(t *testing.T) {
 	// Setup change callback
 	changeDetected := make(chan bool, 1)
 	var callbackOldConfig, callbackNewConfig interface{}
-	
+
 	watcher.RegisterChangeCallback("file_config", func(configName string, oldConfig, newConfig interface{}) error {
 		callbackOldConfig = oldConfig
 		callbackNewConfig = newConfig
@@ -341,7 +340,7 @@ func TestConfigWatcher_FileChanges(t *testing.T) {
 
 	configData, err := json.MarshalIndent(modifiedConfig, "", "  ")
 	require.NoError(t, err)
-	
+
 	// Write new configuration
 	err = os.WriteFile(configFile, configData, 0644)
 	require.NoError(t, err)
@@ -352,18 +351,18 @@ func TestConfigWatcher_FileChanges(t *testing.T) {
 		// Change was detected
 		assert.NotNil(t, callbackOldConfig)
 		assert.NotNil(t, callbackNewConfig)
-		
+
 		// Verify the new configuration was loaded
 		currentConfig, exists := watcher.GetConfig("file_config")
 		assert.True(t, exists)
-		
+
 		if configMap, ok := currentConfig.(map[string]interface{}); ok {
 			assert.Equal(t, float64(9090), configMap["port"]) // JSON numbers are float64
 			if enableDebug, ok := configMap["enable_debug"].(bool); ok {
 				assert.False(t, enableDebug)
 			}
 		}
-		
+
 	case <-time.After(5 * time.Second):
 		t.Fatal("Configuration change was not detected within timeout")
 	}
@@ -373,14 +372,14 @@ func TestConfigWatcher_EnvironmentChanges(t *testing.T) {
 	logger := createTestLogger()
 	options := DefaultConfigWatcherOptions()
 	options.EnvCheckIntervalSec = 1 // Faster polling for tests
-	
+
 	watcher, err := NewConfigWatcher(logger, options)
 	require.NoError(t, err)
 	defer watcher.Stop()
 
 	envVar := "TEST_ENV_CHANGE"
 	initialValue := "initial_value"
-	
+
 	// Set initial value
 	os.Setenv(envVar, initialValue)
 	defer os.Unsetenv(envVar)
@@ -388,7 +387,7 @@ func TestConfigWatcher_EnvironmentChanges(t *testing.T) {
 	// Setup change callback
 	changeDetected := make(chan bool, 1)
 	var callbackNewConfig interface{}
-	
+
 	configKey := fmt.Sprintf("env:%s", envVar)
 	watcher.RegisterChangeCallback(configKey, func(configName string, oldConfig, newConfig interface{}) error {
 		callbackNewConfig = newConfig
@@ -411,12 +410,12 @@ func TestConfigWatcher_EnvironmentChanges(t *testing.T) {
 	select {
 	case <-changeDetected:
 		assert.Equal(t, newValue, callbackNewConfig)
-		
+
 		// Verify the new value was stored
 		currentConfig, exists := watcher.GetConfig(configKey)
 		assert.True(t, exists)
 		assert.Equal(t, newValue, currentConfig)
-		
+
 	case <-time.After(3 * time.Second):
 		t.Fatal("Environment variable change was not detected within timeout")
 	}
@@ -472,13 +471,13 @@ func TestConfigWatcher_Rollback(t *testing.T) {
 	options := DefaultConfigWatcherOptions()
 	options.EnableRollback = true
 	options.MaxHistorySize = 5
-	
+
 	watcher, err := NewConfigWatcher(logger, options)
 	require.NoError(t, err)
 	defer watcher.Stop()
 
 	configName := "rollback_test"
-	
+
 	// Register initial configuration
 	config1 := map[string]interface{}{"version": 1, "setting": "value1"}
 	err = watcher.RegisterConfig(configName, config1)
@@ -517,7 +516,7 @@ func TestConfigWatcher_RollbackDisabled(t *testing.T) {
 	logger := createTestLogger()
 	options := DefaultConfigWatcherOptions()
 	options.EnableRollback = false
-	
+
 	watcher, err := NewConfigWatcher(logger, options)
 	require.NoError(t, err)
 	defer watcher.Stop()
@@ -534,7 +533,7 @@ func TestConfigWatcher_CallbackError(t *testing.T) {
 	defer watcher.Stop()
 
 	configName := "callback_error_test"
-	
+
 	// Register configuration
 	initialConfig := map[string]interface{}{"value": 1}
 	err = watcher.RegisterConfig(configName, initialConfig)
@@ -565,7 +564,7 @@ func TestConfigWatcher_Metrics(t *testing.T) {
 	// Register some configurations
 	err = watcher.RegisterConfig("config1", map[string]interface{}{"test": 1})
 	require.NoError(t, err)
-	
+
 	err = watcher.RegisterConfig("config2", map[string]interface{}{"test": 2})
 	require.NoError(t, err)
 
@@ -574,7 +573,7 @@ func TestConfigWatcher_Metrics(t *testing.T) {
 	watcher.RegisterChangeCallback("config1", func(string, interface{}, interface{}) error { return nil })
 
 	metrics := watcher.GetMetrics()
-	
+
 	assert.Equal(t, int64(0), metrics["reload_count"])
 	assert.Equal(t, int64(0), metrics["error_count"])
 	assert.Equal(t, 0, metrics["watched_files"])
@@ -611,7 +610,7 @@ func TestConfigWatcher_ConcurrentAccess(t *testing.T) {
 	defer watcher.Stop()
 
 	configName := "concurrent_test"
-	
+
 	// Register initial configuration
 	initialConfig := map[string]interface{}{"counter": 0}
 	err = watcher.RegisterConfig(configName, initialConfig)
@@ -693,10 +692,10 @@ func TestConfigWatcher_FileRecreation(t *testing.T) {
 	// Recreate the file with new content
 	newConfig := createTestConfig()
 	newConfig.Port = 9999
-	
+
 	newData, err := json.MarshalIndent(newConfig, "", "  ")
 	require.NoError(t, err)
-	
+
 	time.Sleep(100 * time.Millisecond) // Brief delay before recreation
 	err = os.WriteFile(configFile, newData, 0644)
 	require.NoError(t, err)
@@ -707,11 +706,11 @@ func TestConfigWatcher_FileRecreation(t *testing.T) {
 		// Verify new configuration was loaded
 		currentConfig, exists := watcher.GetConfig("recreated_config")
 		assert.True(t, exists)
-		
+
 		if configMap, ok := currentConfig.(map[string]interface{}); ok {
 			assert.Equal(t, float64(9999), configMap["port"])
 		}
-		
+
 	case <-time.After(10 * time.Second):
 		t.Log("File recreation change detection timed out - this may be expected depending on OS")
 		// Don't fail the test as file recreation detection can be unreliable

@@ -60,7 +60,7 @@ func TestRetryManager_BasicRetry(t *testing.T) {
 	config.MaxAttempts = 3
 	config.BaseDelay = 10 * time.Millisecond
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -71,10 +71,10 @@ func TestRetryManager_BasicRetry(t *testing.T) {
 	t.Run("success_on_first_attempt", func(t *testing.T) {
 		fn := mockRetryableFunc(0, "success")
 		result, err := rm.Execute(context.Background(), fn)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "success", result)
-		
+
 		metrics := rm.GetMetrics()
 		assert.Equal(t, uint64(1), metrics.TotalOperations)
 		assert.Equal(t, uint64(1), metrics.SuccessfulOperations)
@@ -85,10 +85,10 @@ func TestRetryManager_BasicRetry(t *testing.T) {
 	t.Run("success_on_second_attempt", func(t *testing.T) {
 		fn := mockRetryableFunc(1, "success")
 		result, err := rm.Execute(context.Background(), fn)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "success", result)
-		
+
 		metrics := rm.GetMetrics()
 		assert.Equal(t, uint64(2), metrics.TotalOperations)
 		assert.Equal(t, uint64(2), metrics.SuccessfulOperations)
@@ -99,10 +99,10 @@ func TestRetryManager_BasicRetry(t *testing.T) {
 	t.Run("failure_after_all_attempts", func(t *testing.T) {
 		fn := mockRetryableFunc(5, "success") // Fail more than max attempts
 		result, err := rm.Execute(context.Background(), fn)
-		
+
 		require.Error(t, err)
 		assert.Nil(t, result)
-		
+
 		metrics := rm.GetMetrics()
 		assert.Equal(t, uint64(3), metrics.TotalOperations)
 		assert.Equal(t, uint64(1), metrics.FailedOperations)
@@ -119,7 +119,7 @@ func TestRetryManager_ExponentialBackoff(t *testing.T) {
 	config.Multiplier = 2.0
 	config.JitterType = JitterTypeNone
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -148,7 +148,7 @@ func TestRetryManager_FixedDelay(t *testing.T) {
 	config.Strategy = StrategyFixedDelay
 	config.JitterType = JitterTypeNone
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -177,7 +177,7 @@ func TestRetryManager_LinearBackoff(t *testing.T) {
 	config.Multiplier = 1.0
 	config.JitterType = JitterTypeNone
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -205,7 +205,7 @@ func TestRetryManager_FibonacciBackoff(t *testing.T) {
 	config.Strategy = StrategyFibonacciBackoff
 	config.JitterType = JitterTypeNone
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -236,7 +236,7 @@ func TestRetryManager_CustomBackoff(t *testing.T) {
 	config.CustomBackoff = func(attempt int, baseDelay time.Duration) time.Duration {
 		return time.Duration(attempt*attempt) * baseDelay // Quadratic backoff
 	}
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -264,7 +264,7 @@ func TestRetryManager_Jitter(t *testing.T) {
 	config.Strategy = StrategyFixedDelay
 	config.JitterType = JitterTypeFull
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -304,7 +304,7 @@ func TestRetryManager_MaxDelay(t *testing.T) {
 	config.Multiplier = 10.0 // Large multiplier to test max delay
 	config.JitterType = JitterTypeNone
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -476,7 +476,7 @@ func TestRetryManager_CustomRetryConditions(t *testing.T) {
 	config.MaxAttempts = 3
 	config.BaseDelay = 10 * time.Millisecond
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -509,7 +509,7 @@ func TestRetryManager_DeadLetterQueue(t *testing.T) {
 	config.BaseDelay = 10 * time.Millisecond
 	config.EnableDeadLetter = true
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -534,7 +534,7 @@ func TestRetryManager_DeadLetterQueue(t *testing.T) {
 
 func TestRetryManager_CircuitBreakerIntegration(t *testing.T) {
 	logger, _ := logger.New(&logger.Config{Level: "debug", Format: "json"})
-	
+
 	// Create circuit breaker with low thresholds for testing
 	cbConfig := DefaultCircuitBreakerConfig()
 	cbConfig.FailureThreshold = 2
@@ -549,7 +549,7 @@ func TestRetryManager_CircuitBreakerIntegration(t *testing.T) {
 	config.BaseDelay = 10 * time.Millisecond
 	config.EnableCircuitBreaker = true
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -558,7 +558,7 @@ func TestRetryManager_CircuitBreakerIntegration(t *testing.T) {
 
 	// First few operations should fail and open the circuit
 	fn := mockRetryableFunc(5, "success") // Always fails
-	
+
 	for i := 0; i < 3; i++ {
 		result, err := rm.Execute(context.Background(), fn)
 		require.Error(t, err)
@@ -584,7 +584,7 @@ func TestRetryManager_Metrics(t *testing.T) {
 	config.MaxAttempts = 3
 	config.BaseDelay = 10 * time.Millisecond
 	config.EnableLogging = false
-	
+
 	// Make system errors retryable for this test
 	config.RetryableErrors = append(config.RetryableErrors, ErrorTypeSystem)
 
@@ -610,7 +610,7 @@ func TestRetryManager_Metrics(t *testing.T) {
 	assert.Equal(t, uint64(3), metrics.TotalOperations)
 	assert.Equal(t, uint64(2), metrics.SuccessfulOperations)
 	assert.Equal(t, uint64(1), metrics.FailedOperations)
-	assert.Equal(t, uint64(3), metrics.TotalRetries) // 0 + 1 + 2 retries
+	assert.Equal(t, uint64(3), metrics.TotalRetries)                // 0 + 1 + 2 retries
 	assert.Equal(t, 66.67, math.Round(metrics.SuccessRate*100)/100) // 2/3 * 100
 	assert.Equal(t, 33.33, math.Round(metrics.FailureRate*100)/100) // 1/3 * 100
 }
@@ -779,4 +779,3 @@ func BenchmarkRetryManager_RetryOperation(b *testing.B) {
 		}
 	}
 }
-

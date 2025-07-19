@@ -19,12 +19,12 @@ import (
 
 // TracingConfig holds configuration for tracing
 type TracingConfig struct {
-	ServiceName     string
-	ServiceVersion  string
-	Environment     string
-	JaegerEndpoint  string
-	SamplingRate    float64
-	Enabled         bool
+	ServiceName    string
+	ServiceVersion string
+	Environment    string
+	JaegerEndpoint string
+	SamplingRate   float64
+	Enabled        bool
 }
 
 // TracingService provides distributed tracing functionality

@@ -32,7 +32,7 @@ func (m *HTTPMiddleware) MetricsMiddleware(next http.Handler) http.Handler {
 		}
 
 		start := time.Now()
-		
+
 		// Get route template if available
 		route := mux.CurrentRoute(r)
 		endpoint := r.URL.Path
@@ -41,25 +41,25 @@ func (m *HTTPMiddleware) MetricsMiddleware(next http.Handler) http.Handler {
 				endpoint = template
 			}
 		}
-		
+
 		// Record request in flight
 		m.service.metricsService.metrics.HTTPRequestsInFlight.WithLabelValues(r.Method, endpoint).Inc()
 		defer m.service.metricsService.metrics.HTTPRequestsInFlight.WithLabelValues(r.Method, endpoint).Dec()
-		
+
 		// Wrap response writer to capture status code and response size
 		wrappedWriter := &responseWriter{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK,
 			responseSize:   0,
 		}
-		
+
 		// Process request
 		next.ServeHTTP(wrappedWriter, r)
-		
+
 		// Record metrics
 		duration := time.Since(start)
 		statusCode := strconv.Itoa(wrappedWriter.statusCode)
-		
+
 		m.service.RecordHTTPRequest(r.Method, endpoint, statusCode, duration, wrappedWriter.responseSize)
 	})
 }
@@ -73,10 +73,10 @@ func (m *HTTPMiddleware) TracingMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := r.Context()
-		
+
 		// Extract trace context from headers
 		ctx = m.service.tracingService.ExtractTraceContext(ctx, &HTTPHeaderCarrier{headers: r.Header})
-		
+
 		// Get route template if available
 		route := mux.CurrentRoute(r)
 		endpoint := r.URL.Path
@@ -85,7 +85,7 @@ func (m *HTTPMiddleware) TracingMiddleware(next http.Handler) http.Handler {
 				endpoint = template
 			}
 		}
-		
+
 		// Start span
 		ctx, span := m.service.tracingService.StartSpan(ctx, r.Method+" "+endpoint,
 			trace.WithAttributes(
@@ -98,10 +98,10 @@ func (m *HTTPMiddleware) TracingMiddleware(next http.Handler) http.Handler {
 			),
 		)
 		defer span.End()
-		
+
 		// Add trace context to response headers
 		m.service.tracingService.InjectTraceContext(ctx, &HTTPHeaderCarrier{headers: w.Header()})
-		
+
 		// Process request with tracing context
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -111,19 +111,19 @@ func (m *HTTPMiddleware) TracingMiddleware(next http.Handler) http.Handler {
 func (m *HTTPMiddleware) HealthCheckMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip health check for monitoring endpoints
-		if r.URL.Path == "/health" || r.URL.Path == "/healthz" || 
-		   r.URL.Path == "/readiness" || r.URL.Path == "/liveness" ||
-		   r.URL.Path == "/metrics" {
+		if r.URL.Path == "/health" || r.URL.Path == "/healthz" ||
+			r.URL.Path == "/readiness" || r.URL.Path == "/liveness" ||
+			r.URL.Path == "/metrics" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// Check if service is healthy
 		if m.service.healthService != nil && !m.service.healthService.IsHealthy() {
 			// Log the unhealthy state but don't fail requests
 			m.service.logger.Warn("Service is not healthy but processing request")
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -137,13 +137,13 @@ func (m *HTTPMiddleware) BusinessMetricsMiddleware(next http.Handler) http.Handl
 		}
 
 		start := time.Now()
-		
+
 		// Process request
 		next.ServeHTTP(w, r)
-		
+
 		// Record business metrics based on the endpoint
 		duration := time.Since(start)
-		
+
 		// Example: Record different metrics based on the endpoint
 		switch r.URL.Path {
 		case "/api/v1/reviews":
@@ -232,7 +232,7 @@ func (m *DatabaseMiddleware) GORMCallback(tableName string) func(interface{}) {
 		// This would be implemented with actual GORM callback logic
 		// For now, it's a placeholder
 		start := time.Now()
-		
+
 		// After the query executes, record metrics
 		duration := time.Since(start)
 		m.service.RecordDatabaseQuery(tableName, "query", duration, nil)
@@ -254,25 +254,25 @@ func NewFileProcessingMiddleware(service *Service) *FileProcessingMiddleware {
 // WrapFileProcessor wraps file processing operations with monitoring
 func (m *FileProcessingMiddleware) WrapFileProcessor(provider, fileURL string, fn func(ctx context.Context) error) error {
 	ctx := context.Background()
-	
+
 	return m.service.TraceFileProcessing(ctx, provider, fileURL, func(ctx context.Context) error {
 		start := time.Now()
-		
+
 		err := fn(ctx)
-		
+
 		duration := time.Since(start)
 		status := "success"
 		if err != nil {
 			status = "error"
 		}
-		
+
 		// Record metrics
 		m.service.RecordReviewProcessed(provider, status, duration)
-		
+
 		if m.service.businessMetrics != nil {
 			m.service.businessMetrics.RecordFileProcessing(provider, "jsonl", status, duration, 0, 0)
 		}
-		
+
 		return err
 	})
 }
@@ -293,18 +293,18 @@ func NewS3OperationMiddleware(service *Service) *S3OperationMiddleware {
 func (m *S3OperationMiddleware) WrapS3Operation(ctx context.Context, operation, bucket, key string, fn func(ctx context.Context) error) error {
 	return m.service.TraceS3Operation(ctx, operation, bucket, key, func(ctx context.Context) error {
 		start := time.Now()
-		
+
 		err := fn(ctx)
-		
+
 		duration := time.Since(start)
 		status := "success"
 		if err != nil {
 			status = "error"
 		}
-		
+
 		// Record metrics
 		m.service.RecordS3Operation(operation, bucket, status, duration, 0)
-		
+
 		return err
 	})
 }

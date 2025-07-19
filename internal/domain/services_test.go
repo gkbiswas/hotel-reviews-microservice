@@ -545,7 +545,7 @@ func (suite *ReviewServiceTestSuite) SetupTest() {
 	suite.mockRepo.On("CreateProcessingStatus", mock.Anything, mock.Anything).Return(nil).Maybe()
 	suite.mockS3Client.On("DownloadFile", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), errors.New("mock error")).Maybe()
 	suite.mockJSONProcessor.On("ProcessFile", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
-	
+
 	// Event publisher expectations
 	suite.mockEventPublisher.On("PublishProcessingStarted", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.AnythingOfType("uuid.UUID")).Return(nil).Maybe()
 	suite.mockEventPublisher.On("PublishProcessingCompleted", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.AnythingOfType("int")).Return(nil).Maybe()
@@ -555,17 +555,17 @@ func (suite *ReviewServiceTestSuite) SetupTest() {
 	suite.mockEventPublisher.On("PublishReviewDeleted", mock.Anything, mock.Anything).Return(nil).Maybe()
 	suite.mockEventPublisher.On("PublishHotelCreated", mock.Anything, mock.Anything).Return(nil).Maybe()
 	suite.mockEventPublisher.On("PublishHotelUpdated", mock.Anything, mock.Anything).Return(nil).Maybe()
-	
+
 	// Notification service expectations
 	suite.mockNotificationService.On("SendProcessingComplete", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.AnythingOfType("string"), mock.AnythingOfType("int")).Return(nil).Maybe()
 	suite.mockNotificationService.On("SendProcessingFailed", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.AnythingOfType("string")).Return(nil).Maybe()
-	
+
 	// Metrics service expectations
 	suite.mockMetricsService.On("IncrementCounter", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil).Maybe()
 	suite.mockMetricsService.On("RecordProcessingTime", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.AnythingOfType("time.Duration")).Return(nil).Maybe()
 	suite.mockMetricsService.On("RecordHistogram", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("float64"), mock.Anything).Return(nil).Maybe()
 	suite.mockMetricsService.On("RecordGauge", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("float64"), mock.Anything).Return(nil).Maybe()
-	
+
 	// Cache service expectations
 	suite.mockCacheService.On("InvalidateReviewSummary", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil).Maybe()
 	suite.mockCacheService.On("SetReviewSummary", mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, mock.AnythingOfType("time.Duration")).Return(nil).Maybe()
@@ -624,7 +624,7 @@ func (suite *ReviewServiceTestSuite) createTestProvider() *Provider {
 func (suite *ReviewServiceTestSuite) TestCreateReview_Success() {
 	// Arrange
 	review := suite.createTestReview()
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, review).Return(nil)
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(nil)
@@ -653,7 +653,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_RepositoryError() {
 	// Arrange
 	review := suite.createTestReview()
 	expectedError := errors.New("database error")
-	
+
 	// Override the global expectation with a specific one
 	suite.mockRepo.ExpectedCalls = nil // Clear existing expectations
 	suite.mockRepo.On("CreateBatch", mock.Anything, mock.MatchedBy(func(reviews []Review) bool {
@@ -671,7 +671,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_RepositoryError() {
 func (suite *ReviewServiceTestSuite) TestGetReviewByID_Success() {
 	// Arrange
 	review := suite.createTestReview()
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return(review, nil)
 
 	// Act
@@ -686,7 +686,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewByID_NotFound() {
 	// Arrange
 	reviewID := uuid.New()
 	expectedError := errors.New("review not found")
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, reviewID).Return((*Review)(nil), expectedError)
 
 	// Act
@@ -703,7 +703,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewsByHotel_Success() {
 	hotelID := uuid.New()
 	reviews := []Review{*suite.createTestReview(), *suite.createTestReview()}
 	limit, offset := 10, 0
-	
+
 	suite.mockRepo.On("GetByHotel", suite.ctx, hotelID, limit, offset).Return(reviews, nil)
 
 	// Act
@@ -719,7 +719,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewsByProvider_Success() {
 	providerID := uuid.New()
 	reviews := []Review{*suite.createTestReview(), *suite.createTestReview()}
 	limit, offset := 10, 0
-	
+
 	suite.mockRepo.On("GetByProvider", suite.ctx, providerID, limit, offset).Return(reviews, nil)
 
 	// Act
@@ -734,7 +734,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_Success() {
 	// Arrange
 	review := suite.createTestReview()
 	existingReview := suite.createTestReview()
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return(existingReview, nil)
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewUpdated", suite.ctx, review).Return(nil)
@@ -750,7 +750,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_Success() {
 func (suite *ReviewServiceTestSuite) TestDeleteReview_Success() {
 	// Arrange
 	review := suite.createTestReview()
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return(review, nil)
 	suite.mockRepo.On("DeleteByID", suite.ctx, review.ID).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewDeleted", suite.ctx, review.ID).Return(nil)
@@ -769,7 +769,7 @@ func (suite *ReviewServiceTestSuite) TestSearchReviews_Success() {
 	filters := map[string]interface{}{"rating": 4.0}
 	reviews := []Review{*suite.createTestReview()}
 	limit, offset := 10, 0
-	
+
 	suite.mockRepo.On("Search", suite.ctx, query, filters, limit, offset).Return(reviews, nil)
 
 	// Act
@@ -784,7 +784,7 @@ func (suite *ReviewServiceTestSuite) TestSearchReviews_Success() {
 func (suite *ReviewServiceTestSuite) TestCreateHotel_Success() {
 	// Arrange
 	hotel := suite.createTestHotel()
-	
+
 	suite.mockRepo.On("CreateHotel", suite.ctx, hotel).Return(nil)
 	suite.mockEventPublisher.On("PublishHotelCreated", suite.ctx, hotel).Return(nil)
 
@@ -811,7 +811,7 @@ func (suite *ReviewServiceTestSuite) TestCreateHotel_ValidationError() {
 func (suite *ReviewServiceTestSuite) TestGetHotelByID_Success() {
 	// Arrange
 	hotel := suite.createTestHotel()
-	
+
 	suite.mockRepo.On("GetHotelByID", suite.ctx, hotel.ID).Return(hotel, nil)
 
 	// Act
@@ -826,7 +826,7 @@ func (suite *ReviewServiceTestSuite) TestListHotels_Success() {
 	// Arrange
 	hotels := []Hotel{*suite.createTestHotel(), *suite.createTestHotel()}
 	limit, offset := 10, 0
-	
+
 	suite.mockRepo.On("ListHotels", suite.ctx, limit, offset).Return(hotels, nil)
 
 	// Act
@@ -841,7 +841,7 @@ func (suite *ReviewServiceTestSuite) TestListHotels_Success() {
 func (suite *ReviewServiceTestSuite) TestCreateProvider_Success() {
 	// Arrange
 	provider := suite.createTestProvider()
-	
+
 	suite.mockRepo.On("CreateProvider", suite.ctx, provider).Return(nil)
 
 	// Act
@@ -854,7 +854,7 @@ func (suite *ReviewServiceTestSuite) TestCreateProvider_Success() {
 func (suite *ReviewServiceTestSuite) TestGetProviderByID_Success() {
 	// Arrange
 	provider := suite.createTestProvider()
-	
+
 	suite.mockRepo.On("GetProviderByID", suite.ctx, provider.ID).Return(provider, nil)
 
 	// Act
@@ -868,7 +868,7 @@ func (suite *ReviewServiceTestSuite) TestGetProviderByID_Success() {
 func (suite *ReviewServiceTestSuite) TestGetProviderByName_Success() {
 	// Arrange
 	provider := suite.createTestProvider()
-	
+
 	suite.mockRepo.On("GetProviderByName", suite.ctx, provider.Name).Return(provider, nil)
 
 	// Act
@@ -883,7 +883,7 @@ func (suite *ReviewServiceTestSuite) TestListProviders_Success() {
 	// Arrange
 	providers := []Provider{*suite.createTestProvider(), *suite.createTestProvider()}
 	limit, offset := 10, 0
-	
+
 	suite.mockRepo.On("ListProviders", suite.ctx, limit, offset).Return(providers, nil)
 
 	// Act
@@ -899,7 +899,7 @@ func (suite *ReviewServiceTestSuite) TestProcessReviewFile_Success() {
 	// Arrange
 	fileURL := "s3://test-bucket/reviews.jsonl"
 	providerID := uuid.New()
-	
+
 	suite.mockRepo.On("CreateProcessingStatus", suite.ctx, mock.AnythingOfType("*domain.ReviewProcessingStatus")).Return(nil)
 	// Mock the async UpdateProcessingStatus call that happens in goroutine
 	suite.mockRepo.On("UpdateProcessingStatus", mock.Anything, mock.AnythingOfType("uuid.UUID"), "processing", 0, "").Return(nil).Maybe()
@@ -924,7 +924,7 @@ func (suite *ReviewServiceTestSuite) TestGetProcessingStatus_Success() {
 		ID:     processingID,
 		Status: "completed",
 	}
-	
+
 	suite.mockRepo.On("GetProcessingStatusByID", suite.ctx, processingID).Return(status, nil)
 
 	// Act
@@ -943,7 +943,7 @@ func (suite *ReviewServiceTestSuite) TestGetProcessingHistory_Success() {
 		{ID: uuid.New(), Status: "failed"},
 	}
 	limit, offset := 10, 0
-	
+
 	suite.mockRepo.On("GetProcessingStatusByProvider", suite.ctx, providerID, limit, offset).Return(history, nil)
 
 	// Act
@@ -963,7 +963,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewSummary_CacheHit() {
 		TotalReviews:  100,
 		AverageRating: 4.5,
 	}
-	
+
 	suite.mockCacheService.On("GetReviewSummary", suite.ctx, hotelID).Return(summary, nil)
 
 	// Act
@@ -982,7 +982,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewSummary_CacheMiss() {
 		TotalReviews:  100,
 		AverageRating: 4.5,
 	}
-	
+
 	suite.mockCacheService.On("GetReviewSummary", suite.ctx, hotelID).Return((*ReviewSummary)(nil), errors.New("cache miss"))
 	suite.mockRepo.On("GetReviewSummaryByHotelID", suite.ctx, hotelID).Return(summary, nil)
 	suite.mockCacheService.On("SetReviewSummary", suite.ctx, hotelID, summary, mock.AnythingOfType("time.Duration")).Return(nil)
@@ -999,7 +999,7 @@ func (suite *ReviewServiceTestSuite) TestGetTopRatedHotels_Success() {
 	// Arrange
 	hotels := []Hotel{*suite.createTestHotel(), *suite.createTestHotel()}
 	limit := 10
-	
+
 	suite.mockRepo.On("ListHotels", suite.ctx, limit*2, 0).Return(hotels, nil)
 
 	// Act
@@ -1014,7 +1014,7 @@ func (suite *ReviewServiceTestSuite) TestGetRecentReviews_Success() {
 	// Arrange
 	reviews := []Review{*suite.createTestReview(), *suite.createTestReview()}
 	limit := 20
-	
+
 	suite.mockRepo.On("GetByDateRange", suite.ctx, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), limit, 0).Return(reviews, nil)
 
 	// Act
@@ -1099,7 +1099,7 @@ func (suite *ReviewServiceTestSuite) TestDetectDuplicateReviews_Success() {
 	// Arrange
 	review := suite.createTestReview()
 	duplicates := []Review{*suite.createTestReview()}
-	
+
 	suite.mockRepo.On("Search", suite.ctx, review.Comment, mock.AnythingOfType("map[string]interface {}"), 10, 0).Return(duplicates, nil)
 
 	// Act
@@ -1114,7 +1114,7 @@ func (suite *ReviewServiceTestSuite) TestDetectDuplicateReviews_Success() {
 func (suite *ReviewServiceTestSuite) TestProcessReviewBatch_Success() {
 	// Arrange
 	reviews := []Review{*suite.createTestReview(), *suite.createTestReview()}
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, reviews).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, &reviews[0]).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, &reviews[1]).Return(nil)
@@ -1143,7 +1143,7 @@ func (suite *ReviewServiceTestSuite) TestImportReviewsFromFile_Success() {
 	// Arrange
 	fileURL := "s3://test-bucket/reviews.jsonl"
 	providerID := uuid.New()
-	
+
 	suite.mockRepo.On("CreateProcessingStatus", suite.ctx, mock.AnythingOfType("*domain.ReviewProcessingStatus")).Return(nil)
 
 	// Act
@@ -1157,7 +1157,7 @@ func (suite *ReviewServiceTestSuite) TestImportReviewsFromFile_Success() {
 func (suite *ReviewServiceTestSuite) TestCreateReview_EventPublishError() {
 	// Arrange
 	review := suite.createTestReview()
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, review).Return(errors.New("event publish error"))
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(nil)
@@ -1172,7 +1172,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_EventPublishError() {
 func (suite *ReviewServiceTestSuite) TestCreateReview_CacheInvalidationError() {
 	// Arrange
 	review := suite.createTestReview()
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, review).Return(nil)
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(errors.New("cache error"))
@@ -1187,7 +1187,7 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_CacheInvalidationError() {
 func (suite *ReviewServiceTestSuite) TestGetReviewSummary_CacheError() {
 	// Arrange
 	hotelID := uuid.New()
-	
+
 	suite.mockCacheService.On("GetReviewSummary", suite.ctx, hotelID).Return((*ReviewSummary)(nil), errors.New("cache error"))
 	suite.mockRepo.On("GetReviewSummaryByHotelID", suite.ctx, hotelID).Return((*ReviewSummary)(nil), errors.New("not found"))
 
@@ -1208,7 +1208,7 @@ func TestReviewServiceSuite(t *testing.T) {
 func TestReviewService_SentimentDetection(t *testing.T) {
 	// Test sentiment detection logic
 	service := &ReviewServiceImpl{}
-	
+
 	tests := []struct {
 		comment  string
 		expected string
@@ -1219,7 +1219,7 @@ func TestReviewService_SentimentDetection(t *testing.T) {
 		{"Great service and excellent staff", "positive"},
 		{"Bad location and poor facilities", "negative"},
 	}
-	
+
 	for _, test := range tests {
 		t.Run(test.comment, func(t *testing.T) {
 			result := service.detectSentiment(test.comment)
@@ -1230,11 +1230,11 @@ func TestReviewService_SentimentDetection(t *testing.T) {
 
 func TestReviewService_ProcessingHashGeneration(t *testing.T) {
 	service := &ReviewServiceImpl{}
-	
+
 	review := &Review{
 		ID: uuid.New(),
 	}
-	
+
 	hash := service.generateProcessingHash(review)
 	assert.NotEmpty(t, hash)
 	assert.Len(t, hash, 32) // MD5 hash length
@@ -1242,9 +1242,9 @@ func TestReviewService_ProcessingHashGeneration(t *testing.T) {
 
 func TestReviewService_S3URLParsing(t *testing.T) {
 	service := &ReviewServiceImpl{}
-	
+
 	tests := []struct {
-		url           string
+		url            string
 		expectedBucket string
 		expectedKey    string
 		shouldError    bool
@@ -1254,11 +1254,11 @@ func TestReviewService_S3URLParsing(t *testing.T) {
 		{"invalid-url", "", "", true},
 		{"s3://bucket-only", "", "", true},
 	}
-	
+
 	for _, test := range tests {
 		t.Run(test.url, func(t *testing.T) {
 			bucket, key, err := service.parseS3URL(test.url)
-			
+
 			if test.shouldError {
 				assert.Error(t, err)
 			} else {
@@ -1283,7 +1283,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateHotel_Success() {
 		StarRating:  5,
 		Description: "Updated description",
 	}
-	
+
 	suite.mockRepo.On("UpdateHotel", suite.ctx, hotel).Return(nil)
 	suite.mockEventPublisher.On("PublishHotelUpdated", suite.ctx, hotel).Return(nil)
 
@@ -1313,7 +1313,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateHotel_ValidationError() {
 func (suite *ReviewServiceTestSuite) TestDeleteHotel_Success() {
 	// Arrange
 	hotelID := uuid.New()
-	
+
 	suite.mockRepo.On("DeleteHotel", suite.ctx, hotelID).Return(nil)
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, hotelID).Return(nil)
 
@@ -1332,7 +1332,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateProvider_Success() {
 		BaseURL:  "https://updated.example.com",
 		IsActive: true,
 	}
-	
+
 	suite.mockRepo.On("UpdateProvider", suite.ctx, provider).Return(nil)
 
 	// Act
@@ -1345,7 +1345,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateProvider_Success() {
 func (suite *ReviewServiceTestSuite) TestDeleteProvider_Success() {
 	// Arrange
 	providerID := uuid.New()
-	
+
 	suite.mockRepo.On("DeleteProvider", suite.ctx, providerID).Return(nil)
 
 	// Act
@@ -1358,7 +1358,7 @@ func (suite *ReviewServiceTestSuite) TestDeleteProvider_Success() {
 func (suite *ReviewServiceTestSuite) TestCancelProcessing_Success() {
 	// Arrange
 	processingID := uuid.New()
-	
+
 	suite.mockRepo.On("UpdateProcessingStatus", suite.ctx, processingID, "cancelled", 0, "Processing cancelled by user").Return(nil)
 
 	// Act
@@ -1373,13 +1373,13 @@ func (suite *ReviewServiceTestSuite) TestGetReviewStatsByProvider_Success() {
 	providerID := uuid.New()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
-	
+
 	reviews := []Review{
 		{ProviderID: providerID, Rating: 4.5, ReviewDate: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
 		{ProviderID: providerID, Rating: 3.5, ReviewDate: time.Date(2024, 6, 2, 0, 0, 0, 0, time.UTC)},
 		{ProviderID: uuid.New(), Rating: 5.0, ReviewDate: time.Date(2024, 6, 3, 0, 0, 0, 0, time.UTC)}, // Different provider
 	}
-	
+
 	suite.mockRepo.On("GetByDateRange", suite.ctx, startDate, endDate, 1000, 0).Return(reviews, nil)
 
 	// Act
@@ -1396,13 +1396,13 @@ func (suite *ReviewServiceTestSuite) TestGetReviewStatsByHotel_Success() {
 	hotelID := uuid.New()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
-	
+
 	reviews := []Review{
 		{HotelID: hotelID, Rating: 4.5, ReviewDate: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)},
 		{HotelID: hotelID, Rating: 3.5, ReviewDate: time.Date(2024, 6, 2, 0, 0, 0, 0, time.UTC)},
 		{HotelID: hotelID, Rating: 2.0, ReviewDate: time.Date(2023, 6, 3, 0, 0, 0, 0, time.UTC)}, // Outside date range
 	}
-	
+
 	suite.mockRepo.On("GetByHotel", suite.ctx, hotelID, 1000, 0).Return(reviews, nil)
 
 	// Act
@@ -1436,7 +1436,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateHotel_RepositoryError() {
 		StarRating: 4,
 	}
 	expectedError := errors.New("database error")
-	
+
 	suite.mockRepo.On("UpdateHotel", suite.ctx, hotel).Return(expectedError)
 
 	// Act
@@ -1451,7 +1451,7 @@ func (suite *ReviewServiceTestSuite) TestDeleteHotel_RepositoryError() {
 	// Arrange
 	hotelID := uuid.New()
 	expectedError := errors.New("database error")
-	
+
 	suite.mockRepo.On("DeleteHotel", suite.ctx, hotelID).Return(expectedError)
 
 	// Act
@@ -1481,7 +1481,7 @@ func (suite *ReviewServiceTestSuite) TestDeleteProvider_RepositoryError() {
 	// Arrange
 	providerID := uuid.New()
 	expectedError := errors.New("database error")
-	
+
 	suite.mockRepo.On("DeleteProvider", suite.ctx, providerID).Return(expectedError)
 
 	// Act
@@ -1496,7 +1496,7 @@ func (suite *ReviewServiceTestSuite) TestCancelProcessing_Error() {
 	// Arrange
 	processingID := uuid.New()
 	expectedError := errors.New("database error")
-	
+
 	// Override global expectation
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockRepo.On("UpdateProcessingStatus", suite.ctx, processingID, "cancelled", 0, "Processing cancelled by user").Return(expectedError)
@@ -1514,9 +1514,9 @@ func (suite *ReviewServiceTestSuite) TestGetReviewStatsByProvider_NoReviews() {
 	providerID := uuid.New()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
-	
+
 	reviews := []Review{} // No reviews
-	
+
 	suite.mockRepo.On("GetByDateRange", suite.ctx, startDate, endDate, 1000, 0).Return(reviews, nil)
 
 	// Act
@@ -1539,21 +1539,21 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_EnrichmentFailure() {
 		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockS3Client.ExpectedCalls = nil
 	suite.mockEventPublisher.ExpectedCalls = nil
 	suite.mockCacheService.ExpectedCalls = nil
 	suite.mockMetricsService.ExpectedCalls = nil
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, mock.MatchedBy(func(reviews []Review) bool {
 		return len(reviews) == 1 && reviews[0].ID == review.ID
 	})).Return(nil)
-	
+
 	// Make enrichment fail to cover line 55-56
 	suite.mockS3Client.On("DownloadFile", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), errors.New("enrichment failed"))
-	
+
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, review).Return(nil)
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(nil)
 	suite.mockMetricsService.On("IncrementCounter", suite.ctx, "reviews_created", mock.AnythingOfType("map[string]string")).Return(nil)
@@ -1576,23 +1576,23 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_EventPublishingFailure() {
 		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockS3Client.ExpectedCalls = nil
 	suite.mockEventPublisher.ExpectedCalls = nil
 	suite.mockCacheService.ExpectedCalls = nil
 	suite.mockMetricsService.ExpectedCalls = nil
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, mock.MatchedBy(func(reviews []Review) bool {
 		return len(reviews) == 1 && reviews[0].ID == review.ID
 	})).Return(nil)
-	
+
 	suite.mockS3Client.On("DownloadFile", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
-	
+
 	// Make event publishing fail to cover line 63-64
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, review).Return(errors.New("event publishing failed"))
-	
+
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(nil)
 	suite.mockMetricsService.On("IncrementCounter", suite.ctx, "reviews_created", mock.AnythingOfType("map[string]string")).Return(nil)
 
@@ -1614,24 +1614,24 @@ func (suite *ReviewServiceTestSuite) TestCreateReview_CacheInvalidationFailure()
 		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockS3Client.ExpectedCalls = nil
 	suite.mockEventPublisher.ExpectedCalls = nil
 	suite.mockCacheService.ExpectedCalls = nil
 	suite.mockMetricsService.ExpectedCalls = nil
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, mock.MatchedBy(func(reviews []Review) bool {
 		return len(reviews) == 1 && reviews[0].ID == review.ID
 	})).Return(nil)
-	
+
 	suite.mockS3Client.On("DownloadFile", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, review).Return(nil)
-	
+
 	// Make cache invalidation fail to cover line 67-68
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(errors.New("cache invalidation failed"))
-	
+
 	suite.mockMetricsService.On("IncrementCounter", suite.ctx, "reviews_created", mock.AnythingOfType("map[string]string")).Return(nil)
 
 	// Act
@@ -1646,11 +1646,11 @@ func (suite *ReviewServiceTestSuite) TestGetReviewStatsByHotel_NoReviewsInDateRa
 	hotelID := uuid.New()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
-	
+
 	reviews := []Review{
 		{HotelID: hotelID, Rating: 4.5, ReviewDate: time.Date(2023, 6, 1, 0, 0, 0, 0, time.UTC)}, // Outside date range
 	}
-	
+
 	suite.mockRepo.On("GetByHotel", suite.ctx, hotelID, 1000, 0).Return(reviews, nil)
 
 	// Act
@@ -1668,7 +1668,7 @@ func (suite *ReviewServiceTestSuite) TestGetTopRatedHotels_LessHotelsThanLimit()
 		{ID: uuid.New(), Name: "Hotel 1"},
 		{ID: uuid.New(), Name: "Hotel 2"},
 	} // Only 2 hotels, less than limit
-	
+
 	suite.mockRepo.On("ListHotels", suite.ctx, limit*2, 0).Return(hotels, nil)
 
 	// Act
@@ -1701,7 +1701,7 @@ func (suite *ReviewServiceTestSuite) TestProcessReviewBatch_RepositoryError() {
 		{ID: uuid.New(), ProviderID: uuid.New(), HotelID: uuid.New(), Rating: 4.5, Comment: "Good", ReviewDate: time.Now()},
 	}
 	expectedError := errors.New("database error")
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	// Add validation mocks first (ValidateReviewData is called before CreateBatch)
@@ -1728,7 +1728,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_EventPublishingFailure() {
 		ProviderID: uuid.New(),
 		ReviewDate: time.Now(),
 	}
-	
+
 	existingReview := &Review{
 		ID:             review.ID,
 		Comment:        "Original content",
@@ -1738,24 +1738,24 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_EventPublishingFailure() {
 		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockS3Client.ExpectedCalls = nil
 	suite.mockEventPublisher.ExpectedCalls = nil
 	suite.mockCacheService.ExpectedCalls = nil
 	suite.mockMetricsService.ExpectedCalls = nil
-	
+
 	// Add validation mocks first (ValidateReviewData is called before update)
 	suite.mockRepo.On("GetHotelByID", suite.ctx, review.HotelID).Return(&Hotel{ID: review.HotelID, Name: "Test Hotel"}, nil)
 	suite.mockRepo.On("GetProviderByID", suite.ctx, review.ProviderID).Return(&Provider{ID: review.ProviderID, Name: "Test Provider"}, nil)
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return(existingReview, nil)
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockS3Client.On("DownloadFile", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
-	
+
 	// Make event publishing fail to cover error handling path
 	suite.mockEventPublisher.On("PublishReviewUpdated", suite.ctx, review).Return(errors.New("event publishing failed"))
-	
+
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(nil)
 	suite.mockMetricsService.On("IncrementCounter", suite.ctx, "reviews_updated", mock.AnythingOfType("map[string]string")).Return(nil)
 
@@ -1776,7 +1776,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_CacheInvalidationFailure()
 		ProviderID: uuid.New(),
 		ReviewDate: time.Now(),
 	}
-	
+
 	existingReview := &Review{
 		ID:             review.ID,
 		Comment:        "Original content",
@@ -1786,14 +1786,14 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_CacheInvalidationFailure()
 		ReviewerInfoID: &[]uuid.UUID{uuid.New()}[0],
 		ReviewDate:     time.Now(),
 	}
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockS3Client.ExpectedCalls = nil
 	suite.mockEventPublisher.ExpectedCalls = nil
 	suite.mockCacheService.ExpectedCalls = nil
 	suite.mockMetricsService.ExpectedCalls = nil
-	
+
 	// Add validation mocks first (ValidateReviewData is called before update)
 	suite.mockRepo.On("GetHotelByID", suite.ctx, review.HotelID).Return(&Hotel{ID: review.HotelID, Name: "Test Hotel"}, nil)
 	suite.mockRepo.On("GetProviderByID", suite.ctx, review.ProviderID).Return(&Provider{ID: review.ProviderID, Name: "Test Provider"}, nil)
@@ -1801,10 +1801,10 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_CacheInvalidationFailure()
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockS3Client.On("DownloadFile", mock.Anything, mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
 	suite.mockEventPublisher.On("PublishReviewUpdated", suite.ctx, review).Return(nil)
-	
+
 	// Make cache invalidation fail to cover error handling path
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, review.HotelID).Return(errors.New("cache invalidation failed"))
-	
+
 	suite.mockMetricsService.On("IncrementCounter", suite.ctx, "reviews_updated", mock.AnythingOfType("map[string]string")).Return(nil)
 
 	// Act
@@ -1818,25 +1818,25 @@ func (suite *ReviewServiceTestSuite) TestDeleteReview_CacheInvalidationFailure()
 	// Arrange
 	reviewID := uuid.New()
 	hotelID := uuid.New()
-	
+
 	review := &Review{
 		ID:      reviewID,
 		HotelID: hotelID,
 	}
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockEventPublisher.ExpectedCalls = nil
 	suite.mockCacheService.ExpectedCalls = nil
 	suite.mockMetricsService.ExpectedCalls = nil
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, reviewID).Return(review, nil)
 	suite.mockRepo.On("DeleteByID", suite.ctx, reviewID).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewDeleted", suite.ctx, reviewID).Return(nil)
-	
+
 	// Make cache invalidation fail to cover error handling path
 	suite.mockCacheService.On("InvalidateReviewSummary", suite.ctx, hotelID).Return(errors.New("cache invalidation failed"))
-	
+
 	suite.mockMetricsService.On("IncrementCounter", suite.ctx, "reviews_deleted", mock.AnythingOfType("map[string]string")).Return(nil)
 
 	// Act
@@ -1850,7 +1850,7 @@ func (suite *ReviewServiceTestSuite) TestGetTopRatedHotels_RepositoryError() {
 	// Arrange
 	limit := 5
 	expectedError := errors.New("database error")
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockRepo.On("ListHotels", suite.ctx, limit*2, 0).Return([]Hotel(nil), expectedError)
@@ -1868,7 +1868,7 @@ func (suite *ReviewServiceTestSuite) TestGetRecentReviews_RepositoryError() {
 	// Arrange
 	limit := 10
 	expectedError := errors.New("database error")
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockRepo.On("GetByDateRange", suite.ctx, mock.AnythingOfType("time.Time"), mock.AnythingOfType("time.Time"), limit, 0).Return([]Review(nil), expectedError)
@@ -1933,9 +1933,9 @@ func (suite *ReviewServiceTestSuite) TestDetectDuplicateReviews_RepositoryError(
 		Comment:        "Great hotel",
 		ReviewDate:     time.Now(),
 	}
-	
+
 	expectedError := errors.New("database error")
-	
+
 	// Clear global expectations and set specific ones
 	suite.mockRepo.ExpectedCalls = nil
 	filters := map[string]interface{}{
@@ -1959,7 +1959,7 @@ func (suite *ReviewServiceTestSuite) TestDeleteReview_DeleteError() {
 	reviewID := uuid.New()
 	review := &Review{ID: reviewID, HotelID: uuid.New()}
 	expectedError := errors.New("delete error")
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, reviewID).Return(review, nil)
 	suite.mockRepo.On("DeleteByID", suite.ctx, reviewID).Return(expectedError)
 
@@ -1975,7 +1975,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_GetExistingError() {
 	// Arrange
 	review := suite.createTestReview()
 	expectedError := errors.New("get error")
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return((*Review)(nil), expectedError)
 
 	// Act
@@ -1991,7 +1991,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_UpdateError() {
 	review := suite.createTestReview()
 	existingReview := suite.createTestReview()
 	expectedError := errors.New("update error")
-	
+
 	// Override global expectation
 	suite.mockRepo.ExpectedCalls = nil
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return(existingReview, nil)
@@ -2010,7 +2010,7 @@ func (suite *ReviewServiceTestSuite) TestUpdateReview_DifferentHotelIDs() {
 	review := suite.createTestReview()
 	existingReview := suite.createTestReview()
 	existingReview.HotelID = uuid.New() // Different hotel ID
-	
+
 	suite.mockRepo.On("GetByID", suite.ctx, review.ID).Return(existingReview, nil)
 	suite.mockRepo.On("CreateBatch", suite.ctx, []Review{*review}).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewUpdated", suite.ctx, review).Return(nil)
@@ -2029,7 +2029,7 @@ func (suite *ReviewServiceTestSuite) TestProcessReviewBatch_EnrichmentError() {
 	reviews := []Review{
 		{ID: uuid.New(), ProviderID: uuid.New(), HotelID: uuid.New(), Rating: 4.5, Comment: "Good", ReviewDate: time.Now()},
 	}
-	
+
 	suite.mockRepo.On("CreateBatch", suite.ctx, reviews).Return(nil)
 	suite.mockEventPublisher.On("PublishReviewCreated", suite.ctx, &reviews[0]).Return(nil)
 
@@ -2046,7 +2046,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewStatsByProvider_RepositoryErro
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
 	expectedError := errors.New("database error")
-	
+
 	suite.mockRepo.On("GetByDateRange", suite.ctx, startDate, endDate, 1000, 0).Return([]Review(nil), expectedError)
 
 	// Act
@@ -2064,7 +2064,7 @@ func (suite *ReviewServiceTestSuite) TestGetReviewStatsByHotel_RepositoryError()
 	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2024, 12, 31, 23, 59, 59, 0, time.UTC)
 	expectedError := errors.New("database error")
-	
+
 	suite.mockRepo.On("GetByHotel", suite.ctx, hotelID, 1000, 0).Return([]Review(nil), expectedError)
 
 	// Act

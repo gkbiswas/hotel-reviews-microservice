@@ -68,19 +68,19 @@ func createTestShutdownLogger() *mockShutdownLogger {
 
 // Mock implementations for testing
 type mockWorker struct {
-	name      string
+	name       string
 	stopCalled bool
-	stopError error
-	stopDelay time.Duration
-	mu        sync.Mutex
+	stopError  error
+	stopDelay  time.Duration
+	mu         sync.Mutex
 }
 
 func (w *mockWorker) Stop(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	
+
 	w.stopCalled = true
-	
+
 	if w.stopDelay > 0 {
 		select {
 		case <-time.After(w.stopDelay):
@@ -88,7 +88,7 @@ func (w *mockWorker) Stop(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	
+
 	return w.stopError
 }
 
@@ -107,9 +107,9 @@ type mockExternalConnection struct {
 func (c *mockExternalConnection) Close(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.closeCalled = true
-	
+
 	if c.closeDelay > 0 {
 		select {
 		case <-time.After(c.closeDelay):
@@ -117,7 +117,7 @@ func (c *mockExternalConnection) Close(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	
+
 	return c.closeError
 }
 
@@ -135,7 +135,7 @@ type mockOptimizer struct {
 func (o *mockOptimizer) Stop() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	
+
 	o.stopCalled = true
 	return o.stopError
 }
@@ -154,7 +154,7 @@ type mockConfigWatcher struct {
 func (w *mockConfigWatcher) Stop() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	
+
 	w.stopCalled = true
 	return w.stopError
 }
@@ -165,7 +165,7 @@ func (w *mockConfigWatcher) Name() string {
 
 func TestDefaultShutdownConfig(t *testing.T) {
 	config := DefaultShutdownConfig()
-	
+
 	assert.Equal(t, 30*time.Second, config.GracefulTimeout)
 	assert.Equal(t, 10*time.Second, config.ServerTimeout)
 	assert.Equal(t, 5*time.Second, config.DatabaseTimeout)
@@ -181,20 +181,20 @@ func TestDefaultShutdownConfig(t *testing.T) {
 
 func TestNewShutdownManager(t *testing.T) {
 	logger := createTestShutdownLogger()
-	
+
 	t.Run("with default config", func(t *testing.T) {
 		manager := NewShutdownManager(logger, nil)
 		require.NotNil(t, manager)
 		assert.NotNil(t, manager.config)
 		assert.Equal(t, 30*time.Second, manager.config.GracefulTimeout)
 	})
-	
+
 	t.Run("with custom config", func(t *testing.T) {
 		config := &ShutdownConfig{
 			GracefulTimeout: 60 * time.Second,
 			ServerTimeout:   20 * time.Second,
 		}
-		
+
 		manager := NewShutdownManager(logger, config)
 		require.NotNil(t, manager)
 		assert.Equal(t, 60*time.Second, manager.config.GracefulTimeout)
@@ -205,7 +205,7 @@ func TestNewShutdownManager(t *testing.T) {
 func TestShutdownManager_RegisterResource(t *testing.T) {
 	logger := createTestShutdownLogger()
 	manager := NewShutdownManager(logger, nil)
-	
+
 	t.Run("register HTTP server", func(t *testing.T) {
 		server := &http.Server{}
 		err := manager.RegisterResource(server)
@@ -214,15 +214,15 @@ func TestShutdownManager_RegisterResource(t *testing.T) {
 		assert.Equal(t, "http_server", manager.hooks[0].Name)
 		assert.Equal(t, 1, manager.hooks[0].Priority)
 	})
-	
+
 	t.Run("register worker", func(t *testing.T) {
 		worker := &mockWorker{name: "test_worker"}
 		err := manager.RegisterResource(worker)
 		assert.NoError(t, err)
-		
+
 		// Should have HTTP server + worker
 		assert.Len(t, manager.hooks, 2)
-		
+
 		// Find worker hook
 		var workerHook *ShutdownHook
 		for _, hook := range manager.hooks {
@@ -234,12 +234,12 @@ func TestShutdownManager_RegisterResource(t *testing.T) {
 		require.NotNil(t, workerHook)
 		assert.Equal(t, 2, workerHook.Priority)
 	})
-	
+
 	t.Run("register external connection", func(t *testing.T) {
 		conn := &mockExternalConnection{name: "test_connection"}
 		err := manager.RegisterResource(conn)
 		assert.NoError(t, err)
-		
+
 		// Find connection hook
 		var connHook *ShutdownHook
 		for _, hook := range manager.hooks {
@@ -251,7 +251,7 @@ func TestShutdownManager_RegisterResource(t *testing.T) {
 		require.NotNil(t, connHook)
 		assert.Equal(t, 4, connHook.Priority)
 	})
-	
+
 	t.Run("register unsupported type", func(t *testing.T) {
 		unsupported := "string type"
 		err := manager.RegisterResource(unsupported)
@@ -263,7 +263,7 @@ func TestShutdownManager_RegisterResource(t *testing.T) {
 func TestShutdownManager_ResourceManager(t *testing.T) {
 	logger := createTestShutdownLogger()
 	manager := NewShutdownManager(logger, nil)
-	
+
 	// Create resource manager with various resources
 	rm := NewResourceManager()
 	rm.AddHTTPServer(&http.Server{})
@@ -272,27 +272,27 @@ func TestShutdownManager_ResourceManager(t *testing.T) {
 	rm.AddExternalConnection(&mockExternalConnection{name: "conn1"})
 	rm.AddOptimizer(&mockOptimizer{name: "opt1"})
 	rm.AddWatcher(&mockConfigWatcher{name: "watcher1"})
-	
+
 	err := manager.RegisterResource(rm)
 	assert.NoError(t, err)
-	
+
 	// Should have hooks for all resources
 	expectedHooks := []string{
 		"http_server",
 		"worker_worker1",
-		"worker_worker2", 
+		"worker_worker2",
 		"external_conn1",
 		"optimizer_opt1",
 		"watcher_watcher1",
 	}
-	
+
 	assert.Len(t, manager.hooks, len(expectedHooks))
-	
+
 	hookNames := make([]string, len(manager.hooks))
 	for i, hook := range manager.hooks {
 		hookNames[i] = hook.Name
 	}
-	
+
 	for _, expected := range expectedHooks {
 		assert.Contains(t, hookNames, expected)
 	}
@@ -301,7 +301,7 @@ func TestShutdownManager_ResourceManager(t *testing.T) {
 func TestShutdownManager_AddCustomHook(t *testing.T) {
 	logger := createTestShutdownLogger()
 	manager := NewShutdownManager(logger, nil)
-	
+
 	hook := ShutdownHook{
 		Name:     "custom_hook",
 		Priority: 5,
@@ -310,9 +310,9 @@ func TestShutdownManager_AddCustomHook(t *testing.T) {
 			return nil
 		},
 	}
-	
+
 	manager.AddCustomHook(hook)
-	
+
 	assert.Len(t, manager.hooks, 1)
 	assert.Equal(t, "custom_hook", manager.hooks[0].Name)
 	assert.Equal(t, 5, manager.hooks[0].Priority)
@@ -321,15 +321,15 @@ func TestShutdownManager_AddCustomHook(t *testing.T) {
 func TestShutdownManager_HookPrioritySorting(t *testing.T) {
 	logger := createTestShutdownLogger()
 	manager := NewShutdownManager(logger, nil)
-	
+
 	// Add hooks in random order
 	manager.AddCustomHook(ShutdownHook{Name: "priority_3", Priority: 3, Cleanup: func(ctx context.Context) error { return nil }})
 	manager.AddCustomHook(ShutdownHook{Name: "priority_1", Priority: 1, Cleanup: func(ctx context.Context) error { return nil }})
 	manager.AddCustomHook(ShutdownHook{Name: "priority_2", Priority: 2, Cleanup: func(ctx context.Context) error { return nil }})
-	
+
 	// Sort hooks
 	manager.sortHooksByPriority()
-	
+
 	// Verify order
 	assert.Equal(t, "priority_1", manager.hooks[0].Name)
 	assert.Equal(t, "priority_2", manager.hooks[1].Name)
@@ -342,31 +342,31 @@ func TestShutdownManager_Shutdown(t *testing.T) {
 	config.GracefulTimeout = 5 * time.Second
 	config.PreShutdownDelay = 100 * time.Millisecond
 	config.ForceKillTimeout = 10 * time.Second
-	
+
 	manager := NewShutdownManager(logger, config)
-	
+
 	// Add some test resources
 	worker := &mockWorker{name: "test_worker"}
 	conn := &mockExternalConnection{name: "test_conn"}
 	optimizer := &mockOptimizer{name: "test_optimizer"}
-	
+
 	err := manager.RegisterResource(worker)
 	require.NoError(t, err)
 	err = manager.RegisterResource(conn)
 	require.NoError(t, err)
 	err = manager.RegisterResource(optimizer)
 	require.NoError(t, err)
-	
+
 	// Trigger shutdown
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		manager.Shutdown()
 	}()
-	
+
 	// Wait for shutdown
 	err = manager.WaitForShutdown()
 	assert.NoError(t, err)
-	
+
 	// Verify all resources were stopped
 	assert.True(t, worker.stopCalled)
 	assert.True(t, conn.closeCalled)
@@ -378,29 +378,29 @@ func TestShutdownManager_ShutdownWithErrors(t *testing.T) {
 	config := DefaultShutdownConfig()
 	config.GracefulTimeout = 2 * time.Second
 	config.PreShutdownDelay = 0
-	
+
 	manager := NewShutdownManager(logger, config)
-	
+
 	// Add worker that will fail
 	worker := &mockWorker{
 		name:      "failing_worker",
 		stopError: errors.New("worker failed to stop"),
 	}
-	
+
 	err := manager.RegisterResource(worker)
 	require.NoError(t, err)
-	
+
 	// Trigger shutdown
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		manager.Shutdown()
 	}()
-	
+
 	// Wait for shutdown - should return error
 	err = manager.WaitForShutdown()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "shutdown completed with")
-	
+
 	// Verify worker was called even though it failed
 	assert.True(t, worker.stopCalled)
 }
@@ -412,29 +412,29 @@ func TestShutdownManager_ShutdownTimeout(t *testing.T) {
 	config.WorkerTimeout = 500 * time.Millisecond
 	config.PreShutdownDelay = 0
 	config.ForceKillTimeout = 5 * time.Second // Prevent force kill during test
-	
+
 	manager := NewShutdownManager(logger, config)
-	
+
 	// Add worker that takes too long to stop
 	worker := &mockWorker{
 		name:      "slow_worker",
 		stopDelay: 2 * time.Second, // Longer than timeout
 	}
-	
+
 	err := manager.RegisterResource(worker)
 	require.NoError(t, err)
-	
+
 	// Trigger shutdown
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		manager.Shutdown()
 	}()
-	
+
 	// Wait for shutdown - should return error due to timeout
 	err = manager.WaitForShutdown()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "shutdown completed with")
-	
+
 	// Verify worker was called
 	assert.True(t, worker.stopCalled)
 }
@@ -442,15 +442,15 @@ func TestShutdownManager_ShutdownTimeout(t *testing.T) {
 func TestShutdownManager_GetShutdownMetrics(t *testing.T) {
 	logger := createTestShutdownLogger()
 	manager := NewShutdownManager(logger, nil)
-	
+
 	// Add some hooks
 	err := manager.RegisterResource(&mockWorker{name: "worker1"})
 	require.NoError(t, err)
 	err = manager.RegisterResource(&mockWorker{name: "worker2"})
 	require.NoError(t, err)
-	
+
 	metrics := manager.GetShutdownMetrics()
-	
+
 	assert.Equal(t, 2, metrics["registered_hooks"])
 	assert.Equal(t, 30*time.Second, metrics["graceful_timeout"])
 	assert.Equal(t, 45*time.Second, metrics["force_kill_timeout"])
@@ -462,16 +462,16 @@ func TestShutdownManager_ConcurrentShutdown(t *testing.T) {
 	config := DefaultShutdownConfig()
 	config.GracefulTimeout = 2 * time.Second
 	config.PreShutdownDelay = 0
-	
+
 	manager := NewShutdownManager(logger, config)
-	
+
 	// Add multiple workers
 	for i := 0; i < 5; i++ {
 		worker := &mockWorker{name: fmt.Sprintf("worker_%d", i)}
 		err := manager.RegisterResource(worker)
 		require.NoError(t, err)
 	}
-	
+
 	// Trigger multiple concurrent shutdowns
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
@@ -481,20 +481,20 @@ func TestShutdownManager_ConcurrentShutdown(t *testing.T) {
 			manager.Shutdown()
 		}()
 	}
-	
+
 	// Wait for shutdown
 	err := manager.WaitForShutdown()
 	assert.NoError(t, err)
-	
+
 	wg.Wait()
 }
 
 func TestDBOptimizerWrapper(t *testing.T) {
 	// Test with nil optimizer - should handle gracefully
 	wrapper := &DBOptimizerWrapper{optimizer: nil}
-	
+
 	assert.Equal(t, "db_optimizer", wrapper.Name())
-	
+
 	// Test stop with nil optimizer - should return error, not panic
 	err := wrapper.Stop()
 	assert.Error(t, err)
@@ -504,9 +504,9 @@ func TestDBOptimizerWrapper(t *testing.T) {
 func TestConfigWatcherWrapper(t *testing.T) {
 	// Test with nil watcher - should handle gracefully
 	wrapper := &ConfigWatcherWrapper{watcher: nil}
-	
+
 	assert.Equal(t, "config_watcher", wrapper.Name())
-	
+
 	// Test stop with nil watcher - should return error, not panic
 	err := wrapper.Stop()
 	assert.Error(t, err)
@@ -517,7 +517,7 @@ func TestConfigWatcherWrapper(t *testing.T) {
 func BenchmarkShutdownManager_RegisterResource(b *testing.B) {
 	logger := createTestShutdownLogger()
 	manager := NewShutdownManager(logger, nil)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		worker := &mockWorker{name: fmt.Sprintf("worker_%d", i)}
@@ -530,15 +530,15 @@ func BenchmarkShutdownManager_Shutdown(b *testing.B) {
 	config := DefaultShutdownConfig()
 	config.PreShutdownDelay = 0
 	config.GracefulTimeout = 100 * time.Millisecond
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		manager := NewShutdownManager(logger, config)
-		
+
 		// Add a simple worker
 		worker := &mockWorker{name: "bench_worker"}
 		manager.RegisterResource(worker)
-		
+
 		// Trigger shutdown
 		go manager.Shutdown()
 		manager.WaitForShutdown()

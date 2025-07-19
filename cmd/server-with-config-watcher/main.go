@@ -99,20 +99,20 @@ func (app *Application) initialize() error {
 func (app *Application) setupRoutes() {
 	// Health check endpoint
 	app.router.HandleFunc("/health", app.healthHandler).Methods("GET")
-	
+
 	// Configuration endpoints
 	app.router.HandleFunc("/config", app.configHandler).Methods("GET")
 	app.router.HandleFunc("/config/history", app.configHistoryHandler).Methods("GET")
 	app.router.HandleFunc("/config/rollback/{hash}", app.configRollbackHandler).Methods("POST")
 	app.router.HandleFunc("/config/metrics", app.configMetricsHandler).Methods("GET")
-	
+
 	// Example business endpoints
 	app.router.HandleFunc("/api/v1/reviews", app.reviewsHandler).Methods("GET")
 	app.router.HandleFunc("/api/v1/hotels", app.hotelsHandler).Methods("GET")
-	
+
 	// Admin endpoints
 	app.router.HandleFunc("/admin/status", app.statusHandler).Methods("GET")
-	
+
 	app.logger.Info("HTTP routes configured")
 }
 
@@ -144,14 +144,14 @@ func (app *Application) configHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return a summary instead of the full config (security)
 	summary := config.GetConfigSummary()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(summary)
 }
 
 func (app *Application) configHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	history := app.configManager.GetConfigHistory()
-	
+
 	// Return simplified history for API response
 	historyResponse := make([]map[string]interface{}, len(history))
 	for i, snapshot := range history {
@@ -161,7 +161,7 @@ func (app *Application) configHistoryHandler(w http.ResponseWriter, r *http.Requ
 			"source":    snapshot.Source,
 		}
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"history": historyResponse,
@@ -172,20 +172,20 @@ func (app *Application) configHistoryHandler(w http.ResponseWriter, r *http.Requ
 func (app *Application) configRollbackHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	targetHash := vars["hash"]
-	
+
 	if targetHash == "" {
 		http.Error(w, "Hash parameter is required", http.StatusBadRequest)
 		return
 	}
-	
+
 	app.logger.Info("Configuration rollback requested", "target_hash", targetHash)
-	
+
 	if err := app.configManager.RollbackConfig(targetHash); err != nil {
 		app.logger.Error("Configuration rollback failed", "error", err, "target_hash", targetHash)
 		http.Error(w, fmt.Sprintf("Rollback failed: %v", err), http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":     true,
@@ -197,14 +197,14 @@ func (app *Application) configRollbackHandler(w http.ResponseWriter, r *http.Req
 
 func (app *Application) configMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	metrics := app.configManager.GetMetrics()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(metrics)
 }
 
 func (app *Application) reviewsHandler(w http.ResponseWriter, r *http.Request) {
 	config := app.configManager.GetConfig()
-	
+
 	// Example response that shows current configuration affects business logic
 	response := map[string]interface{}{
 		"reviews": []map[string]interface{}{
@@ -222,43 +222,43 @@ func (app *Application) reviewsHandler(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		"config_info": map[string]interface{}{
-			"cache_ttl":         config.Cache.ReviewTTL.String(),
-			"max_request_size":  config.App.MaxRequestSize,
+			"cache_ttl":          config.Cache.ReviewTTL.String(),
+			"max_request_size":   config.App.MaxRequestSize,
 			"rate_limit_enabled": config.App.EnableRateLimit,
 		},
 		"timestamp": time.Now().UTC(),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
 func (app *Application) hotelsHandler(w http.ResponseWriter, r *http.Request) {
 	config := app.configManager.GetConfig()
-	
+
 	response := map[string]interface{}{
 		"hotels": []map[string]interface{}{
 			{
-				"id":      1,
-				"name":    "Grand Hotel",
-				"city":    "New York",
-				"rating":  4.5,
+				"id":     1,
+				"name":   "Grand Hotel",
+				"city":   "New York",
+				"rating": 4.5,
 			},
 			{
-				"id":      2,
-				"name":    "Ocean View Resort",
-				"city":    "Miami",
-				"rating":  4.8,
+				"id":     2,
+				"name":   "Ocean View Resort",
+				"city":   "Miami",
+				"rating": 4.8,
 			},
 		},
 		"config_info": map[string]interface{}{
-			"cache_ttl":        config.Cache.HotelTTL.String(),
-			"database_host":    config.Database.Host,
+			"cache_ttl":          config.Cache.HotelTTL.String(),
+			"database_host":      config.Database.Host,
 			"database_max_conns": config.Database.MaxConns,
 		},
 		"timestamp": time.Now().UTC(),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -266,7 +266,7 @@ func (app *Application) hotelsHandler(w http.ResponseWriter, r *http.Request) {
 func (app *Application) statusHandler(w http.ResponseWriter, r *http.Request) {
 	config := app.configManager.GetConfig()
 	metrics := app.configManager.GetMetrics()
-	
+
 	status := map[string]interface{}{
 		"application": map[string]interface{}{
 			"name":        config.App.Name,
@@ -286,7 +286,7 @@ func (app *Application) statusHandler(w http.ResponseWriter, r *http.Request) {
 		},
 		"timestamp": time.Now().UTC(),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
 }
@@ -294,46 +294,46 @@ func (app *Application) statusHandler(w http.ResponseWriter, r *http.Request) {
 // Configuration change handlers
 func (app *Application) handleServerConfigChange(oldConfig, newConfig interface{}) error {
 	app.logger.Info("Server configuration change detected")
-	
+
 	newAppConfig, ok := newConfig.(*config.AppConfig)
 	if !ok {
 		return fmt.Errorf("invalid config type for server reconfiguration")
 	}
-	
+
 	// In a real application, we would gracefully restart the server
 	// For this example, we'll just update timeouts
 	app.httpServer.ReadTimeout = newAppConfig.Server.ReadTimeout
 	app.httpServer.WriteTimeout = newAppConfig.Server.WriteTimeout
 	app.httpServer.IdleTimeout = newAppConfig.Server.IdleTimeout
-	
+
 	app.logger.Info("Server configuration updated",
 		"read_timeout", newAppConfig.Server.ReadTimeout,
 		"write_timeout", newAppConfig.Server.WriteTimeout,
 		"idle_timeout", newAppConfig.Server.IdleTimeout)
-	
+
 	return nil
 }
 
 func (app *Application) handleAppConfigChange(oldConfig, newConfig interface{}) error {
 	app.logger.Info("Application configuration change detected")
-	
+
 	newAppConfig, ok := newConfig.(*config.AppConfig)
 	if !ok {
 		return fmt.Errorf("invalid config type for app reconfiguration")
 	}
-	
+
 	// Example: Update logging level
 	if newAppConfig.App.LogLevel != "" {
 		app.logger.Info("Log level updated", "new_level", newAppConfig.App.LogLevel)
 		// In a real app, you would reconfigure the actual logger here
 	}
-	
+
 	// Example: Update max request size (this would affect middleware)
 	app.logger.Info("Application settings updated",
 		"max_request_size", newAppConfig.App.MaxRequestSize,
 		"rate_limit_enabled", newAppConfig.App.EnableRateLimit,
 		"auth_enabled", newAppConfig.App.EnableAuthentication)
-	
+
 	return nil
 }
 

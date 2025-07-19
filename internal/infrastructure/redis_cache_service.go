@@ -46,7 +46,7 @@ func (r *RedisCacheService) Set(ctx context.Context, key string, value []byte, e
 	if expiration == 0 {
 		expiration = r.ttl
 	}
-	
+
 	err := r.client.Set(ctx, key, value, expiration).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set cache: %w", err)
@@ -84,7 +84,7 @@ func (r *RedisCacheService) FlushAll(ctx context.Context) error {
 // GetReviewSummary retrieves a review summary from cache
 func (r *RedisCacheService) GetReviewSummary(ctx context.Context, hotelID uuid.UUID) (*domain.ReviewSummary, error) {
 	key := fmt.Sprintf("hotel:summary:%s", hotelID.String())
-	
+
 	data, err := r.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -92,24 +92,24 @@ func (r *RedisCacheService) GetReviewSummary(ctx context.Context, hotelID uuid.U
 	if data == nil {
 		return nil, nil // Cache miss
 	}
-	
+
 	var summary domain.ReviewSummary
 	if err := json.Unmarshal(data, &summary); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal review summary: %w", err)
 	}
-	
+
 	return &summary, nil
 }
 
 // SetReviewSummary stores a review summary in cache
 func (r *RedisCacheService) SetReviewSummary(ctx context.Context, hotelID uuid.UUID, summary *domain.ReviewSummary, expiration time.Duration) error {
 	key := fmt.Sprintf("hotel:summary:%s", hotelID.String())
-	
+
 	data, err := json.Marshal(summary)
 	if err != nil {
 		return fmt.Errorf("failed to marshal review summary: %w", err)
 	}
-	
+
 	return r.Set(ctx, key, data, expiration)
 }
 

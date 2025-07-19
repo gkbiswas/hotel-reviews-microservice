@@ -24,11 +24,11 @@ const (
 
 // HealthCheckResult represents the result of a health check
 type HealthCheckResult struct {
-	Status      HealthStatus `json:"status"`
-	Message     string       `json:"message"`
-	Timestamp   time.Time    `json:"timestamp"`
-	ResponseTime time.Duration `json:"response_time"`
-	Details     map[string]interface{} `json:"details,omitempty"`
+	Status       HealthStatus           `json:"status"`
+	Message      string                 `json:"message"`
+	Timestamp    time.Time              `json:"timestamp"`
+	ResponseTime time.Duration          `json:"response_time"`
+	Details      map[string]interface{} `json:"details,omitempty"`
 }
 
 // HealthChecker interface for health checks
@@ -61,7 +61,7 @@ func (h *DatabaseHealthChecker) Name() string {
 // Check performs the health check
 func (h *DatabaseHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	start := time.Now()
-	
+
 	sqlDB, err := h.db.DB()
 	if err != nil {
 		return HealthCheckResult{
@@ -126,7 +126,7 @@ func (h *RedisHealthChecker) Name() string {
 // Check performs the health check
 func (h *RedisHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	start := time.Now()
-	
+
 	// Ping Redis
 	if err := h.client.Ping(ctx).Err(); err != nil {
 		return HealthCheckResult{
@@ -140,8 +140,8 @@ func (h *RedisHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	// Get Redis info
 	info := h.client.Info(ctx, "server", "memory", "stats")
 	details := map[string]interface{}{
-		"redis_version": "unknown",
-		"used_memory":   "unknown",
+		"redis_version":     "unknown",
+		"used_memory":       "unknown",
 		"connected_clients": "unknown",
 	}
 
@@ -188,7 +188,7 @@ func (h *S3HealthChecker) Name() string {
 // Check performs the health check
 func (h *S3HealthChecker) Check(ctx context.Context) HealthCheckResult {
 	start := time.Now()
-	
+
 	// For now, we'll just check if we can reach S3
 	// In a real implementation, you would use the AWS SDK to check bucket access
 	req, err := http.NewRequestWithContext(ctx, "HEAD", "https://s3.amazonaws.com", nil)
@@ -227,7 +227,7 @@ func (h *S3HealthChecker) Check(ctx context.Context) HealthCheckResult {
 		Timestamp:    time.Now(),
 		ResponseTime: time.Since(start),
 		Details: map[string]interface{}{
-			"bucket": h.bucketName,
+			"bucket":      h.bucketName,
 			"status_code": resp.StatusCode,
 		},
 	}
@@ -261,7 +261,7 @@ func (h *HTTPHealthChecker) Name() string {
 // Check performs the health check
 func (h *HTTPHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	start := time.Now()
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", h.url, nil)
 	if err != nil {
 		return HealthCheckResult{
@@ -329,16 +329,16 @@ func (s *HealthService) AddChecker(checker HealthChecker) {
 // CheckAll runs all health checks
 func (s *HealthService) CheckAll(ctx context.Context) map[string]HealthCheckResult {
 	results := make(map[string]HealthCheckResult)
-	
+
 	for _, checker := range s.checkers {
 		result := checker.Check(ctx)
 		results[checker.Name()] = result
-		
+
 		s.mu.Lock()
 		s.results[checker.Name()] = result
 		s.mu.Unlock()
 	}
-	
+
 	return results
 }
 
@@ -346,12 +346,12 @@ func (s *HealthService) CheckAll(ctx context.Context) map[string]HealthCheckResu
 func (s *HealthService) GetLastResults() map[string]HealthCheckResult {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	results := make(map[string]HealthCheckResult)
 	for name, result := range s.results {
 		results[name] = result
 	}
-	
+
 	return results
 }
 
@@ -359,13 +359,13 @@ func (s *HealthService) GetLastResults() map[string]HealthCheckResult {
 func (s *HealthService) IsHealthy() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	for _, result := range s.results {
 		if result.Status != HealthStatusHealthy {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -391,7 +391,7 @@ func (s *HealthService) GetHTTPHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		results := s.CheckAll(ctx)
-		
+
 		// Determine overall health
 		overall := HealthStatusHealthy
 		for _, result := range results {
@@ -400,23 +400,23 @@ func (s *HealthService) GetHTTPHandler() http.Handler {
 				break
 			}
 		}
-		
+
 		// Set appropriate status code
 		if overall == HealthStatusHealthy {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
-		
+
 		// Return JSON response
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		response := map[string]interface{}{
 			"status":    overall,
 			"timestamp": time.Now(),
 			"checks":    results,
 		}
-		
+
 		// Encode response as JSON
 		json.NewEncoder(w).Encode(response)
 	})
@@ -441,7 +441,7 @@ func (s *HealthService) ReadinessHandler() http.Handler {
 		// Check if critical dependencies are ready
 		ctx := r.Context()
 		results := s.CheckAll(ctx)
-		
+
 		// For readiness, we might be more strict about which checks must pass
 		ready := true
 		for name, result := range results {
@@ -451,7 +451,7 @@ func (s *HealthService) ReadinessHandler() http.Handler {
 				break
 			}
 		}
-		
+
 		if ready {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Ready"))

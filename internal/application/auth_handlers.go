@@ -176,7 +176,7 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 	// Authenticate user
 	ipAddress := h.getClientIP(r)
 	userAgent := r.Header.Get("User-Agent")
-	
+
 	loginResponse, err := h.authService.Login(r.Context(), req.Email, req.Password, ipAddress, userAgent)
 	if err != nil {
 		h.logger.Warn("login failed", "error", err, "email", req.Email, "ip", ipAddress)
@@ -529,7 +529,9 @@ func (h *AuthHandlers) writeErrorResponse(w http.ResponseWriter, statusCode int,
 		Details: details,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode JSON response", "error", err)
+	}
 }
 
 func (h *AuthHandlers) writeSuccessResponse(w http.ResponseWriter, statusCode int, message string, data interface{}) {
@@ -542,7 +544,9 @@ func (h *AuthHandlers) writeSuccessResponse(w http.ResponseWriter, statusCode in
 		Time:    time.Now().UTC().Format(time.RFC3339),
 	}
 
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode JSON response", "error", err)
+	}
 }
 
 func (h *AuthHandlers) getClientIP(r *http.Request) string {

@@ -12,53 +12,53 @@ import (
 // BusinessMetrics tracks hotel reviews specific business metrics
 type BusinessMetrics struct {
 	// Review processing metrics
-	ReviewsIngested            *prometheus.CounterVec
-	ReviewsValidated           *prometheus.CounterVec
-	ReviewsStored              *prometheus.CounterVec
-	ReviewsRejected            *prometheus.CounterVec
-	ReviewsDeduplicationHits   *prometheus.CounterVec
-	
+	ReviewsIngested          *prometheus.CounterVec
+	ReviewsValidated         *prometheus.CounterVec
+	ReviewsStored            *prometheus.CounterVec
+	ReviewsRejected          *prometheus.CounterVec
+	ReviewsDeduplicationHits *prometheus.CounterVec
+
 	// File processing metrics
-	FilesProcessed             *prometheus.CounterVec
-	FileProcessingTime         *prometheus.HistogramVec
-	FileSize                   *prometheus.HistogramVec
-	RecordsPerFile             *prometheus.HistogramVec
-	
+	FilesProcessed     *prometheus.CounterVec
+	FileProcessingTime *prometheus.HistogramVec
+	FileSize           *prometheus.HistogramVec
+	RecordsPerFile     *prometheus.HistogramVec
+
 	// Provider metrics
-	ProviderRequestsTotal      *prometheus.CounterVec
-	ProviderResponseTime       *prometheus.HistogramVec
-	ProviderErrors             *prometheus.CounterVec
-	ProviderDataQuality        *prometheus.GaugeVec
-	
+	ProviderRequestsTotal *prometheus.CounterVec
+	ProviderResponseTime  *prometheus.HistogramVec
+	ProviderErrors        *prometheus.CounterVec
+	ProviderDataQuality   *prometheus.GaugeVec
+
 	// Hotel metrics
-	HotelsTotal                *prometheus.GaugeVec
-	HotelsWithReviews          *prometheus.GaugeVec
-	AverageRatingByHotel       *prometheus.GaugeVec
-	ReviewCountByHotel         *prometheus.GaugeVec
-	
+	HotelsTotal          *prometheus.GaugeVec
+	HotelsWithReviews    *prometheus.GaugeVec
+	AverageRatingByHotel *prometheus.GaugeVec
+	ReviewCountByHotel   *prometheus.GaugeVec
+
 	// Data quality metrics
-	DataQualityScore           *prometheus.GaugeVec
-	MissingFieldsCount         *prometheus.CounterVec
-	InvalidDataCount           *prometheus.CounterVec
-	DataCompleteness           *prometheus.GaugeVec
-	
+	DataQualityScore   *prometheus.GaugeVec
+	MissingFieldsCount *prometheus.CounterVec
+	InvalidDataCount   *prometheus.CounterVec
+	DataCompleteness   *prometheus.GaugeVec
+
 	// User engagement metrics
-	ReviewsPerUser             *prometheus.HistogramVec
-	UserActivityPattern       *prometheus.CounterVec
+	ReviewsPerUser              *prometheus.HistogramVec
+	UserActivityPattern         *prometheus.CounterVec
 	ReviewSentimentDistribution *prometheus.CounterVec
-	
+
 	// Business KPIs
-	ReviewVelocity             *prometheus.GaugeVec
-	ReviewBacklog              *prometheus.GaugeVec
-	DataFreshness              *prometheus.GaugeVec
-	CustomerSatisfactionScore  *prometheus.GaugeVec
-	
+	ReviewVelocity            *prometheus.GaugeVec
+	ReviewBacklog             *prometheus.GaugeVec
+	DataFreshness             *prometheus.GaugeVec
+	CustomerSatisfactionScore *prometheus.GaugeVec
+
 	// Operational metrics
-	ProcessingCapacity         *prometheus.GaugeVec
-	ProcessingUtilization      *prometheus.GaugeVec
-	QueueDepth                 *prometheus.GaugeVec
-	ErrorRate                  *prometheus.GaugeVec
-	
+	ProcessingCapacity    *prometheus.GaugeVec
+	ProcessingUtilization *prometheus.GaugeVec
+	QueueDepth            *prometheus.GaugeVec
+	ErrorRate             *prometheus.GaugeVec
+
 	logger *logrus.Logger
 }
 
@@ -101,7 +101,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "deduplication_type"},
 		),
-		
+
 		// File processing metrics
 		FilesProcessed: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -134,7 +134,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "file_type"},
 		),
-		
+
 		// Provider metrics
 		ProviderRequestsTotal: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -165,7 +165,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "metric_type"},
 		),
-		
+
 		// Hotel metrics
 		HotelsTotal: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -195,7 +195,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "hotel_id"},
 		),
-		
+
 		// Data quality metrics
 		DataQualityScore: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -225,7 +225,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "field_name"},
 		),
-		
+
 		// User engagement metrics
 		ReviewsPerUser: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -249,7 +249,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "sentiment", "rating_range"},
 		),
-		
+
 		// Business KPIs
 		ReviewVelocity: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -279,7 +279,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "hotel_id", "time_period"},
 		),
-		
+
 		// Operational metrics
 		ProcessingCapacity: promauto.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -309,7 +309,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"component", "error_type"},
 		),
-		
+
 		logger: logger,
 	}
 }
@@ -436,16 +436,16 @@ func (m *BusinessMetrics) StartBusinessMetricsCollection(ctx context.Context) {
 func (m *BusinessMetrics) collectBusinessMetrics(ctx context.Context) {
 	// This would typically query the database and other systems
 	// to collect current business metrics
-	
+
 	// For demonstration, we'll update some sample metrics
 	m.logger.Debug("Collecting business metrics")
-	
+
 	// Update some sample operational metrics
 	m.UpdateOperationalMetrics("processing_engine", "cpu", 100.0, 75.0)
 	m.UpdateOperationalMetrics("processing_engine", "memory", 8192.0, 6144.0)
 	m.UpdateQueueDepth("file_processing", "normal", 50.0)
 	m.UpdateQueueDepth("file_processing", "high", 10.0)
-	
+
 	// Update some sample data quality metrics
 	m.UpdateDataQuality("booking", "completeness", 0.95)
 	m.UpdateDataQuality("booking", "accuracy", 0.92)

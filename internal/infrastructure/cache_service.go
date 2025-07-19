@@ -77,7 +77,7 @@ func (c *CacheService) GetJSON(ctx context.Context, key string, dest interface{}
 	if err != nil {
 		return err
 	}
-	
+
 	err = json.Unmarshal([]byte(val), dest)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal JSON: %w", err)

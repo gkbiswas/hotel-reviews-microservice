@@ -58,7 +58,7 @@ func (p *AsyncProcessor) Start(ctx context.Context) {
 // Stop stops the async processor
 func (p *AsyncProcessor) Stop(ctx context.Context) error {
 	p.cancel()
-	
+
 	// Wait for workers to finish with timeout
 	done := make(chan struct{})
 	go func() {
@@ -172,7 +172,7 @@ func (p *AsyncProcessor) EnqueueEmailNotification(ctx context.Context, to, subje
 // EnqueueImageProcessing enqueues image processing
 func (p *AsyncProcessor) EnqueueImageProcessing(ctx context.Context, imageURL string) error {
 	return p.PublishMessage(ctx, "image.process", map[string]interface{}{
-		"image_url": imageURL,
+		"image_url":  imageURL,
 		"operations": []string{"resize", "optimize"},
 	})
 }

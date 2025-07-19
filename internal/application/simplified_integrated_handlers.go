@@ -542,7 +542,7 @@ func (h *SimplifiedIntegratedHandlers) respondWithError(c *gin.Context, statusCo
 	c.JSON(statusCode, response)
 
 	// Log the error
-	h.logger.Error("API Error", 
+	h.logger.Error("API Error",
 		"status_code", statusCode,
 		"error_code", errorCode,
 		"message", message,
@@ -591,6 +591,6 @@ func (h *SimplifiedIntegratedHandlers) handleError(c *gin.Context, err error, me
 		statusCode = http.StatusInternalServerError
 		errorCode = "INTERNAL_ERROR"
 	}
-	
+
 	h.respondWithError(c, statusCode, errorCode, message)
 }

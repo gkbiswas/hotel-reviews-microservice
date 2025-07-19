@@ -19,16 +19,16 @@ import (
 
 // TestReviewData represents test review data structure
 type TestReviewData struct {
-	ID           string  `json:"id"`
-	HotelID      string  `json:"hotel_id"`
-	HotelName    string  `json:"hotel_name"`
-	Rating       float64 `json:"rating"`
-	Title        string  `json:"title"`
-	Comment      string  `json:"comment"`
-	ReviewDate   string  `json:"review_date"`
-	Language     string  `json:"language"`
-	ReviewerName string  `json:"reviewer_name"`
-	ReviewerEmail string `json:"reviewer_email"`
+	ID            string  `json:"id"`
+	HotelID       string  `json:"hotel_id"`
+	HotelName     string  `json:"hotel_name"`
+	Rating        float64 `json:"rating"`
+	Title         string  `json:"title"`
+	Comment       string  `json:"comment"`
+	ReviewDate    string  `json:"review_date"`
+	Language      string  `json:"language"`
+	ReviewerName  string  `json:"reviewer_name"`
+	ReviewerEmail string  `json:"reviewer_email"`
 }
 
 // TestDataGenerator provides utilities for generating test data
@@ -50,7 +50,7 @@ func NewTestDataGenerator(hotelID, providerID, reviewerID uuid.UUID) *TestDataGe
 // GenerateReviewData generates test review data
 func (g *TestDataGenerator) GenerateReviewData(count int) []TestReviewData {
 	reviews := make([]TestReviewData, count)
-	
+
 	comments := []string{
 		"Amazing hotel with excellent service and beautiful rooms!",
 		"Great location, friendly staff, and clean facilities.",
@@ -63,7 +63,7 @@ func (g *TestDataGenerator) GenerateReviewData(count int) []TestReviewData {
 		"Excellent breakfast and helpful concierge service.",
 		"Clean and modern hotel with professional staff.",
 	}
-	
+
 	titles := []string{
 		"Excellent stay!",
 		"Great hotel",
@@ -76,26 +76,26 @@ func (g *TestDataGenerator) GenerateReviewData(count int) []TestReviewData {
 		"Great service",
 		"Clean and modern",
 	}
-	
+
 	for i := 0; i < count; i++ {
-		rating := float64(1 + (i%5)) // Cycle through ratings 1-5
+		rating := float64(1 + (i % 5)) // Cycle through ratings 1-5
 		commentIndex := i % len(comments)
 		titleIndex := i % len(titles)
-		
+
 		reviews[i] = TestReviewData{
-			ID:           fmt.Sprintf("test-review-%d", i),
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       rating,
-			Title:        titles[titleIndex],
-			Comment:      comments[commentIndex],
-			ReviewDate:   time.Now().AddDate(0, 0, -i).Format(time.RFC3339),
-			Language:     "en",
-			ReviewerName: "Test Reviewer",
+			ID:            fmt.Sprintf("test-review-%d", i),
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        rating,
+			Title:         titles[titleIndex],
+			Comment:       comments[commentIndex],
+			ReviewDate:    time.Now().AddDate(0, 0, -i).Format(time.RFC3339),
+			Language:      "en",
+			ReviewerName:  "Test Reviewer",
 			ReviewerEmail: "test@example.com",
 		}
 	}
-	
+
 	return reviews
 }
 
@@ -103,51 +103,51 @@ func (g *TestDataGenerator) GenerateReviewData(count int) []TestReviewData {
 func (g *TestDataGenerator) GenerateInvalidReviewData() []TestReviewData {
 	return []TestReviewData{
 		{
-			ID:           "invalid-rating",
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       6.0, // Invalid rating > 5
-			Title:        "Invalid rating test",
-			Comment:      "This review has an invalid rating",
-			ReviewDate:   time.Now().Format(time.RFC3339),
-			Language:     "en",
-			ReviewerName: "Test Reviewer",
+			ID:            "invalid-rating",
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        6.0, // Invalid rating > 5
+			Title:         "Invalid rating test",
+			Comment:       "This review has an invalid rating",
+			ReviewDate:    time.Now().Format(time.RFC3339),
+			Language:      "en",
+			ReviewerName:  "Test Reviewer",
 			ReviewerEmail: "test@example.com",
 		},
 		{
-			ID:           "empty-comment",
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       4.0,
-			Title:        "Empty comment test",
-			Comment:      "", // Empty comment
-			ReviewDate:   time.Now().Format(time.RFC3339),
-			Language:     "en",
-			ReviewerName: "Test Reviewer",
+			ID:            "empty-comment",
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        4.0,
+			Title:         "Empty comment test",
+			Comment:       "", // Empty comment
+			ReviewDate:    time.Now().Format(time.RFC3339),
+			Language:      "en",
+			ReviewerName:  "Test Reviewer",
 			ReviewerEmail: "test@example.com",
 		},
 		{
-			ID:           "future-date",
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       4.0,
-			Title:        "Future date test",
-			Comment:      "This review has a future date",
-			ReviewDate:   time.Now().AddDate(0, 0, 1).Format(time.RFC3339), // Future date
-			Language:     "en",
-			ReviewerName: "Test Reviewer",
+			ID:            "future-date",
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        4.0,
+			Title:         "Future date test",
+			Comment:       "This review has a future date",
+			ReviewDate:    time.Now().AddDate(0, 0, 1).Format(time.RFC3339), // Future date
+			Language:      "en",
+			ReviewerName:  "Test Reviewer",
 			ReviewerEmail: "test@example.com",
 		},
 		{
-			ID:           "missing-hotel-id",
-			HotelID:      "", // Missing hotel ID
-			HotelName:    "Test Hotel",
-			Rating:       4.0,
-			Title:        "Missing hotel ID test",
-			Comment:      "This review has missing hotel ID",
-			ReviewDate:   time.Now().Format(time.RFC3339),
-			Language:     "en",
-			ReviewerName: "Test Reviewer",
+			ID:            "missing-hotel-id",
+			HotelID:       "", // Missing hotel ID
+			HotelName:     "Test Hotel",
+			Rating:        4.0,
+			Title:         "Missing hotel ID test",
+			Comment:       "This review has missing hotel ID",
+			ReviewDate:    time.Now().Format(time.RFC3339),
+			Language:      "en",
+			ReviewerName:  "Test Reviewer",
 			ReviewerEmail: "test@example.com",
 		},
 	}
@@ -157,39 +157,39 @@ func (g *TestDataGenerator) GenerateInvalidReviewData() []TestReviewData {
 func (g *TestDataGenerator) GenerateMultiLanguageReviewData() []TestReviewData {
 	return []TestReviewData{
 		{
-			ID:           "en-review",
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       4.5,
-			Title:        "Great hotel",
-			Comment:      "This hotel was amazing with excellent service!",
-			ReviewDate:   time.Now().Format(time.RFC3339),
-			Language:     "en",
-			ReviewerName: "John Smith",
+			ID:            "en-review",
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        4.5,
+			Title:         "Great hotel",
+			Comment:       "This hotel was amazing with excellent service!",
+			ReviewDate:    time.Now().Format(time.RFC3339),
+			Language:      "en",
+			ReviewerName:  "John Smith",
 			ReviewerEmail: "john@example.com",
 		},
 		{
-			ID:           "es-review",
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       4.0,
-			Title:        "Buen hotel",
-			Comment:      "El hotel fue muy bueno con excelente servicio!",
-			ReviewDate:   time.Now().Format(time.RFC3339),
-			Language:     "es",
-			ReviewerName: "Juan García",
+			ID:            "es-review",
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        4.0,
+			Title:         "Buen hotel",
+			Comment:       "El hotel fue muy bueno con excelente servicio!",
+			ReviewDate:    time.Now().Format(time.RFC3339),
+			Language:      "es",
+			ReviewerName:  "Juan García",
 			ReviewerEmail: "juan@example.com",
 		},
 		{
-			ID:           "fr-review",
-			HotelID:      g.hotelID.String(),
-			HotelName:    "Test Hotel",
-			Rating:       3.5,
-			Title:        "Bon hôtel",
-			Comment:      "L'hôtel était très bien avec un excellent service!",
-			ReviewDate:   time.Now().Format(time.RFC3339),
-			Language:     "fr",
-			ReviewerName: "Pierre Dubois",
+			ID:            "fr-review",
+			HotelID:       g.hotelID.String(),
+			HotelName:     "Test Hotel",
+			Rating:        3.5,
+			Title:         "Bon hôtel",
+			Comment:       "L'hôtel était très bien avec un excellent service!",
+			ReviewDate:    time.Now().Format(time.RFC3339),
+			Language:      "fr",
+			ReviewerName:  "Pierre Dubois",
 			ReviewerEmail: "pierre@example.com",
 		},
 	}
@@ -210,33 +210,33 @@ func NewFileTestUtils() *FileTestUtils {
 // CreateJSONLinesFile creates a JSON Lines file with the given data
 func (f *FileTestUtils) CreateJSONLinesFile(t *testing.T, filename string, data []TestReviewData) string {
 	filePath := filepath.Join(f.tempDir, filename)
-	
+
 	file, err := os.Create(filePath)
 	require.NoError(t, err)
 	defer file.Close()
-	
+
 	for _, item := range data {
 		jsonData, err := json.Marshal(item)
 		require.NoError(t, err)
-		
+
 		_, err = file.Write(jsonData)
 		require.NoError(t, err)
-		
+
 		_, err = file.Write([]byte("\n"))
 		require.NoError(t, err)
 	}
-	
+
 	return filePath
 }
 
 // CreateLargeJSONLinesFile creates a large JSON Lines file for performance testing
 func (f *FileTestUtils) CreateLargeJSONLinesFile(t *testing.T, filename string, recordCount int, generator *TestDataGenerator) string {
 	filePath := filepath.Join(f.tempDir, filename)
-	
+
 	file, err := os.Create(filePath)
 	require.NoError(t, err)
 	defer file.Close()
-	
+
 	// Generate data in batches to avoid memory issues
 	batchSize := 1000
 	for i := 0; i < recordCount; i += batchSize {
@@ -244,35 +244,35 @@ func (f *FileTestUtils) CreateLargeJSONLinesFile(t *testing.T, filename string, 
 		if end > recordCount {
 			end = recordCount
 		}
-		
+
 		batchData := generator.GenerateReviewData(end - i)
-		
+
 		for j, item := range batchData {
 			// Update ID to be unique across batches
 			item.ID = fmt.Sprintf("large-review-%d", i+j)
-			
+
 			jsonData, err := json.Marshal(item)
 			require.NoError(t, err)
-			
+
 			_, err = file.Write(jsonData)
 			require.NoError(t, err)
-			
+
 			_, err = file.Write([]byte("\n"))
 			require.NoError(t, err)
 		}
 	}
-	
+
 	return filePath
 }
 
 // CreateCorruptedJSONLinesFile creates a file with corrupted JSON data
 func (f *FileTestUtils) CreateCorruptedJSONLinesFile(t *testing.T, filename string) string {
 	filePath := filepath.Join(f.tempDir, filename)
-	
+
 	file, err := os.Create(filePath)
 	require.NoError(t, err)
 	defer file.Close()
-	
+
 	corruptedData := []string{
 		`{"id": "valid-1", "rating": 4.0, "comment": "Valid review"}`,
 		`{"id": "invalid-json", "rating": 4.0, "comment": "Missing closing brace"`,
@@ -280,12 +280,12 @@ func (f *FileTestUtils) CreateCorruptedJSONLinesFile(t *testing.T, filename stri
 		`{"id": "valid-2", "rating": 3.5, "comment": "Another valid review"}`,
 		`{"id": "incomplete",`,
 	}
-	
+
 	for _, line := range corruptedData {
 		_, err = file.Write([]byte(line + "\n"))
 		require.NoError(t, err)
 	}
-	
+
 	return filePath
 }
 
@@ -321,10 +321,10 @@ func (d *DatabaseTestUtils) CreateTestProvider(ctx context.Context, t *testing.T
 		BaseURL:  fmt.Sprintf("https://%s.example.com", strings.ToLower(name)),
 		IsActive: true,
 	}
-	
+
 	err := d.repo.CreateProvider(ctx, provider)
 	require.NoError(t, err)
-	
+
 	return provider
 }
 
@@ -341,10 +341,10 @@ func (d *DatabaseTestUtils) CreateTestHotel(ctx context.Context, t *testing.T, n
 		Latitude:    40.7128 + float64(len(name))*0.001, // Slightly different coordinates
 		Longitude:   -74.0060 + float64(len(name))*0.001,
 	}
-	
+
 	err := d.repo.CreateHotel(ctx, hotel)
 	require.NoError(t, err)
-	
+
 	return hotel
 }
 
@@ -359,10 +359,10 @@ func (d *DatabaseTestUtils) CreateTestReviewerInfo(ctx context.Context, t *testi
 		TotalReviews:  0,
 		AverageRating: 0.0,
 	}
-	
+
 	err := d.repo.CreateReviewerInfo(ctx, reviewer)
 	require.NoError(t, err)
-	
+
 	return reviewer
 }
 
@@ -386,14 +386,14 @@ func (d *DatabaseTestUtils) GetReviewByExternalID(ctx context.Context, t *testin
 	filters := map[string]interface{}{
 		"external_id": externalID,
 	}
-	
+
 	reviews, err := d.repo.Search(ctx, "", filters, 1, 0)
 	require.NoError(t, err)
-	
+
 	if len(reviews) == 0 {
 		return nil
 	}
-	
+
 	return &reviews[0]
 }
 
@@ -402,13 +402,13 @@ func (d *DatabaseTestUtils) CleanupTestData(ctx context.Context, t *testing.T, p
 	// Get all reviews for the provider
 	reviews, err := d.repo.GetByProvider(ctx, providerID, 10000, 0)
 	require.NoError(t, err)
-	
+
 	// Delete all reviews
 	for _, review := range reviews {
 		err = d.repo.DeleteByID(ctx, review.ID)
 		require.NoError(t, err)
 	}
-	
+
 	// Delete the provider
 	err = d.repo.DeleteProvider(ctx, providerID)
 	require.NoError(t, err)
@@ -429,7 +429,7 @@ func (a *AssertionUtils) AssertReviewDataMatches(t *testing.T, expected TestRevi
 	require.Equal(t, expected.Comment, actual.Comment, "Comment should match")
 	require.Equal(t, expected.Language, actual.Language, "Language should match")
 	require.Equal(t, expected.ID, actual.ExternalID, "External ID should match")
-	
+
 	// Parse expected date and compare
 	expectedDate, err := time.Parse(time.RFC3339, expected.ReviewDate)
 	require.NoError(t, err)
@@ -511,7 +511,7 @@ func (s *S3TestUtils) UploadFileFromPath(ctx context.Context, t *testing.T, loca
 	file, err := os.Open(localPath)
 	require.NoError(t, err)
 	defer file.Close()
-	
+
 	err = s.s3Client.UploadFile(ctx, s.bucket, s3Key, file, "application/json")
 	require.NoError(t, err)
 }
@@ -535,10 +535,10 @@ func (s *S3TestUtils) GetFileContent(ctx context.Context, t *testing.T, key stri
 	reader, err := s.s3Client.DownloadFile(ctx, s.bucket, key)
 	require.NoError(t, err)
 	defer reader.Close()
-	
+
 	content, err := io.ReadAll(reader)
 	require.NoError(t, err)
-	
+
 	return string(content)
 }
 

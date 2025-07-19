@@ -33,16 +33,16 @@ const (
 
 // Config represents logger configuration
 type Config struct {
-	Level           string `json:"level"`
-	Format          string `json:"format"`
-	Output          string `json:"output"`
-	FilePath        string `json:"file_path"`
-	MaxSize         int    `json:"max_size"`
-	MaxBackups      int    `json:"max_backups"`
-	MaxAge          int    `json:"max_age"`
-	Compress        bool   `json:"compress"`
-	EnableCaller    bool   `json:"enable_caller"`
-	EnableStacktrace bool  `json:"enable_stacktrace"`
+	Level            string `json:"level"`
+	Format           string `json:"format"`
+	Output           string `json:"output"`
+	FilePath         string `json:"file_path"`
+	MaxSize          int    `json:"max_size"`
+	MaxBackups       int    `json:"max_backups"`
+	MaxAge           int    `json:"max_age"`
+	Compress         bool   `json:"compress"`
+	EnableCaller     bool   `json:"enable_caller"`
+	EnableStacktrace bool   `json:"enable_stacktrace"`
 }
 
 // Logger wraps slog.Logger with additional functionality
@@ -78,12 +78,12 @@ func New(config *Config) (*Logger, error) {
 					return slog.Attr{Key: a.Key, Value: slog.AnyValue(src)}
 				}
 			}
-			
+
 			// Customize time format
 			if a.Key == slog.TimeKey {
 				return slog.Attr{Key: a.Key, Value: slog.StringValue(a.Value.Time().Format(time.RFC3339Nano))}
 			}
-			
+
 			return a
 		},
 	}
@@ -111,10 +111,10 @@ func New(config *Config) (*Logger, error) {
 // NewDefault creates a logger with default configuration
 func NewDefault() *Logger {
 	config := &Config{
-		Level:           "info",
-		Format:          "json",
-		Output:          "stdout",
-		EnableCaller:    true,
+		Level:            "info",
+		Format:           "json",
+		Output:           "stdout",
+		EnableCaller:     true,
 		EnableStacktrace: false,
 	}
 
@@ -215,12 +215,12 @@ func (l *Logger) WithError(err error) *Logger {
 	if err == nil {
 		return l
 	}
-	
+
 	attrs := []any{"error", err.Error()}
 	if l.config.EnableStacktrace {
 		attrs = append(attrs, "stacktrace", getStackTrace())
 	}
-	
+
 	return &Logger{
 		Logger: l.Logger.With(attrs...),
 		config: l.config,
@@ -278,11 +278,11 @@ func (l *Logger) LogMetric(ctx context.Context, name string, value float64, labe
 		"metric_name", name,
 		"metric_value", value,
 	}
-	
+
 	for k, v := range labels {
 		attrs = append(attrs, "label_"+k, v)
 	}
-	
+
 	l.WithContext(ctx).Debug("Metric recorded", attrs...)
 }
 
@@ -292,11 +292,11 @@ func (l *Logger) LogBusinessEvent(ctx context.Context, event string, entityType 
 		"entity_type", entityType,
 		"entity_id", entityID,
 	}
-	
+
 	for k, v := range details {
 		attrs = append(attrs, k, v)
 	}
-	
+
 	l.WithContext(ctx).Info("Business event", attrs...)
 }
 
@@ -305,12 +305,12 @@ func (l *Logger) LogError(ctx context.Context, err error, msg string, args ...an
 	if err == nil {
 		return
 	}
-	
+
 	attrs := append(args, "error", err.Error())
 	if l.config.EnableStacktrace {
 		attrs = append(attrs, "stacktrace", getStackTrace())
 	}
-	
+
 	l.WithContext(ctx).Error(msg, attrs...)
 }
 
@@ -362,7 +362,7 @@ func createWriter(config *Config) (io.Writer, error) {
 		if config.FilePath == "" {
 			return nil, fmt.Errorf("file path is required for file output")
 		}
-		
+
 		return &lumberjack.Logger{
 			Filename:   config.FilePath,
 			MaxSize:    config.MaxSize,
@@ -461,23 +461,23 @@ func RequestLoggerMiddleware(logger *Logger) func(next http.Handler) http.Handle
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			
+
 			// Generate request ID if not present
 			requestID := r.Header.Get("X-Request-ID")
 			if requestID == "" {
 				requestID = GenerateRequestID()
 			}
-			
+
 			// Generate correlation ID if not present
 			correlationID := r.Header.Get("X-Correlation-ID")
 			if correlationID == "" {
 				correlationID = GenerateCorrelationID()
 			}
-			
+
 			// Add IDs to context
 			ctx := WithRequestID(r.Context(), requestID)
 			ctx = WithCorrelationID(ctx, correlationID)
-			
+
 			// Add trace information if available
 			if traceID := r.Header.Get("X-Trace-ID"); traceID != "" {
 				ctx = WithTraceID(ctx, traceID)
@@ -485,17 +485,17 @@ func RequestLoggerMiddleware(logger *Logger) func(next http.Handler) http.Handle
 			if spanID := r.Header.Get("X-Span-ID"); spanID != "" {
 				ctx = WithSpanID(ctx, spanID)
 			}
-			
+
 			// Update request with new context
 			r = r.WithContext(ctx)
-			
+
 			// Set response headers
 			w.Header().Set("X-Request-ID", requestID)
 			w.Header().Set("X-Correlation-ID", correlationID)
-			
+
 			// Wrap response writer to capture status code and size
 			ww := &responseWriter{ResponseWriter: w, statusCode: 200}
-			
+
 			// Log request start
 			logger.InfoContext(ctx, "HTTP request started",
 				"method", r.Method,
@@ -503,10 +503,10 @@ func RequestLoggerMiddleware(logger *Logger) func(next http.Handler) http.Handle
 				"remote_addr", r.RemoteAddr,
 				"user_agent", r.UserAgent(),
 			)
-			
+
 			// Process request
 			next.ServeHTTP(ww, r)
-			
+
 			// Log request completion
 			duration := time.Since(start)
 			logger.LogRequest(ctx, r.Method, r.URL.Path, ww.statusCode, duration, ww.size)
@@ -539,13 +539,13 @@ func RecoveryMiddleware(logger *Logger) func(next http.Handler) http.Handler {
 			defer func() {
 				if recovered := recover(); recovered != nil {
 					logger.LogPanic(r.Context(), recovered, "HTTP request panic")
-					
+
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte(`{"error": "Internal server error"}`))
 				}
 			}()
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

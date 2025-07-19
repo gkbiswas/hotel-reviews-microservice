@@ -27,10 +27,10 @@ import (
 func main() {
 	// Parse command line flags
 	var (
-		mode       = flag.String("mode", "production", "Application mode (development/production)")
-		logLevel   = flag.String("log-level", "info", "Log level (debug/info/warn/error)")
-		host       = flag.String("host", "", "Server host (overrides config)")
-		port       = flag.Int("port", 0, "Server port (overrides config)")
+		mode        = flag.String("mode", "production", "Application mode (development/production)")
+		logLevel    = flag.String("log-level", "info", "Log level (debug/info/warn/error)")
+		host        = flag.String("host", "", "Server host (overrides config)")
+		port        = flag.Int("port", 0, "Server port (overrides config)")
 		createAdmin = flag.Bool("create-admin", false, "Create admin user on startup")
 	)
 	flag.Parse()
@@ -71,7 +71,7 @@ func main() {
 	// Initialize graceful shutdown manager
 	shutdownConfig := server.DefaultShutdownConfig()
 	shutdownConfig.GracefulTimeout = time.Duration(cfg.Server.ShutdownTimeout)
-	
+
 	loggerAdapter := &LoggerAdapter{Logger: appLogger}
 	shutdownManager := server.NewShutdownManager(loggerAdapter, shutdownConfig)
 
@@ -155,9 +155,8 @@ func main() {
 		slogLogger,
 	)
 
-
 	// Initialize application handlers
-	
+
 	handlers := application.NewSimplifiedIntegratedHandlers(
 		reviewService,
 		authService,
@@ -196,7 +195,7 @@ func main() {
 	if *mode == "development" {
 		gin.SetMode(gin.DebugMode)
 	}
-	
+
 	router := gin.New()
 
 	// Add essential middleware
@@ -328,11 +327,11 @@ func main() {
 
 	// Start server
 	go func() {
-		appLogger.Info("Starting HTTP server", 
+		appLogger.Info("Starting HTTP server",
 			"addr", httpServer.Addr,
 			"mode", *mode,
 			"features", map[string]bool{
-				"authentication":   true,
+				"authentication":  true,
 				"rbac":            true,
 				"circuit_breaker": true,
 				"retry_logic":     true,
@@ -343,7 +342,7 @@ func main() {
 				"json_processing": true,
 			},
 		)
-		
+
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server failed: %v", err)
 		}
@@ -437,7 +436,7 @@ func loggingMiddleware(logger *logger.Logger) gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 		duration := time.Since(start)
-		
+
 		logger.Info("HTTP request",
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,
@@ -454,12 +453,12 @@ func corsMiddleware() gin.HandlerFunc {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin,Content-Type,Authorization,X-Request-ID")
-		
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-		
+
 		c.Next()
 	}
 }
@@ -479,7 +478,7 @@ func (h *HealthChecker) Handler(c *gin.Context) {
 	ctx := c.Request.Context()
 	status := "ok"
 	details := make(map[string]string)
-	
+
 	for name, check := range h.checks {
 		if err := check(ctx); err != nil {
 			status = "error"
@@ -488,17 +487,17 @@ func (h *HealthChecker) Handler(c *gin.Context) {
 			details[name] = "ok"
 		}
 	}
-	
+
 	if status == "error" {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": status,
+			"status":  status,
 			"details": details,
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
-		"status": status,
+		"status":  status,
 		"details": details,
 	})
 }

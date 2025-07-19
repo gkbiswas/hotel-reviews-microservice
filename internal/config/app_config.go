@@ -13,37 +13,37 @@ import (
 type AppConfig struct {
 	// Server configuration
 	Server ServerConfig `json:"server" yaml:"server" validate:"required"`
-	
+
 	// Database configuration
 	Database infrastructure.DatabaseConfig `json:"database" yaml:"database" validate:"required"`
-	
+
 	// Redis configuration
 	Redis infrastructure.RedisConfig `json:"redis" yaml:"redis" validate:"required"`
-	
+
 	// Cache configuration
 	Cache infrastructure.CacheConfig `json:"cache" yaml:"cache" validate:"required"`
-	
+
 	// Authentication middleware configuration
 	Auth application.AuthMiddlewareConfig `json:"auth" yaml:"auth" validate:"required"`
-	
+
 	// Event handler configuration
 	EventHandler application.EventHandlerConfig `json:"event_handler" yaml:"event_handler" validate:"required"`
-	
+
 	// Cache service configuration
 	CacheService application.CacheServiceConfig `json:"cache_service" yaml:"cache_service" validate:"required"`
-	
+
 	// Processing configuration
 	Processing application.ProcessingConfig `json:"processing" yaml:"processing" validate:"required"`
-	
+
 	// Error handler configuration
 	ErrorHandler infrastructure.ErrorHandlerConfig `json:"error_handler" yaml:"error_handler" validate:"required"`
-	
+
 	// Monitoring configuration
 	Monitoring monitoring.Config `json:"monitoring" yaml:"monitoring" validate:"required"`
-	
+
 	// Circuit breaker configuration
 	CircuitBreaker infrastructure.CircuitBreakerConfig `json:"circuit_breaker" yaml:"circuit_breaker" validate:"required"`
-	
+
 	// Application-specific settings
 	App AppSettings `json:"app" yaml:"app" validate:"required"`
 }
@@ -64,17 +64,17 @@ type ServerConfig struct {
 
 // AppSettings represents application-specific settings
 type AppSettings struct {
-	Name                string `json:"name" yaml:"name" validate:"required"`
-	Version             string `json:"version" yaml:"version" validate:"required"`
-	Environment         string `json:"environment" yaml:"environment" validate:"required,oneof=development staging production"`
-	LogLevel            string `json:"log_level" yaml:"log_level" validate:"required,oneof=debug info warn error"`
-	EnableMetrics       bool   `json:"enable_metrics" yaml:"enable_metrics"`
-	EnableTracing       bool   `json:"enable_tracing" yaml:"enable_tracing"`
-	EnableHealthChecks  bool   `json:"enable_health_checks" yaml:"enable_health_checks"`
-	ShutdownTimeout     time.Duration `json:"shutdown_timeout" yaml:"shutdown_timeout" validate:"min=1s"`
-	MaxRequestSize      int64  `json:"max_request_size" yaml:"max_request_size" validate:"min=1"`
-	EnableRateLimit     bool   `json:"enable_rate_limit" yaml:"enable_rate_limit"`
-	EnableAuthentication bool   `json:"enable_authentication" yaml:"enable_authentication"`
+	Name                 string        `json:"name" yaml:"name" validate:"required"`
+	Version              string        `json:"version" yaml:"version" validate:"required"`
+	Environment          string        `json:"environment" yaml:"environment" validate:"required,oneof=development staging production"`
+	LogLevel             string        `json:"log_level" yaml:"log_level" validate:"required,oneof=debug info warn error"`
+	EnableMetrics        bool          `json:"enable_metrics" yaml:"enable_metrics"`
+	EnableTracing        bool          `json:"enable_tracing" yaml:"enable_tracing"`
+	EnableHealthChecks   bool          `json:"enable_health_checks" yaml:"enable_health_checks"`
+	ShutdownTimeout      time.Duration `json:"shutdown_timeout" yaml:"shutdown_timeout" validate:"min=1s"`
+	MaxRequestSize       int64         `json:"max_request_size" yaml:"max_request_size" validate:"min=1"`
+	EnableRateLimit      bool          `json:"enable_rate_limit" yaml:"enable_rate_limit"`
+	EnableAuthentication bool          `json:"enable_authentication" yaml:"enable_authentication"`
 }
 
 // GetDefaultConfig returns the default application configuration
@@ -123,16 +123,16 @@ func GetDefaultConfig() *AppConfig {
 			IdleCheckFrequency: time.Minute,
 		},
 		Cache: infrastructure.CacheConfig{
-			ReviewTTL:          time.Hour,
-			HotelTTL:           2 * time.Hour,
-			ProviderTTL:        4 * time.Hour,
-			StatisticsTTL:      30 * time.Minute,
-			SearchTTL:          15 * time.Minute,
-			DefaultTTL:         time.Hour,
-			MaxKeyLength:       250,
-			EnableCompression:  true,
-			CompressionLevel:   6,
-			PrefixSeparator:    ":",
+			ReviewTTL:         time.Hour,
+			HotelTTL:          2 * time.Hour,
+			ProviderTTL:       4 * time.Hour,
+			StatisticsTTL:     30 * time.Minute,
+			SearchTTL:         15 * time.Minute,
+			DefaultTTL:        time.Hour,
+			MaxKeyLength:      250,
+			EnableCompression: true,
+			CompressionLevel:  6,
+			PrefixSeparator:   ":",
 		},
 		Auth: *application.DefaultAuthMiddlewareConfig(),
 		EventHandler: application.EventHandlerConfig{
@@ -149,26 +149,26 @@ func GetDefaultConfig() *AppConfig {
 			DeadLetterThreshold: 5,
 		},
 		CacheService: application.CacheServiceConfig{
-			ReviewTTL:                  time.Hour,
-			HotelTTL:                   2 * time.Hour,
-			ProcessingTTL:              30 * time.Minute,
-			AnalyticsTTL:               time.Hour,
-			DefaultTTL:                 time.Hour,
-			ReviewKeyPrefix:            "review",
-			HotelKeyPrefix:             "hotel",
-			ProcessingKeyPrefix:        "processing",
-			AnalyticsKeyPrefix:         "analytics",
-			WarmupConcurrency:          5,
-			WarmupBatchSize:            100,
-			EnableBackgroundWarmup:     true,
-			WarmupInterval:             time.Hour,
-			InvalidationBatchSize:      50,
-			InvalidationDelay:          time.Second,
-			EnableSmartInvalidation:    true,
-			MaxConcurrentOperations:    10,
-			OperationTimeout:           30 * time.Second,
-			RetryAttempts:              3,
-			RetryDelay:                 time.Second,
+			ReviewTTL:               time.Hour,
+			HotelTTL:                2 * time.Hour,
+			ProcessingTTL:           30 * time.Minute,
+			AnalyticsTTL:            time.Hour,
+			DefaultTTL:              time.Hour,
+			ReviewKeyPrefix:         "review",
+			HotelKeyPrefix:          "hotel",
+			ProcessingKeyPrefix:     "processing",
+			AnalyticsKeyPrefix:      "analytics",
+			WarmupConcurrency:       5,
+			WarmupBatchSize:         100,
+			EnableBackgroundWarmup:  true,
+			WarmupInterval:          time.Hour,
+			InvalidationBatchSize:   50,
+			InvalidationDelay:       time.Second,
+			EnableSmartInvalidation: true,
+			MaxConcurrentOperations: 10,
+			OperationTimeout:        30 * time.Second,
+			RetryAttempts:           3,
+			RetryDelay:              time.Second,
 		},
 		Processing: application.ProcessingConfig{
 			MaxWorkers:         5,
@@ -197,29 +197,29 @@ func GetDefaultConfig() *AppConfig {
 			IncludeInternalErrors:  false,
 		},
 		Monitoring: monitoring.Config{
-			MetricsEnabled:       true,
-			MetricsPath:          "/metrics",
-			TracingEnabled:       false,
-			TracingServiceName:   "hotel-reviews",
-			TracingVersion:       "1.0.0",
-			TracingEnvironment:   "development",
-			JaegerEndpoint:       "http://localhost:14268/api/traces",
-			TracingSamplingRate:  0.1,
-			HealthEnabled:        true,
-			HealthPath:           "/health",
+			MetricsEnabled:      true,
+			MetricsPath:         "/metrics",
+			TracingEnabled:      false,
+			TracingServiceName:  "hotel-reviews",
+			TracingVersion:      "1.0.0",
+			TracingEnvironment:  "development",
+			JaegerEndpoint:      "http://localhost:14268/api/traces",
+			TracingSamplingRate: 0.1,
+			HealthEnabled:       true,
+			HealthPath:          "/health",
 		},
 		CircuitBreaker: *infrastructure.DefaultCircuitBreakerConfig(),
 		App: AppSettings{
-			Name:                "hotel-reviews-service",
-			Version:             "1.0.0",
-			Environment:         "development",
-			LogLevel:            "info",
-			EnableMetrics:       true,
-			EnableTracing:       false,
-			EnableHealthChecks:  true,
-			ShutdownTimeout:     30 * time.Second,
-			MaxRequestSize:      10 * 1024 * 1024, // 10MB
-			EnableRateLimit:     true,
+			Name:                 "hotel-reviews-service",
+			Version:              "1.0.0",
+			Environment:          "development",
+			LogLevel:             "info",
+			EnableMetrics:        true,
+			EnableTracing:        false,
+			EnableHealthChecks:   true,
+			ShutdownTimeout:      30 * time.Second,
+			MaxRequestSize:       10 * 1024 * 1024, // 10MB
+			EnableRateLimit:      true,
 			EnableAuthentication: true,
 		},
 	}
@@ -234,19 +234,19 @@ func (c *AppConfig) Validate() error {
 			return fmt.Errorf("TLS enabled but cert or key file not specified")
 		}
 	}
-	
+
 	// Validate that database and Redis configurations are compatible
 	if c.Database.MaxConns < c.Database.MinConns {
-		return fmt.Errorf("database max_conns (%d) cannot be less than min_conns (%d)", 
+		return fmt.Errorf("database max_conns (%d) cannot be less than min_conns (%d)",
 			c.Database.MaxConns, c.Database.MinConns)
 	}
-	
+
 	// Validate processing configuration
 	if c.Processing.MaxConcurrentFiles > c.Processing.MaxWorkers {
 		return fmt.Errorf("max_concurrent_files (%d) cannot exceed max_workers (%d)",
 			c.Processing.MaxConcurrentFiles, c.Processing.MaxWorkers)
 	}
-	
+
 	// Validate environment-specific settings
 	if c.App.Environment == "production" {
 		if c.App.LogLevel == "debug" {
@@ -256,7 +256,7 @@ func (c *AppConfig) Validate() error {
 			return fmt.Errorf("TLS must be enabled in production")
 		}
 	}
-	
+
 	return nil
 }
 
@@ -268,7 +268,7 @@ func (c *AppConfig) GetServerAddr() string {
 // GetDatabaseDSN returns the database connection string
 func (c *AppConfig) GetDatabaseDSN() string {
 	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		c.Database.Host, c.Database.Port, c.Database.Username, 
+		c.Database.Host, c.Database.Port, c.Database.Username,
 		c.Database.Password, c.Database.Database, c.Database.SSLMode)
 }
 

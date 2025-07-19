@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
-	
-	"github.com/segmentio/kafka-go"
+
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure"
+	"github.com/segmentio/kafka-go"
 )
 
 // KafkaWriterWrapper wraps Kafka writer for graceful shutdown

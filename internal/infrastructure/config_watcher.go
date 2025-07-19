@@ -19,31 +19,31 @@ import (
 
 // ConfigWatcher provides hot-reloading capabilities for configuration files and environment variables
 type ConfigWatcher struct {
-	mu            sync.RWMutex
-	watcher       *fsnotify.Watcher
-	validator     *validator.Validate
-	logger        monitoring.Logger
-	ctx           context.Context
-	cancel        context.CancelFunc
-	
+	mu        sync.RWMutex
+	watcher   *fsnotify.Watcher
+	validator *validator.Validate
+	logger    monitoring.Logger
+	ctx       context.Context
+	cancel    context.CancelFunc
+
 	// Configuration storage
-	configs       map[string]interface{}
-	configFiles   map[string]string // config name -> file path
-	envVars       map[string]string // env var name -> current value
-	
+	configs     map[string]interface{}
+	configFiles map[string]string // config name -> file path
+	envVars     map[string]string // env var name -> current value
+
 	// Callbacks and notifications
 	changeCallbacks map[string][]ConfigChangeCallback
 	validators      map[string]ConfigValidator
-	
+
 	// History and rollback
-	configHistory   map[string][]ConfigSnapshot
-	maxHistorySize  int
-	
+	configHistory  map[string][]ConfigSnapshot
+	maxHistorySize int
+
 	// Metrics
-	reloadCount     int64
-	errorCount      int64
-	lastReloadTime  time.Time
-	
+	reloadCount    int64
+	errorCount     int64
+	lastReloadTime time.Time
+
 	// Options
 	options *ConfigWatcherOptions
 }
@@ -65,32 +65,32 @@ type ConfigSnapshot struct {
 // ConfigWatcherOptions configures the behavior of ConfigWatcher
 type ConfigWatcherOptions struct {
 	// File watching
-	WatchIntervalSec    int           `json:"watch_interval_sec" validate:"min=1"`
-	FileChecksum        bool          `json:"file_checksum"`
-	IgnoreHiddenFiles   bool          `json:"ignore_hidden_files"`
-	
+	WatchIntervalSec  int  `json:"watch_interval_sec" validate:"min=1"`
+	FileChecksum      bool `json:"file_checksum"`
+	IgnoreHiddenFiles bool `json:"ignore_hidden_files"`
+
 	// Environment variable monitoring
-	EnvCheckIntervalSec int           `json:"env_check_interval_sec" validate:"min=1"`
-	EnvVarPrefix        string        `json:"env_var_prefix"`
-	
+	EnvCheckIntervalSec int    `json:"env_check_interval_sec" validate:"min=1"`
+	EnvVarPrefix        string `json:"env_var_prefix"`
+
 	// Validation and rollback
-	ValidateOnLoad      bool          `json:"validate_on_load"`
-	EnableRollback      bool          `json:"enable_rollback"`
-	MaxHistorySize      int           `json:"max_history_size" validate:"min=1"`
-	RollbackTimeoutSec  int           `json:"rollback_timeout_sec" validate:"min=1"`
-	
+	ValidateOnLoad     bool `json:"validate_on_load"`
+	EnableRollback     bool `json:"enable_rollback"`
+	MaxHistorySize     int  `json:"max_history_size" validate:"min=1"`
+	RollbackTimeoutSec int  `json:"rollback_timeout_sec" validate:"min=1"`
+
 	// Error handling
-	MaxRetries          int           `json:"max_retries" validate:"min=0"`
-	RetryDelaySec       int           `json:"retry_delay_sec" validate:"min=1"`
-	FailOnValidation    bool          `json:"fail_on_validation"`
-	
+	MaxRetries       int  `json:"max_retries" validate:"min=0"`
+	RetryDelaySec    int  `json:"retry_delay_sec" validate:"min=1"`
+	FailOnValidation bool `json:"fail_on_validation"`
+
 	// Performance
-	BatchUpdates        bool          `json:"batch_updates"`
-	BatchIntervalMs     int           `json:"batch_interval_ms" validate:"min=100"`
-	
+	BatchUpdates    bool `json:"batch_updates"`
+	BatchIntervalMs int  `json:"batch_interval_ms" validate:"min=100"`
+
 	// Debugging
-	EnableDebugLogging  bool          `json:"enable_debug_logging"`
-	LogConfigChanges    bool          `json:"log_config_changes"`
+	EnableDebugLogging bool `json:"enable_debug_logging"`
+	LogConfigChanges   bool `json:"log_config_changes"`
 }
 
 // DefaultConfigWatcherOptions returns sensible defaults
@@ -120,20 +120,20 @@ func NewConfigWatcher(logger monitoring.Logger, options *ConfigWatcherOptions) (
 	if options == nil {
 		options = DefaultConfigWatcherOptions()
 	}
-	
+
 	// Validate options
 	validate := validator.New()
 	if err := validate.Struct(options); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
-	
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file watcher: %w", err)
 	}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	cw := &ConfigWatcher{
 		watcher:         watcher,
 		validator:       validate,
@@ -149,20 +149,20 @@ func NewConfigWatcher(logger monitoring.Logger, options *ConfigWatcherOptions) (
 		maxHistorySize:  options.MaxHistorySize,
 		options:         options,
 	}
-	
+
 	// Start monitoring goroutines
 	go cw.watchFiles()
 	go cw.watchEnvironment()
-	
+
 	if options.BatchUpdates {
 		go cw.batchProcessor()
 	}
-	
-	logger.Info("Configuration watcher started", 
+
+	logger.Info("Configuration watcher started",
 		"file_checksum", options.FileChecksum,
 		"env_check_interval", options.EnvCheckIntervalSec,
 		"rollback_enabled", options.EnableRollback)
-	
+
 	return cw, nil
 }
 
@@ -170,16 +170,16 @@ func NewConfigWatcher(logger monitoring.Logger, options *ConfigWatcherOptions) (
 func (cw *ConfigWatcher) RegisterConfig(name string, config interface{}) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
-	
+
 	if cw.options.ValidateOnLoad {
 		if err := cw.validateConfig(name, config); err != nil {
 			return fmt.Errorf("config validation failed for %s: %w", name, err)
 		}
 	}
-	
+
 	cw.configs[name] = config
 	cw.addToHistory(name, config, "registration")
-	
+
 	cw.logger.Debug("Registered configuration", "name", name, "type", reflect.TypeOf(config))
 	return nil
 }
@@ -191,37 +191,37 @@ func (cw *ConfigWatcher) WatchFile(configName, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to resolve path %s: %w", filePath, err)
 	}
-	
+
 	// Check if file exists
 	if _, err := os.Stat(absPath); err != nil {
 		return fmt.Errorf("file does not exist: %s", absPath)
 	}
-	
+
 	// Add to watcher
 	if err := cw.watcher.Add(absPath); err != nil {
 		return fmt.Errorf("failed to watch file %s: %w", absPath, err)
 	}
-	
+
 	// Also watch the directory for file recreations
 	dir := filepath.Dir(absPath)
 	if err := cw.watcher.Add(dir); err != nil {
 		cw.logger.Warn("Failed to watch directory", "dir", dir, "error", err)
 	}
-	
+
 	// Update the configFiles map (needs lock)
 	cw.mu.Lock()
 	cw.configFiles[configName] = absPath
 	cw.mu.Unlock()
-	
+
 	// Load initial configuration (this will acquire its own lock in updateConfig)
 	if err := cw.loadFileConfig(configName, absPath); err != nil {
 		return fmt.Errorf("failed to load initial config: %w", err)
 	}
-	
-	cw.logger.Info("Started watching configuration file", 
-		"config", configName, 
+
+	cw.logger.Info("Started watching configuration file",
+		"config", configName,
 		"file", absPath)
-	
+
 	return nil
 }
 
@@ -229,22 +229,22 @@ func (cw *ConfigWatcher) WatchFile(configName, filePath string) error {
 func (cw *ConfigWatcher) WatchEnvVar(configName, envVarName string) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
-	
+
 	currentValue := os.Getenv(envVarName)
 	cw.envVars[envVarName] = currentValue
-	
+
 	// Store mapping for updates
 	key := fmt.Sprintf("env:%s", envVarName)
 	if currentValue != "" {
 		cw.configs[key] = currentValue
 		cw.addToHistory(key, currentValue, "env")
 	}
-	
-	cw.logger.Info("Started watching environment variable", 
+
+	cw.logger.Info("Started watching environment variable",
 		"config", configName,
 		"env_var", envVarName,
 		"has_value", currentValue != "")
-	
+
 	return nil
 }
 
@@ -252,7 +252,7 @@ func (cw *ConfigWatcher) WatchEnvVar(configName, envVarName string) error {
 func (cw *ConfigWatcher) RegisterChangeCallback(configName string, callback ConfigChangeCallback) {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
-	
+
 	cw.changeCallbacks[configName] = append(cw.changeCallbacks[configName], callback)
 	cw.logger.Debug("Registered change callback", "config", configName)
 }
@@ -261,7 +261,7 @@ func (cw *ConfigWatcher) RegisterChangeCallback(configName string, callback Conf
 func (cw *ConfigWatcher) RegisterValidator(configName string, validator ConfigValidator) {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
-	
+
 	cw.validators[configName] = validator
 	cw.logger.Debug("Registered validator", "config", configName)
 }
@@ -270,7 +270,7 @@ func (cw *ConfigWatcher) RegisterValidator(configName string, validator ConfigVa
 func (cw *ConfigWatcher) GetConfig(name string) (interface{}, bool) {
 	cw.mu.RLock()
 	defer cw.mu.RUnlock()
-	
+
 	config, exists := cw.configs[name]
 	return config, exists
 }
@@ -279,7 +279,7 @@ func (cw *ConfigWatcher) GetConfig(name string) (interface{}, bool) {
 func (cw *ConfigWatcher) GetConfigHistory(name string) []ConfigSnapshot {
 	cw.mu.RLock()
 	defer cw.mu.RUnlock()
-	
+
 	history := cw.configHistory[name]
 	result := make([]ConfigSnapshot, len(history))
 	copy(result, history)
@@ -290,16 +290,16 @@ func (cw *ConfigWatcher) GetConfigHistory(name string) []ConfigSnapshot {
 func (cw *ConfigWatcher) RollbackConfig(name string, targetHash string) error {
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
-	
+
 	if !cw.options.EnableRollback {
 		return fmt.Errorf("rollback is disabled")
 	}
-	
+
 	history := cw.configHistory[name]
 	if len(history) == 0 {
 		return fmt.Errorf("no history available for config %s", name)
 	}
-	
+
 	var targetSnapshot *ConfigSnapshot
 	for i := len(history) - 1; i >= 0; i-- {
 		if history[i].Hash == targetHash {
@@ -307,65 +307,65 @@ func (cw *ConfigWatcher) RollbackConfig(name string, targetHash string) error {
 			break
 		}
 	}
-	
+
 	if targetSnapshot == nil {
 		return fmt.Errorf("configuration snapshot with hash %s not found", targetHash)
 	}
-	
+
 	// Validate the target configuration
 	if err := cw.validateConfig(name, targetSnapshot.Config); err != nil {
 		return fmt.Errorf("target configuration is invalid: %w", err)
 	}
-	
+
 	cw.configs[name] = targetSnapshot.Config
-	
+
 	// Add rollback to history immediately
 	cw.addToHistory(name, targetSnapshot.Config, fmt.Sprintf("rollback:%s", targetHash))
-	
-	cw.logger.Info("Configuration rolled back", 
-		"config", name, 
+
+	cw.logger.Info("Configuration rolled back",
+		"config", name,
 		"target_hash", targetHash,
 		"timestamp", targetSnapshot.Timestamp)
-	
+
 	// Note: We skip notifying callbacks during rollback to avoid deadlocks
 	// and race conditions. Callbacks should be designed to handle configuration
 	// changes gracefully without requiring notification during rollback.
-	
+
 	return nil
 }
 
 // watchFiles monitors file system events
 func (cw *ConfigWatcher) watchFiles() {
 	defer cw.watcher.Close()
-	
+
 	for {
 		select {
 		case <-cw.ctx.Done():
 			return
-			
+
 		case event, ok := <-cw.watcher.Events:
 			if !ok {
 				return
 			}
-			
+
 			if cw.options.EnableDebugLogging {
-				cw.logger.Debug("File event received", 
-					"file", event.Name, 
+				cw.logger.Debug("File event received",
+					"file", event.Name,
 					"op", event.Op.String())
 			}
-			
+
 			// Skip hidden files if configured
 			if cw.options.IgnoreHiddenFiles && filepath.Base(event.Name)[0] == '.' {
 				continue
 			}
-			
+
 			cw.handleFileEvent(event)
-			
+
 		case err, ok := <-cw.watcher.Errors:
 			if !ok {
 				return
 			}
-			
+
 			cw.errorCount++
 			cw.logger.Error("File watcher error", "error", err)
 		}
@@ -383,27 +383,27 @@ func (cw *ConfigWatcher) handleFileEvent(event fsnotify.Event) {
 		}
 	}
 	cw.mu.RUnlock()
-	
+
 	if configName == "" {
 		return // Not a watched config file
 	}
-	
+
 	// Handle different event types
 	switch {
 	case event.Op&fsnotify.Write == fsnotify.Write:
 		cw.reloadFileConfig(configName, event.Name)
-		
+
 	case event.Op&fsnotify.Create == fsnotify.Create:
 		cw.reloadFileConfig(configName, event.Name)
-		
+
 	case event.Op&fsnotify.Remove == fsnotify.Remove:
-		cw.logger.Warn("Configuration file removed", 
-			"config", configName, 
+		cw.logger.Warn("Configuration file removed",
+			"config", configName,
 			"file", event.Name)
-		
+
 	case event.Op&fsnotify.Rename == fsnotify.Rename:
-		cw.logger.Warn("Configuration file renamed", 
-			"config", configName, 
+		cw.logger.Warn("Configuration file renamed",
+			"config", configName,
 			"file", event.Name)
 	}
 }
@@ -411,35 +411,35 @@ func (cw *ConfigWatcher) handleFileEvent(event fsnotify.Event) {
 // reloadFileConfig reloads configuration from file
 func (cw *ConfigWatcher) reloadFileConfig(configName, filePath string) {
 	if cw.options.EnableDebugLogging {
-		cw.logger.Debug("Reloading file configuration", 
-			"config", configName, 
+		cw.logger.Debug("Reloading file configuration",
+			"config", configName,
 			"file", filePath)
 	}
-	
+
 	var retries int
 	for retries < cw.options.MaxRetries {
 		if err := cw.loadFileConfig(configName, filePath); err != nil {
 			retries++
 			cw.errorCount++
-			cw.logger.Error("Failed to reload configuration", 
+			cw.logger.Error("Failed to reload configuration",
 				"config", configName,
-				"file", filePath, 
+				"file", filePath,
 				"error", err,
 				"retry", retries)
-			
+
 			if retries < cw.options.MaxRetries {
 				time.Sleep(time.Duration(cw.options.RetryDelaySec) * time.Second)
 				continue
 			}
-			
-			cw.logger.Error("Max retries exceeded for configuration reload", 
+
+			cw.logger.Error("Max retries exceeded for configuration reload",
 				"config", configName,
 				"file", filePath)
 			return
 		}
 		break
 	}
-	
+
 	cw.reloadCount++
 	cw.lastReloadTime = time.Now()
 }
@@ -450,26 +450,26 @@ func (cw *ConfigWatcher) loadFileConfig(configName, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
-	
+
 	// Determine file format and parse
 	var newConfig interface{}
 	ext := filepath.Ext(filePath)
-	
+
 	switch ext {
 	case ".json":
 		if err := json.Unmarshal(data, &newConfig); err != nil {
 			return fmt.Errorf("failed to parse JSON: %w", err)
 		}
-		
+
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(data, &newConfig); err != nil {
 			return fmt.Errorf("failed to parse YAML: %w", err)
 		}
-		
+
 	default:
 		return fmt.Errorf("unsupported file format: %s", ext)
 	}
-	
+
 	return cw.updateConfig(configName, newConfig, "file")
 }
 
@@ -477,12 +477,12 @@ func (cw *ConfigWatcher) loadFileConfig(configName, filePath string) error {
 func (cw *ConfigWatcher) watchEnvironment() {
 	ticker := time.NewTicker(time.Duration(cw.options.EnvCheckIntervalSec) * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-cw.ctx.Done():
 			return
-			
+
 		case <-ticker.C:
 			cw.checkEnvironmentChanges()
 		}
@@ -497,28 +497,28 @@ func (cw *ConfigWatcher) checkEnvironmentChanges() {
 		envVarsCopy[k] = v
 	}
 	cw.mu.RUnlock()
-	
+
 	for envVar, oldValue := range envVarsCopy {
 		currentValue := os.Getenv(envVar)
-		
+
 		if currentValue != oldValue {
 			if cw.options.EnableDebugLogging {
-				cw.logger.Debug("Environment variable changed", 
+				cw.logger.Debug("Environment variable changed",
 					"var", envVar,
 					"old", oldValue,
 					"new", currentValue)
 			}
-			
+
 			configName := fmt.Sprintf("env:%s", envVar)
 			// Update the env var tracking first to avoid deadlock
 			cw.mu.Lock()
 			cw.envVars[envVar] = currentValue
 			cw.mu.Unlock()
-			
+
 			// Then update the config (this will acquire its own lock)
 			if err := cw.updateConfig(configName, currentValue, "env"); err != nil {
-				cw.logger.Error("Failed to update environment variable config", 
-					"var", envVar, 
+				cw.logger.Error("Failed to update environment variable config",
+					"var", envVar,
 					"error", err)
 				// Revert the env var change on error
 				cw.mu.Lock()
@@ -532,52 +532,52 @@ func (cw *ConfigWatcher) checkEnvironmentChanges() {
 // updateConfig updates a configuration and notifies callbacks
 func (cw *ConfigWatcher) updateConfig(configName string, newConfig interface{}, source string) error {
 	cw.mu.Lock()
-	
+
 	oldConfig := cw.configs[configName]
-	
+
 	// Skip if configuration hasn't changed
 	if reflect.DeepEqual(oldConfig, newConfig) {
 		cw.mu.Unlock()
 		return nil
 	}
-	
+
 	// Validate new configuration
 	if err := cw.validateConfig(configName, newConfig); err != nil {
 		cw.mu.Unlock()
 		if cw.options.FailOnValidation {
 			return fmt.Errorf("configuration validation failed: %w", err)
 		}
-		cw.logger.Warn("Configuration validation failed, proceeding anyway", 
-			"config", configName, 
+		cw.logger.Warn("Configuration validation failed, proceeding anyway",
+			"config", configName,
 			"error", err)
 		// Continue with the update even if validation failed (but not failing on validation)
 		cw.mu.Lock()
 	}
-	
+
 	// Update configuration
 	cw.configs[configName] = newConfig
 	cw.addToHistory(configName, newConfig, source)
-	
+
 	// Notify callbacks (without holding the lock)
 	cw.mu.Unlock()
 	callbackErr := cw.notifyCallbacks(configName, oldConfig, newConfig)
 	cw.mu.Lock()
-	
+
 	if callbackErr != nil {
 		// Rollback on callback failure
 		cw.configs[configName] = oldConfig
 		cw.mu.Unlock()
 		return fmt.Errorf("callback failed, configuration rolled back: %w", callbackErr)
 	}
-	
+
 	if cw.options.LogConfigChanges {
-		cw.logger.Info("Configuration updated", 
+		cw.logger.Info("Configuration updated",
 			"config", configName,
 			"source", source)
 	}
-	
+
 	cw.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -587,7 +587,7 @@ func (cw *ConfigWatcher) validateConfig(configName string, config interface{}) e
 	if config == nil {
 		return fmt.Errorf("config is nil")
 	}
-	
+
 	// Only run struct validation if the config is actually a struct
 	// Skip struct validation for maps (they will be validated by custom validators)
 	configType := reflect.TypeOf(config)
@@ -596,14 +596,14 @@ func (cw *ConfigWatcher) validateConfig(configName string, config interface{}) e
 			return err
 		}
 	}
-	
+
 	// Custom validator (this is the main validation for map-based configs)
 	if validator, exists := cw.validators[configName]; exists {
 		if err := validator(config); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -612,13 +612,13 @@ func (cw *ConfigWatcher) notifyCallbacks(configName string, oldConfig, newConfig
 	cw.mu.RLock()
 	callbacks := cw.changeCallbacks[configName]
 	cw.mu.RUnlock()
-	
+
 	for _, callback := range callbacks {
 		if err := callback(configName, oldConfig, newConfig); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -630,15 +630,15 @@ func (cw *ConfigWatcher) addToHistory(configName string, config interface{}, sou
 		Source:    source,
 		Hash:      cw.generateConfigHash(config),
 	}
-	
+
 	history := cw.configHistory[configName]
 	history = append(history, snapshot)
-	
+
 	// Limit history size
 	if len(history) > cw.maxHistorySize {
 		history = history[len(history)-cw.maxHistorySize:]
 	}
-	
+
 	cw.configHistory[configName] = history
 }
 
@@ -656,14 +656,14 @@ func (cw *ConfigWatcher) generateConfigHash(config interface{}) string {
 func (cw *ConfigWatcher) batchProcessor() {
 	ticker := time.NewTicker(time.Duration(cw.options.BatchIntervalMs) * time.Millisecond)
 	defer ticker.Stop()
-	
+
 	pendingUpdates := make(map[string]interface{})
-	
+
 	for {
 		select {
 		case <-cw.ctx.Done():
 			return
-			
+
 		case <-ticker.C:
 			if len(pendingUpdates) > 0 {
 				cw.processBatchUpdates(pendingUpdates)
@@ -677,8 +677,8 @@ func (cw *ConfigWatcher) batchProcessor() {
 func (cw *ConfigWatcher) processBatchUpdates(updates map[string]interface{}) {
 	for configName, config := range updates {
 		if err := cw.updateConfig(configName, config, "batch"); err != nil {
-			cw.logger.Error("Failed to process batched update", 
-				"config", configName, 
+			cw.logger.Error("Failed to process batched update",
+				"config", configName,
 				"error", err)
 		}
 	}
@@ -688,16 +688,16 @@ func (cw *ConfigWatcher) processBatchUpdates(updates map[string]interface{}) {
 func (cw *ConfigWatcher) GetMetrics() map[string]interface{} {
 	cw.mu.RLock()
 	defer cw.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"reload_count":         cw.reloadCount,
-		"error_count":          cw.errorCount,
-		"last_reload_time":     cw.lastReloadTime,
-		"watched_files":        len(cw.configFiles),
-		"watched_env_vars":     len(cw.envVars),
-		"registered_configs":   len(cw.configs),
-		"total_callbacks":      cw.getTotalCallbacks(),
-		"history_entries":      cw.getTotalHistoryEntries(),
+		"reload_count":       cw.reloadCount,
+		"error_count":        cw.errorCount,
+		"last_reload_time":   cw.lastReloadTime,
+		"watched_files":      len(cw.configFiles),
+		"watched_env_vars":   len(cw.envVars),
+		"registered_configs": len(cw.configs),
+		"total_callbacks":    cw.getTotalCallbacks(),
+		"history_entries":    cw.getTotalHistoryEntries(),
 	}
 }
 
@@ -722,13 +722,13 @@ func (cw *ConfigWatcher) getTotalHistoryEntries() int {
 // Stop gracefully stops the configuration watcher
 func (cw *ConfigWatcher) Stop() error {
 	cw.logger.Info("Stopping configuration watcher")
-	
+
 	cw.cancel()
-	
+
 	if cw.watcher != nil {
 		return cw.watcher.Close()
 	}
-	
+
 	return nil
 }
 
@@ -736,18 +736,18 @@ func (cw *ConfigWatcher) Stop() error {
 func (cw *ConfigWatcher) HealthCheck() error {
 	cw.mu.RLock()
 	defer cw.mu.RUnlock()
-	
+
 	// Check if watcher is still running
 	select {
 	case <-cw.ctx.Done():
 		return fmt.Errorf("configuration watcher is stopped")
 	default:
 	}
-	
+
 	// Check for excessive errors
 	if cw.errorCount > 100 {
 		return fmt.Errorf("configuration watcher has too many errors: %d", cw.errorCount)
 	}
-	
+
 	return nil
 }

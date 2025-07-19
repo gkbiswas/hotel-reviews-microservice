@@ -30,23 +30,23 @@ type ShutdownManager struct {
 // ShutdownConfig configures graceful shutdown behavior
 type ShutdownConfig struct {
 	// Timeout configuration
-	GracefulTimeout     time.Duration `json:"graceful_timeout" validate:"min=1s"`
-	ServerTimeout       time.Duration `json:"server_timeout" validate:"min=1s"`
-	DatabaseTimeout     time.Duration `json:"database_timeout" validate:"min=1s"`
-	WorkerTimeout       time.Duration `json:"worker_timeout" validate:"min=1s"`
-	ExternalTimeout     time.Duration `json:"external_timeout" validate:"min=1s"`
-	
+	GracefulTimeout time.Duration `json:"graceful_timeout" validate:"min=1s"`
+	ServerTimeout   time.Duration `json:"server_timeout" validate:"min=1s"`
+	DatabaseTimeout time.Duration `json:"database_timeout" validate:"min=1s"`
+	WorkerTimeout   time.Duration `json:"worker_timeout" validate:"min=1s"`
+	ExternalTimeout time.Duration `json:"external_timeout" validate:"min=1s"`
+
 	// Signal handling
-	Signals             []os.Signal   `json:"-"`
-	ForceKillTimeout    time.Duration `json:"force_kill_timeout" validate:"min=1s"`
-	
+	Signals          []os.Signal   `json:"-"`
+	ForceKillTimeout time.Duration `json:"force_kill_timeout" validate:"min=1s"`
+
 	// Shutdown behavior
-	EnablePreShutdownHook bool         `json:"enable_pre_shutdown_hook"`
-	PreShutdownDelay     time.Duration `json:"pre_shutdown_delay"`
-	LogShutdownProgress  bool          `json:"log_shutdown_progress"`
-	
+	EnablePreShutdownHook bool          `json:"enable_pre_shutdown_hook"`
+	PreShutdownDelay      time.Duration `json:"pre_shutdown_delay"`
+	LogShutdownProgress   bool          `json:"log_shutdown_progress"`
+
 	// Health check during shutdown
-	DisableHealthCheck   bool          `json:"disable_health_check"`
+	DisableHealthCheck     bool          `json:"disable_health_check"`
 	HealthCheckGracePeriod time.Duration `json:"health_check_grace_period"`
 }
 
@@ -60,14 +60,14 @@ type ShutdownHook struct {
 
 // ResourceManager tracks application resources for cleanup
 type ResourceManager struct {
-	httpServer     *http.Server
-	dbPool         *pgxpool.Pool
-	redisClient    *redis.Client
-	workers        []Worker
-	externalConns  []ExternalConnection
-	monitors       []interface{} // Generic monitors
-	optimizers     []ResourceOptimizer
-	watchers       []ConfigWatcher
+	httpServer    *http.Server
+	dbPool        *pgxpool.Pool
+	redisClient   *redis.Client
+	workers       []Worker
+	externalConns []ExternalConnection
+	monitors      []interface{} // Generic monitors
+	optimizers    []ResourceOptimizer
+	watchers      []ConfigWatcher
 }
 
 // Worker represents a background worker that can be gracefully stopped
@@ -102,12 +102,12 @@ func DefaultShutdownConfig() *ShutdownConfig {
 		DatabaseTimeout:        5 * time.Second,
 		WorkerTimeout:          15 * time.Second,
 		ExternalTimeout:        5 * time.Second,
-		Signals:               []os.Signal{syscall.SIGINT, syscall.SIGTERM},
-		ForceKillTimeout:      45 * time.Second,
-		EnablePreShutdownHook: true,
-		PreShutdownDelay:      1 * time.Second,
-		LogShutdownProgress:   true,
-		DisableHealthCheck:    false,
+		Signals:                []os.Signal{syscall.SIGINT, syscall.SIGTERM},
+		ForceKillTimeout:       45 * time.Second,
+		EnablePreShutdownHook:  true,
+		PreShutdownDelay:       1 * time.Second,
+		LogShutdownProgress:    true,
+		DisableHealthCheck:     false,
 		HealthCheckGracePeriod: 2 * time.Second,
 	}
 }
@@ -217,15 +217,15 @@ func (sm *ShutdownManager) registerHTTPServer(server *http.Server) error {
 		Timeout:  sm.config.ServerTimeout,
 		Cleanup: func(ctx context.Context) error {
 			sm.logger.Info("Shutting down HTTP server")
-			
+
 			// Create timeout context for server shutdown
 			shutdownCtx, cancel := context.WithTimeout(ctx, sm.config.ServerTimeout)
 			defer cancel()
-			
+
 			return server.Shutdown(shutdownCtx)
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -238,14 +238,14 @@ func (sm *ShutdownManager) registerDatabase(pool *pgxpool.Pool) error {
 		Timeout:  sm.config.DatabaseTimeout,
 		Cleanup: func(ctx context.Context) error {
 			sm.logger.Info("Closing database connections")
-			
+
 			// Wait for active connections to finish or timeout
 			done := make(chan struct{})
 			go func() {
 				pool.Close()
 				close(done)
 			}()
-			
+
 			select {
 			case <-done:
 				return nil
@@ -256,7 +256,7 @@ func (sm *ShutdownManager) registerDatabase(pool *pgxpool.Pool) error {
 			}
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -272,7 +272,7 @@ func (sm *ShutdownManager) registerRedis(client *redis.Client) error {
 			return client.Close()
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -288,7 +288,7 @@ func (sm *ShutdownManager) registerWorker(worker Worker) error {
 			return worker.Stop(ctx)
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -304,7 +304,7 @@ func (sm *ShutdownManager) registerExternalConnection(conn ExternalConnection) e
 			return conn.Close(ctx)
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -320,7 +320,7 @@ func (sm *ShutdownManager) registerOptimizer(optimizer ResourceOptimizer) error 
 			return optimizer.Stop()
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -336,7 +336,7 @@ func (sm *ShutdownManager) registerWatcher(watcher ConfigWatcher) error {
 			return watcher.Stop()
 		},
 	}
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	return nil
 }
@@ -345,7 +345,7 @@ func (sm *ShutdownManager) registerWatcher(watcher ConfigWatcher) error {
 func (sm *ShutdownManager) AddCustomHook(hook ShutdownHook) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	sm.hooks = append(sm.hooks, hook)
 	sm.logger.Debug("Added custom shutdown hook", "name", hook.Name, "priority", hook.Priority)
 }
@@ -355,15 +355,15 @@ func (sm *ShutdownManager) WaitForShutdown() error {
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, sm.config.Signals...)
-	
+
 	sm.logger.Info("Shutdown manager started, waiting for signal...")
-	
+
 	// Wait for shutdown signal
 	select {
 	case sig := <-sigChan:
 		sm.logger.Info("Received shutdown signal", "signal", sig.String())
 		return sm.initiateShutdown()
-		
+
 	case <-sm.shutdown:
 		sm.logger.Info("Programmatic shutdown initiated")
 		return sm.initiateShutdown()
@@ -382,45 +382,45 @@ func (sm *ShutdownManager) Shutdown() {
 // initiateShutdown performs the actual shutdown sequence
 func (sm *ShutdownManager) initiateShutdown() error {
 	defer close(sm.done)
-	
+
 	sm.logger.Info("Initiating graceful shutdown")
-	
+
 	// Pre-shutdown hook
 	if sm.config.EnablePreShutdownHook {
 		sm.logger.Info("Running pre-shutdown delay", "delay", sm.config.PreShutdownDelay)
 		time.Sleep(sm.config.PreShutdownDelay)
 	}
-	
+
 	// Disable health checks if configured
 	if sm.config.DisableHealthCheck {
 		sm.logger.Info("Disabling health checks during shutdown")
 		time.Sleep(sm.config.HealthCheckGracePeriod)
 	}
-	
+
 	// Create shutdown context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), sm.config.GracefulTimeout)
 	defer cancel()
-	
+
 	// Sort hooks by priority
 	sm.sortHooksByPriority()
-	
+
 	// Execute shutdown hooks
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(sm.hooks))
-	
+
 	sm.logger.Info("Executing shutdown hooks", "count", len(sm.hooks))
-	
+
 	for _, hook := range sm.hooks {
 		wg.Add(1)
 		go sm.executeHook(ctx, hook, &wg, errorChan)
 	}
-	
+
 	// Wait for all hooks to complete or timeout
 	go func() {
 		wg.Wait()
 		close(errorChan)
 	}()
-	
+
 	// Collect errors
 	var errors []error
 	for err := range errorChan {
@@ -428,10 +428,10 @@ func (sm *ShutdownManager) initiateShutdown() error {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	// Force kill timeout as last resort
 	go sm.forceKillTimer()
-	
+
 	if len(errors) > 0 {
 		sm.logger.Error("Shutdown completed with errors", "error_count", len(errors))
 		for _, err := range errors {
@@ -439,7 +439,7 @@ func (sm *ShutdownManager) initiateShutdown() error {
 		}
 		return fmt.Errorf("shutdown completed with %d errors", len(errors))
 	}
-	
+
 	sm.logger.Info("Graceful shutdown completed successfully")
 	return nil
 }
@@ -447,21 +447,21 @@ func (sm *ShutdownManager) initiateShutdown() error {
 // executeHook executes a single shutdown hook
 func (sm *ShutdownManager) executeHook(ctx context.Context, hook ShutdownHook, wg *sync.WaitGroup, errorChan chan<- error) {
 	defer wg.Done()
-	
+
 	if sm.config.LogShutdownProgress {
 		sm.logger.Debug("Executing shutdown hook", "name", hook.Name, "priority", hook.Priority)
 	}
-	
+
 	// Create timeout context for this specific hook
 	hookCtx, cancel := context.WithTimeout(ctx, hook.Timeout)
 	defer cancel()
-	
+
 	// Execute hook with timeout
 	done := make(chan error, 1)
 	go func() {
 		done <- hook.Cleanup(hookCtx)
 	}()
-	
+
 	select {
 	case err := <-done:
 		if err != nil {
@@ -470,7 +470,7 @@ func (sm *ShutdownManager) executeHook(ctx context.Context, hook ShutdownHook, w
 		} else if sm.config.LogShutdownProgress {
 			sm.logger.Debug("Shutdown hook completed", "name", hook.Name)
 		}
-		
+
 	case <-hookCtx.Done():
 		sm.logger.Warn("Shutdown hook timed out", "name", hook.Name, "timeout", hook.Timeout)
 		errorChan <- fmt.Errorf("hook %s timed out after %v", hook.Name, hook.Timeout)
@@ -481,7 +481,7 @@ func (sm *ShutdownManager) executeHook(ctx context.Context, hook ShutdownHook, w
 func (sm *ShutdownManager) sortHooksByPriority() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	// Simple bubble sort by priority
 	n := len(sm.hooks)
 	for i := 0; i < n-1; i++ {
@@ -496,7 +496,7 @@ func (sm *ShutdownManager) sortHooksByPriority() {
 // forceKillTimer implements force kill timeout as last resort
 func (sm *ShutdownManager) forceKillTimer() {
 	time.Sleep(sm.config.ForceKillTimeout)
-	
+
 	sm.logger.Error("Force kill timeout reached, terminating process")
 	os.Exit(1)
 }
@@ -505,12 +505,12 @@ func (sm *ShutdownManager) forceKillTimer() {
 func (sm *ShutdownManager) GetShutdownMetrics() map[string]interface{} {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"registered_hooks":    len(sm.hooks),
-		"graceful_timeout":    sm.config.GracefulTimeout,
-		"force_kill_timeout":  sm.config.ForceKillTimeout,
-		"shutdown_initiated":  sm.isShutdownInitiated(),
+		"registered_hooks":   len(sm.hooks),
+		"graceful_timeout":   sm.config.GracefulTimeout,
+		"force_kill_timeout": sm.config.ForceKillTimeout,
+		"shutdown_initiated": sm.isShutdownInitiated(),
 	}
 }
 

@@ -83,42 +83,42 @@ func NewDBWrapper(databaseURL string, logger monitoring.Logger) (*DBWrapper, err
 // ExecWithTracking executes a query with performance tracking
 func (db *DBWrapper) ExecWithTracking(ctx context.Context, query string, args ...interface{}) error {
 	start := time.Now()
-	
+
 	result, err := db.pool.Exec(ctx, query, args...)
 	duration := time.Since(start)
-	
+
 	var rowsAffected int64
 	if result != nil {
 		rowsAffected = result.RowsAffected()
 	}
-	
+
 	// Track the query performance
 	db.optimizer.TrackQuery(query, duration, err, rowsAffected)
-	
+
 	return err
 }
 
 // QueryWithTracking executes a query with performance tracking
 func (db *DBWrapper) QueryWithTracking(ctx context.Context, query string, args ...interface{}) error {
 	start := time.Now()
-	
+
 	rows, err := db.pool.Query(ctx, query, args...)
 	if rows != nil {
 		rows.Close()
 	}
-	
+
 	duration := time.Since(start)
-	
+
 	// For SELECT queries, we can't easily get rows affected, so we use 0
 	db.optimizer.TrackQuery(query, duration, err, 0)
-	
+
 	return err
 }
 
 // MigrationRunner demonstrates migration tracking
 type MigrationRunner struct {
-	db       *DBWrapper
-	logger   monitoring.Logger
+	db     *DBWrapper
+	logger monitoring.Logger
 }
 
 func NewMigrationRunner(db *DBWrapper, logger monitoring.Logger) *MigrationRunner {
@@ -130,22 +130,22 @@ func NewMigrationRunner(db *DBWrapper, logger monitoring.Logger) *MigrationRunne
 
 func (mr *MigrationRunner) RunMigration(version, name, sql string) error {
 	startTime := time.Now()
-	
+
 	mr.logger.Info("Starting migration", "version", version, "name", name)
-	
+
 	err := mr.db.ExecWithTracking(context.Background(), sql)
-	
+
 	endTime := time.Now()
 	success := err == nil
-	
+
 	// Track migration performance
 	mr.db.optimizer.TrackMigration(version, name, startTime, endTime, success, err, 1)
-	
+
 	if err != nil {
 		mr.logger.Error("Migration failed", "version", version, "error", err)
 		return err
 	}
-	
+
 	mr.logger.Info("Migration completed", "version", version, "duration", endTime.Sub(startTime))
 	return nil
 }
@@ -165,7 +165,7 @@ func NewPerformanceMonitor(optimizer *infrastructure.DBOptimizer, logger monitor
 
 func (pm *PerformanceMonitor) PrintPerformanceReport() {
 	fmt.Println("\n=== Database Performance Report ===")
-	
+
 	// Get query statistics summary
 	summary := pm.optimizer.GetQueryStatsSummary()
 	fmt.Printf("Total Queries: %v\n", summary["total_queries"])
@@ -173,7 +173,7 @@ func (pm *PerformanceMonitor) PrintPerformanceReport() {
 	fmt.Printf("Error Rate: %.2f%%\n", summary["error_rate"])
 	fmt.Printf("Slow Queries: %v\n", summary["slow_queries"])
 	fmt.Printf("Unique Queries: %v\n", summary["unique_queries"])
-	
+
 	// Get database health
 	health := pm.optimizer.GetDatabaseHealth()
 	if health != nil {
@@ -187,7 +187,7 @@ func (pm *PerformanceMonitor) PrintPerformanceReport() {
 			fmt.Printf("Cache Hit Ratio: %.2f%%\n", health.CacheHitRatio)
 		}
 	}
-	
+
 	// Get slow queries
 	slowQueries := pm.optimizer.GetTopSlowQueries(5)
 	if len(slowQueries) > 0 {
@@ -201,7 +201,7 @@ func (pm *PerformanceMonitor) PrintPerformanceReport() {
 			fmt.Println()
 		}
 	}
-	
+
 	// Get migration history
 	migrations := pm.optimizer.GetMigrationHistory()
 	if len(migrations) > 0 {
@@ -211,14 +211,14 @@ func (pm *PerformanceMonitor) PrintPerformanceReport() {
 			if !migration.Success {
 				status = "FAILED"
 			}
-			fmt.Printf("%s - %s (%v) [%s]\n", 
-				migration.Version, 
-				migration.Name, 
-				migration.Duration, 
+			fmt.Printf("%s - %s (%v) [%s]\n",
+				migration.Version,
+				migration.Name,
+				migration.Duration,
 				status)
 		}
 	}
-	
+
 	// Get optimization suggestions
 	suggestions := pm.optimizer.GetPoolOptimizationSuggestions()
 	if len(suggestions) > 0 {
@@ -245,7 +245,7 @@ func (pm *PerformanceMonitor) StartPeriodicReporting(interval time.Duration) {
 
 func main() {
 	logger := &exampleLogger{}
-	
+
 	// Get database URL from environment
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
@@ -253,7 +253,7 @@ func main() {
 		databaseURL = "postgres://user:password@localhost:5432/hotel_reviews?sslmode=disable"
 		fmt.Println("Using default database URL (set DATABASE_URL environment variable)")
 	}
-	
+
 	// Create database wrapper with optimization
 	db, err := NewDBWrapper(databaseURL, logger)
 	if err != nil {
@@ -261,15 +261,15 @@ func main() {
 	}
 	defer db.pool.Close()
 	defer db.optimizer.Stop()
-	
+
 	fmt.Println("Database optimizer example started...")
-	
+
 	// Create performance monitor
 	monitor := NewPerformanceMonitor(db.optimizer, logger)
-	
+
 	// Example: Run some database operations
 	ctx := context.Background()
-	
+
 	// Simulate various database operations
 	queries := []string{
 		"SELECT COUNT(*) FROM hotels",
@@ -280,36 +280,36 @@ func main() {
 		// Simulate a slow query
 		"SELECT h.*, COUNT(r.id) as review_count FROM hotels h LEFT JOIN reviews r ON h.id = r.hotel_id GROUP BY h.id ORDER BY review_count DESC",
 	}
-	
+
 	// Execute queries with tracking
 	for i, query := range queries {
 		if err := db.ExecWithTracking(ctx, query, "Test City", 4.5, i+1); err != nil {
 			logger.Warn("Query execution failed", "query", query, "error", err)
 		}
-		
+
 		// Add some delay to simulate real usage
 		time.Sleep(100 * time.Millisecond)
 	}
-	
+
 	// Example: Run a migration
 	migrationRunner := NewMigrationRunner(db, logger)
 	err = migrationRunner.RunMigration(
-		"001", 
-		"create_example_table", 
+		"001",
+		"create_example_table",
 		"CREATE TABLE IF NOT EXISTS example (id SERIAL PRIMARY KEY, name TEXT)",
 	)
 	if err != nil {
 		logger.Error("Migration failed", "error", err)
 	}
-	
+
 	// Wait a bit for health checks to run
 	time.Sleep(2 * time.Second)
-	
+
 	// Print performance report
 	monitor.PrintPerformanceReport()
-	
+
 	// Start periodic reporting (in a real application)
 	// monitor.StartPeriodicReporting(5 * time.Minute)
-	
+
 	fmt.Println("\nExample completed. In a real application, the optimizer would continue monitoring in the background.")
 }

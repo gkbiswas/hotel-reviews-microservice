@@ -81,7 +81,7 @@ func createTempConfigFile(t *testing.T, config interface{}, format string) strin
 
 func TestConfigManager_BasicFunctionality(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	// Set temporary config path
 	tempConfig := createTempConfigFile(t, GetDefaultConfig(), "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -112,12 +112,12 @@ func TestConfigManager_BasicFunctionality(t *testing.T) {
 
 func TestConfigManager_FileWatching(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	// Create initial config
 	initialConfig := GetDefaultConfig()
 	initialConfig.Server.Port = 8080
 	initialConfig.App.LogLevel = "info"
-	
+
 	tempConfig := createTempConfigFile(t, initialConfig, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
 	defer os.Unsetenv("CONFIG_PATH")
@@ -141,7 +141,7 @@ func TestConfigManager_FileWatching(t *testing.T) {
 		}
 		return nil
 	}
-	
+
 	manager.RegisterComponent("test_component", configChangeCallback)
 
 	// Give some time for the manager to be fully ready
@@ -168,7 +168,7 @@ func TestConfigManager_FileWatching(t *testing.T) {
 		assert.Equal(t, 9090, updatedConfig.Server.Port)
 		assert.Equal(t, "debug", updatedConfig.App.LogLevel)
 		assert.Equal(t, 50, updatedConfig.Database.MaxConns)
-		
+
 	case <-time.After(10 * time.Second):
 		t.Fatal("Configuration change was not detected within timeout")
 	}
@@ -176,7 +176,7 @@ func TestConfigManager_FileWatching(t *testing.T) {
 
 func TestConfigManager_EnvironmentVariables(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	// Create base config
 	baseConfig := GetDefaultConfig()
 	tempConfig := createTempConfigFile(t, baseConfig, "json")
@@ -203,16 +203,16 @@ func TestConfigManager_EnvironmentVariables(t *testing.T) {
 
 	// Setup change detection for environment variables
 	// changeDetected := make(chan string, 10) // Unused in current test
-	
+
 	// Add a small delay to ensure the manager is fully initialized
 	time.Sleep(100 * time.Millisecond)
 
 	// Test log level change
 	os.Setenv("APP_LOG_LEVEL", "debug")
-	
+
 	// Test database host change
 	os.Setenv("APP_DB_HOST", "new-db-host")
-	
+
 	// Test server port change
 	os.Setenv("APP_SERVER_PORT", "9090")
 
@@ -223,10 +223,10 @@ func TestConfigManager_EnvironmentVariables(t *testing.T) {
 	// Check if configuration was updated
 	config := manager.GetConfig()
 	require.NotNil(t, config)
-	
+
 	// The configuration should be updated through environment variable changes
 	// Note: The actual update depends on the environment variable monitoring interval
-	t.Logf("Current config after env changes: log_level=%s, db_host=%s, server_port=%d", 
+	t.Logf("Current config after env changes: log_level=%s, db_host=%s, server_port=%d",
 		config.App.LogLevel, config.Database.Host, config.Server.Port)
 }
 
@@ -235,8 +235,8 @@ func TestConfigManager_ValidationErrors(t *testing.T) {
 
 	// Create invalid configuration
 	invalidConfig := GetDefaultConfig()
-	invalidConfig.Server.Port = 0 // Invalid port
-	invalidConfig.Database.MaxConns = 0 // Invalid max connections
+	invalidConfig.Server.Port = 0             // Invalid port
+	invalidConfig.Database.MaxConns = 0       // Invalid max connections
 	invalidConfig.App.Environment = "invalid" // Invalid environment
 
 	tempConfig := createTempConfigFile(t, invalidConfig, "json")
@@ -263,7 +263,7 @@ func TestConfigManager_ValidationErrors(t *testing.T) {
 
 func TestConfigManager_Rollback(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	// Create initial configuration
 	config1 := GetDefaultConfig()
 	config1.Server.Port = 8080
@@ -323,7 +323,7 @@ func TestConfigManager_Rollback(t *testing.T) {
 
 func TestConfigManager_ComponentIntegration(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFile(t, config, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -372,13 +372,13 @@ func TestConfigManager_ComponentIntegration(t *testing.T) {
 
 	// Verify components were notified (in real implementation)
 	// Note: In this test, the actual reconfiguration callbacks are placeholders
-	t.Logf("Components reconfigured - Server: %v, DB: %v, Auth: %v", 
+	t.Logf("Components reconfigured - Server: %v, DB: %v, Auth: %v",
 		serverReconfigured, dbReconfigured, authReconfigured)
 }
 
 func TestConfigManager_ErrorRecovery(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFile(t, config, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -402,12 +402,12 @@ func TestConfigManager_ErrorRecovery(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		newConfig := *config
 		newConfig.Server.Port = 8080 + i
-		
+
 		configData, err := json.MarshalIndent(newConfig, "", "  ")
 		require.NoError(t, err)
 		err = os.WriteFile(tempConfig, configData, 0644)
 		require.NoError(t, err)
-		
+
 		time.Sleep(2 * time.Second)
 	}
 
@@ -419,7 +419,7 @@ func TestConfigManager_ErrorRecovery(t *testing.T) {
 
 func TestConfigManager_ConcurrentAccess(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFile(t, config, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -439,14 +439,14 @@ func TestConfigManager_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < numReaders; i++ {
 		go func(id int) {
 			defer func() { done <- true }()
-			
+
 			for j := 0; j < 100; j++ {
 				config := manager.GetConfig()
 				if config == nil {
 					t.Errorf("Reader %d: got nil config on iteration %d", id, j)
 					return
 				}
-				
+
 				// Verify config consistency
 				if config.App.Name != "hotel-reviews-service" {
 					t.Errorf("Reader %d: unexpected app name: %s", id, config.App.Name)
@@ -460,23 +460,23 @@ func TestConfigManager_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < numWrites; i++ {
 		go func(id int) {
 			defer func() { done <- true }()
-			
+
 			newConfig := *config
 			newConfig.Server.Port = 8080 + id
 			newConfig.Database.MaxConns = 25 + id
-			
+
 			configData, err := json.MarshalIndent(newConfig, "", "  ")
 			if err != nil {
 				t.Errorf("Writer %d: failed to marshal config: %v", id, err)
 				return
 			}
-			
+
 			err = os.WriteFile(tempConfig, configData, 0644)
 			if err != nil {
 				t.Errorf("Writer %d: failed to write config: %v", id, err)
 				return
 			}
-			
+
 			time.Sleep(500 * time.Millisecond)
 		}(i)
 	}
@@ -498,7 +498,7 @@ func TestConfigManager_ConcurrentAccess(t *testing.T) {
 
 func TestConfigManager_HealthAndMetrics(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFile(t, config, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -515,14 +515,14 @@ func TestConfigManager_HealthAndMetrics(t *testing.T) {
 	// Test metrics
 	metrics := manager.GetMetrics()
 	assert.NotNil(t, metrics)
-	
+
 	// Verify expected metrics
 	expectedMetrics := []string{
-		"reload_count", "error_count", "watched_files", 
+		"reload_count", "error_count", "watched_files",
 		"watched_env_vars", "registered_configs", "total_callbacks",
 		"config_reload_count", "config_error_count",
 	}
-	
+
 	for _, metric := range expectedMetrics {
 		assert.Contains(t, metrics, metric, "Missing metric: %s", metric)
 	}
@@ -530,7 +530,7 @@ func TestConfigManager_HealthAndMetrics(t *testing.T) {
 	// Update configuration to increment metrics
 	newConfig := *config
 	newConfig.Server.Port = 9090
-	
+
 	configData, err := json.MarshalIndent(newConfig, "", "  ")
 	require.NoError(t, err)
 	err = os.WriteFile(tempConfig, configData, 0644)
@@ -542,7 +542,7 @@ func TestConfigManager_HealthAndMetrics(t *testing.T) {
 	// Check updated metrics
 	updatedMetrics := manager.GetMetrics()
 	assert.NotNil(t, updatedMetrics)
-	
+
 	// Reload count should have increased
 	if reloadCount, ok := updatedMetrics["config_reload_count"]; ok {
 		assert.Greater(t, reloadCount.(int64), int64(0))
@@ -551,7 +551,7 @@ func TestConfigManager_HealthAndMetrics(t *testing.T) {
 
 func TestConfigManager_YAMLSupport(t *testing.T) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFile(t, config, "yaml")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -589,7 +589,7 @@ func TestConfigManager_YAMLSupport(t *testing.T) {
 // Benchmark tests
 func BenchmarkConfigManager_GetConfig(b *testing.B) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFileForBenchmark(b, config, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)
@@ -609,7 +609,7 @@ func BenchmarkConfigManager_GetConfig(b *testing.B) {
 
 func BenchmarkConfigManager_HealthCheck(b *testing.B) {
 	logger := createTestLogger()
-	
+
 	config := GetDefaultConfig()
 	tempConfig := createTempConfigFileForBenchmark(b, config, "json")
 	os.Setenv("CONFIG_PATH", tempConfig)

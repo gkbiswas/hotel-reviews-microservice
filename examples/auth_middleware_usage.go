@@ -2,8 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,14 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/application"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/config"
-	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
 )
 
 // Example usage of the authentication middleware
@@ -99,7 +97,7 @@ func initializeInfrastructure(cfg *config.Config, logger *slog.Logger) (*infrast
 	circuitBreaker := infrastructure.NewCircuitBreaker(cbConfig, cbLogger)
 
 	// Initialize authentication service
-	// Note: In a real application, you would initialize with actual database, 
+	// Note: In a real application, you would initialize with actual database,
 	// JWT service, password service, etc.
 	authService := &infrastructure.AuthenticationService{
 		// Initialize with actual components
@@ -111,66 +109,66 @@ func initializeInfrastructure(cfg *config.Config, logger *slog.Logger) (*infrast
 // createAuthMiddlewareConfig creates authentication middleware configuration
 func createAuthMiddlewareConfig() *application.AuthMiddlewareConfig {
 	config := application.DefaultAuthMiddlewareConfig()
-	
+
 	// Customize configuration as needed
 	config.JWTSecret = "your-super-secret-jwt-key"
 	config.JWTIssuer = "hotel-reviews-service"
 	config.JWTExpiry = 15 * time.Minute
 	config.JWTRefreshExpiry = 7 * 24 * time.Hour
-	
+
 	// Rate limiting configuration
 	config.RateLimitEnabled = true
 	config.RateLimitRequests = 100
 	config.RateLimitWindow = time.Minute
 	config.RateLimitBurst = 10
-	
+
 	// Session configuration
 	config.SessionTimeout = 30 * time.Minute
 	config.MaxActiveSessions = 5
 	config.SessionCookieName = "hotel_reviews_session"
 	config.SessionSecure = true
 	config.SessionHttpOnly = true
-	
+
 	// Security configuration
 	config.BlacklistEnabled = true
 	config.WhitelistEnabled = false
 	config.TrustedProxies = []string{"127.0.0.1", "::1"}
-	
+
 	// API Key configuration
 	config.APIKeyEnabled = true
 	config.APIKeyHeaders = []string{"X-API-Key", "Authorization"}
 	config.APIKeyQueryParam = "api_key"
-	
+
 	// Audit configuration
 	config.AuditEnabled = true
 	config.AuditLogSensitiveData = false
-	
+
 	// Circuit breaker configuration
 	config.CircuitBreakerEnabled = true
 	config.CircuitBreakerThreshold = 5
 	config.CircuitBreakerTimeout = 30 * time.Second
 	config.CircuitBreakerReset = 60 * time.Second
-	
+
 	// Metrics configuration
 	config.MetricsEnabled = true
 	config.MetricsCollectionInterval = 30 * time.Second
-	
+
 	// CORS configuration
 	config.CORSEnabled = true
 	config.CORSAllowedOrigins = []string{"https://yourapp.com", "https://admin.yourapp.com"}
 	config.CORSAllowedMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.CORSAllowedHeaders = []string{"Content-Type", "Authorization", "X-API-Key"}
 	config.CORSAllowCredentials = true
-	
+
 	// Security headers
 	config.SecurityHeaders = map[string]string{
-		"X-Frame-Options":           "DENY",
-		"X-Content-Type-Options":    "nosniff",
-		"X-XSS-Protection":          "1; mode=block",
-		"Referrer-Policy":           "strict-origin-when-cross-origin",
-		"Permissions-Policy":        "geolocation=(), microphone=(), camera=()",
+		"X-Frame-Options":        "DENY",
+		"X-Content-Type-Options": "nosniff",
+		"X-XSS-Protection":       "1; mode=block",
+		"Referrer-Policy":        "strict-origin-when-cross-origin",
+		"Permissions-Policy":     "geolocation=(), microphone=(), camera=()",
 	}
-	
+
 	// Content Security Policy
 	config.EnableCSP = true
 	config.CSPDirectives = map[string]string{
@@ -183,117 +181,117 @@ func createAuthMiddlewareConfig() *application.AuthMiddlewareConfig {
 		"frame-src":   "'none'",
 		"object-src":  "'none'",
 	}
-	
+
 	// HSTS configuration
 	config.EnableHSTS = true
 	config.HSTSMaxAge = 365 * 24 * time.Hour
 	config.HSTSIncludeSubdomains = true
 	config.HSTSPreload = true
-	
+
 	return config
 }
 
 // setupRoutes sets up HTTP routes with different authentication requirements
 func setupRoutes(chain *application.AuthMiddlewareChain, logger *slog.Logger) *mux.Router {
 	router := mux.NewRouter()
-	
+
 	// Add request logging middleware
 	router.Use(loggingMiddleware(logger))
-	
+
 	// Health check endpoint (no authentication required)
 	router.HandleFunc("/health", healthCheckHandler).Methods("GET")
-	
+
 	// Public API endpoints (optional authentication)
 	publicAPI := router.PathPrefix("/api/v1/public").Subrouter()
 	publicAPI.Use(chain.ForPublicEndpoints())
-	
+
 	// Public reviews endpoint
 	publicAPI.HandleFunc("/reviews", getPublicReviewsHandler).Methods("GET")
 	publicAPI.HandleFunc("/hotels", getPublicHotelsHandler).Methods("GET")
 	publicAPI.HandleFunc("/stats", getPublicStatsHandler).Methods("GET")
-	
+
 	// Authentication endpoints
 	authAPI := router.PathPrefix("/api/v1/auth").Subrouter()
 	authAPI.Use(chain.ForPublicEndpoints()) // Public for login/register
-	
+
 	authAPI.HandleFunc("/login", loginHandler).Methods("POST")
 	authAPI.HandleFunc("/register", registerHandler).Methods("POST")
 	authAPI.HandleFunc("/refresh", refreshTokenHandler).Methods("POST")
 	authAPI.HandleFunc("/logout", logoutHandler).Methods("POST")
 	authAPI.HandleFunc("/forgot-password", forgotPasswordHandler).Methods("POST")
 	authAPI.HandleFunc("/reset-password", resetPasswordHandler).Methods("POST")
-	
+
 	// Protected API endpoints (requires authentication)
 	protectedAPI := router.PathPrefix("/api/v1/protected").Subrouter()
 	protectedAPI.Use(chain.ForProtectedEndpoints())
-	
+
 	// User profile endpoints
 	protectedAPI.HandleFunc("/profile", getUserProfileHandler).Methods("GET")
 	protectedAPI.HandleFunc("/profile", updateUserProfileHandler).Methods("PUT")
 	protectedAPI.HandleFunc("/change-password", changePasswordHandler).Methods("POST")
-	
+
 	// API key management endpoints
 	protectedAPI.HandleFunc("/api-keys", createAPIKeyHandler).Methods("POST")
 	protectedAPI.HandleFunc("/api-keys", listAPIKeysHandler).Methods("GET")
 	protectedAPI.HandleFunc("/api-keys/{id}", deleteAPIKeyHandler).Methods("DELETE")
-	
+
 	// Reviews endpoints with specific permissions
 	reviewsAPI := router.PathPrefix("/api/v1/reviews").Subrouter()
 	reviewsAPI.Use(chain.ForProtectedEndpoints())
-	
+
 	// Read reviews - requires 'reviews:read' permission
 	reviewsAPI.Handle("", chain.WithPermission("reviews", "read")(
 		http.HandlerFunc(getReviewsHandler),
 	)).Methods("GET")
-	
+
 	// Get specific review - requires 'reviews:read' permission
 	reviewsAPI.Handle("/{id}", chain.WithPermission("reviews", "read")(
 		http.HandlerFunc(getReviewHandler),
 	)).Methods("GET")
-	
+
 	// Create review - requires 'reviews:create' permission
 	reviewsAPI.Handle("", chain.WithPermission("reviews", "create")(
 		http.HandlerFunc(createReviewHandler),
 	)).Methods("POST")
-	
+
 	// Update review - requires 'reviews:update' permission
 	reviewsAPI.Handle("/{id}", chain.WithPermission("reviews", "update")(
 		http.HandlerFunc(updateReviewHandler),
 	)).Methods("PUT")
-	
+
 	// Delete review - requires 'reviews:delete' permission
 	reviewsAPI.Handle("/{id}", chain.WithPermission("reviews", "delete")(
 		http.HandlerFunc(deleteReviewHandler),
 	)).Methods("DELETE")
-	
+
 	// Hotels endpoints with specific permissions
 	hotelsAPI := router.PathPrefix("/api/v1/hotels").Subrouter()
 	hotelsAPI.Use(chain.ForProtectedEndpoints())
-	
+
 	// Read hotels - requires 'hotels:read' permission
 	hotelsAPI.Handle("", chain.WithPermission("hotels", "read")(
 		http.HandlerFunc(getHotelsHandler),
 	)).Methods("GET")
-	
+
 	// Create hotel - requires 'hotels:create' permission
 	hotelsAPI.Handle("", chain.WithPermission("hotels", "create")(
 		http.HandlerFunc(createHotelHandler),
 	)).Methods("POST")
-	
+
 	// Update hotel - requires 'hotels:update' permission
 	hotelsAPI.Handle("/{id}", chain.WithPermission("hotels", "update")(
 		http.HandlerFunc(updateHotelHandler),
 	)).Methods("PUT")
-	
+
 	// Delete hotel - requires 'hotels:delete' permission
 	hotelsAPI.Handle("/{id}", chain.WithPermission("hotels", "delete")(
 		http.HandlerFunc(deleteHotelHandler),
 	)).Methods("DELETE")
-	
+
 	// Admin endpoints (requires admin role)
 	adminAPI := router.PathPrefix("/api/v1/admin").Subrouter()
 	adminAPI.Use(chain.ForAdminEndpoints())
-	
+
 	// User management endpoints
 	adminAPI.HandleFunc("/users", listUsersHandler).Methods("GET")
 	adminAPI.HandleFunc("/users/{id}", getUserHandler).Methods("GET")
@@ -301,7 +299,7 @@ func setupRoutes(chain *application.AuthMiddlewareChain, logger *slog.Logger) *m
 	adminAPI.HandleFunc("/users/{id}", deleteUserHandler).Methods("DELETE")
 	adminAPI.HandleFunc("/users/{id}/roles", assignUserRoleHandler).Methods("POST")
 	adminAPI.HandleFunc("/users/{id}/roles/{roleId}", removeUserRoleHandler).Methods("DELETE")
-	
+
 	// Role management endpoints
 	adminAPI.HandleFunc("/roles", listRolesHandler).Methods("GET")
 	adminAPI.HandleFunc("/roles", createRoleHandler).Methods("POST")
@@ -310,34 +308,34 @@ func setupRoutes(chain *application.AuthMiddlewareChain, logger *slog.Logger) *m
 	adminAPI.HandleFunc("/roles/{id}", deleteRoleHandler).Methods("DELETE")
 	adminAPI.HandleFunc("/roles/{id}/permissions", assignRolePermissionHandler).Methods("POST")
 	adminAPI.HandleFunc("/roles/{id}/permissions/{permissionId}", removeRolePermissionHandler).Methods("DELETE")
-	
+
 	// Permission management endpoints
 	adminAPI.HandleFunc("/permissions", listPermissionsHandler).Methods("GET")
 	adminAPI.HandleFunc("/permissions", createPermissionHandler).Methods("POST")
 	adminAPI.HandleFunc("/permissions/{id}", getPermissionHandler).Methods("GET")
 	adminAPI.HandleFunc("/permissions/{id}", updatePermissionHandler).Methods("PUT")
 	adminAPI.HandleFunc("/permissions/{id}", deletePermissionHandler).Methods("DELETE")
-	
+
 	// System monitoring endpoints
 	adminAPI.HandleFunc("/metrics", getMetricsHandler).Methods("GET")
 	adminAPI.HandleFunc("/health", getDetailedHealthHandler).Methods("GET")
 	adminAPI.HandleFunc("/audit-logs", getAuditLogsHandler).Methods("GET")
-	
+
 	// Moderator endpoints (requires moderator role)
 	moderatorAPI := router.PathPrefix("/api/v1/moderator").Subrouter()
 	moderatorAPI.Use(chain.ForProtectedEndpoints())
 	moderatorAPI.Use(chain.WithRole("moderator", "admin"))
-	
+
 	// Review moderation endpoints
 	moderatorAPI.HandleFunc("/reviews/pending", getPendingReviewsHandler).Methods("GET")
 	moderatorAPI.HandleFunc("/reviews/{id}/approve", approveReviewHandler).Methods("POST")
 	moderatorAPI.HandleFunc("/reviews/{id}/reject", rejectReviewHandler).Methods("POST")
 	moderatorAPI.HandleFunc("/reviews/{id}/flag", flagReviewHandler).Methods("POST")
-	
+
 	// Service-to-service endpoints (API key authentication)
 	serviceAPI := router.PathPrefix("/api/v1/service").Subrouter()
 	// Note: You would create a service-specific middleware chain here
-	
+
 	return router
 }
 
@@ -348,13 +346,13 @@ func loggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			
+
 			// Create a response writer that captures the status code
 			wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-			
+
 			// Process request
 			next.ServeHTTP(wrapped, r)
-			
+
 			// Log request details
 			logger.Info("HTTP request",
 				"method", r.Method,
@@ -388,7 +386,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"version":   "1.0.0",
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -427,8 +425,8 @@ func getPublicStatsHandler(w http.ResponseWriter, r *http.Request) {
 	// Implementation for getting public statistics
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"stats": map[string]interface{}{
-			"total_reviews": 10000,
-			"total_hotels":  500,
+			"total_reviews":  10000,
+			"total_hotels":   500,
 			"average_rating": 4.2,
 		},
 	})
@@ -488,7 +486,7 @@ func getUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusUnauthorized, "User not found in context")
 		return
 	}
-	
+
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]interface{}{
 			"id":       user.ID,
@@ -559,7 +557,7 @@ func getReviewHandler(w http.ResponseWriter, r *http.Request) {
 	// Implementation for getting a specific review
 	vars := mux.Vars(r)
 	reviewID := vars["id"]
-	
+
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"review": map[string]interface{}{
 			"id":      reviewID,
@@ -647,7 +645,7 @@ func getUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Implementation for getting a user
 	vars := mux.Vars(r)
 	userID := vars["id"]
-	
+
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"user": map[string]interface{}{
 			"id":       userID,
@@ -714,7 +712,7 @@ func getRoleHandler(w http.ResponseWriter, r *http.Request) {
 	// Implementation for getting a role
 	vars := mux.Vars(r)
 	roleID := vars["id"]
-	
+
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"role": map[string]interface{}{
 			"id":   roleID,
@@ -784,7 +782,7 @@ func getPermissionHandler(w http.ResponseWriter, r *http.Request) {
 	// Implementation for getting a permission
 	vars := mux.Vars(r)
 	permissionID := vars["id"]
-	
+
 	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"permission": map[string]interface{}{
 			"id":       permissionID,

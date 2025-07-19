@@ -33,43 +33,43 @@ const (
 
 // AlertCondition represents an alert condition
 type AlertCondition struct {
-	ID              string        `json:"id"`
-	Name            string        `json:"name"`
-	Type            AlertType     `json:"type"`
-	Level           AlertLevel    `json:"level"`
-	Description     string        `json:"description"`
-	Threshold       float64       `json:"threshold"`
-	Window          time.Duration `json:"window"`
-	Cooldown        time.Duration `json:"cooldown"`
-	ErrorTypes      []ErrorType   `json:"error_types"`
-	Severities      []ErrorSeverity `json:"severities"`
-	Enabled         bool          `json:"enabled"`
-	CreatedAt       time.Time     `json:"created_at"`
-	UpdatedAt       time.Time     `json:"updated_at"`
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Type        AlertType       `json:"type"`
+	Level       AlertLevel      `json:"level"`
+	Description string          `json:"description"`
+	Threshold   float64         `json:"threshold"`
+	Window      time.Duration   `json:"window"`
+	Cooldown    time.Duration   `json:"cooldown"`
+	ErrorTypes  []ErrorType     `json:"error_types"`
+	Severities  []ErrorSeverity `json:"severities"`
+	Enabled     bool            `json:"enabled"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 // Alert represents an alert
 type Alert struct {
-	ID            string                 `json:"id"`
-	ConditionID   string                 `json:"condition_id"`
-	Type          AlertType              `json:"type"`
-	Level         AlertLevel             `json:"level"`
-	Title         string                 `json:"title"`
-	Message       string                 `json:"message"`
-	Details       map[string]interface{} `json:"details"`
-	Context       map[string]interface{} `json:"context"`
-	Timestamp     time.Time              `json:"timestamp"`
-	Status        string                 `json:"status"` // active, resolved, suppressed
-	AcknowledgedBy string                `json:"acknowledged_by,omitempty"`
-	AcknowledgedAt *time.Time            `json:"acknowledged_at,omitempty"`
-	ResolvedAt     *time.Time            `json:"resolved_at,omitempty"`
-	Count          int                   `json:"count"`
-	LastSeen       time.Time             `json:"last_seen"`
-	Tags           []string              `json:"tags"`
-	Severity       ErrorSeverity         `json:"severity"`
-	Source         string                `json:"source"`
-	Runbook        string                `json:"runbook,omitempty"`
-	Actions        []string              `json:"actions,omitempty"`
+	ID             string                 `json:"id"`
+	ConditionID    string                 `json:"condition_id"`
+	Type           AlertType              `json:"type"`
+	Level          AlertLevel             `json:"level"`
+	Title          string                 `json:"title"`
+	Message        string                 `json:"message"`
+	Details        map[string]interface{} `json:"details"`
+	Context        map[string]interface{} `json:"context"`
+	Timestamp      time.Time              `json:"timestamp"`
+	Status         string                 `json:"status"` // active, resolved, suppressed
+	AcknowledgedBy string                 `json:"acknowledged_by,omitempty"`
+	AcknowledgedAt *time.Time             `json:"acknowledged_at,omitempty"`
+	ResolvedAt     *time.Time             `json:"resolved_at,omitempty"`
+	Count          int                    `json:"count"`
+	LastSeen       time.Time              `json:"last_seen"`
+	Tags           []string               `json:"tags"`
+	Severity       ErrorSeverity          `json:"severity"`
+	Source         string                 `json:"source"`
+	Runbook        string                 `json:"runbook,omitempty"`
+	Actions        []string               `json:"actions,omitempty"`
 }
 
 // AlertChannel represents an alert channel
@@ -81,30 +81,30 @@ type AlertChannel interface {
 
 // ErrorAlerter manages error alerting
 type ErrorAlerter struct {
-	config        *ErrorHandlerConfig
-	logger        *logger.Logger
-	mu            sync.RWMutex
-	
+	config *ErrorHandlerConfig
+	logger *logger.Logger
+	mu     sync.RWMutex
+
 	// Alert management
-	conditions    map[string]*AlertCondition
-	activeAlerts  map[string]*Alert
-	alertHistory  []*Alert
-	channels      []AlertChannel
-	
+	conditions   map[string]*AlertCondition
+	activeAlerts map[string]*Alert
+	alertHistory []*Alert
+	channels     []AlertChannel
+
 	// Alert suppression
-	suppressions  map[string]time.Time
-	rateLimits    map[string]*AlertRateLimit
-	
+	suppressions map[string]time.Time
+	rateLimits   map[string]*AlertRateLimit
+
 	// Metrics tracking
-	errorCounts   map[string]int64
-	errorRates    map[string]float64
-	lastUpdate    time.Time
-	
+	errorCounts map[string]int64
+	errorRates  map[string]float64
+	lastUpdate  time.Time
+
 	// Background processes
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	shutdownCh    chan struct{}
+	ctx        context.Context
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
+	shutdownCh chan struct{}
 }
 
 // AlertRateLimit represents rate limiting for alerts
@@ -118,7 +118,7 @@ type AlertRateLimit struct {
 // NewErrorAlerter creates a new error alerter
 func NewErrorAlerter(config *ErrorHandlerConfig, logger *logger.Logger) *ErrorAlerter {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	ea := &ErrorAlerter{
 		config:       config,
 		logger:       logger,
@@ -135,13 +135,13 @@ func NewErrorAlerter(config *ErrorHandlerConfig, logger *logger.Logger) *ErrorAl
 		cancel:       cancel,
 		shutdownCh:   make(chan struct{}),
 	}
-	
+
 	// Initialize default conditions
 	ea.initializeDefaultConditions()
-	
+
 	// Start background processes
 	ea.startBackgroundProcesses()
-	
+
 	return ea
 }
 
@@ -209,7 +209,7 @@ func (ea *ErrorAlerter) initializeDefaultConditions() {
 			UpdatedAt:   time.Now(),
 		},
 	}
-	
+
 	for _, condition := range defaultConditions {
 		ea.conditions[condition.ID] = condition
 	}
@@ -219,16 +219,16 @@ func (ea *ErrorAlerter) initializeDefaultConditions() {
 func (ea *ErrorAlerter) CheckAlertConditions(appErr *AppError) {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	// Update error tracking
 	ea.updateErrorTracking(appErr)
-	
+
 	// Check each condition
 	for _, condition := range ea.conditions {
 		if !condition.Enabled {
 			continue
 		}
-		
+
 		if ea.shouldTriggerAlert(condition, appErr) {
 			ea.triggerAlert(condition, appErr)
 		}
@@ -239,7 +239,7 @@ func (ea *ErrorAlerter) CheckAlertConditions(appErr *AppError) {
 func (ea *ErrorAlerter) updateErrorTracking(appErr *AppError) {
 	key := string(appErr.Type)
 	ea.errorCounts[key]++
-	
+
 	// Calculate error rate
 	now := time.Now()
 	if now.Sub(ea.lastUpdate) >= time.Minute {
@@ -265,7 +265,7 @@ func (ea *ErrorAlerter) shouldTriggerAlert(condition *AlertCondition, appErr *Ap
 			return false
 		}
 	}
-	
+
 	// Check if severity matches condition
 	if len(condition.Severities) > 0 {
 		match := false
@@ -279,22 +279,22 @@ func (ea *ErrorAlerter) shouldTriggerAlert(condition *AlertCondition, appErr *Ap
 			return false
 		}
 	}
-	
+
 	// Check if in cooldown period
 	if ea.isInCooldown(condition.ID) {
 		return false
 	}
-	
+
 	// Check if suppressed
 	if ea.isSuppressed(condition.ID) {
 		return false
 	}
-	
+
 	// Check if rate limited
 	if ea.isRateLimited(condition.ID) {
 		return false
 	}
-	
+
 	// Check specific condition logic
 	switch condition.Type {
 	case AlertTypeErrorRate:
@@ -316,7 +316,7 @@ func (ea *ErrorAlerter) shouldTriggerAlert(condition *AlertCondition, appErr *Ap
 func (ea *ErrorAlerter) checkErrorRateCondition(condition *AlertCondition, appErr *AppError) bool {
 	key := string(appErr.Type)
 	rate, exists := ea.errorRates[key]
-	
+
 	return exists && rate >= condition.Threshold
 }
 
@@ -324,7 +324,7 @@ func (ea *ErrorAlerter) checkErrorRateCondition(condition *AlertCondition, appEr
 func (ea *ErrorAlerter) checkErrorSpikeCondition(condition *AlertCondition, appErr *AppError) bool {
 	key := string(appErr.Type)
 	count, exists := ea.errorCounts[key]
-	
+
 	// Check if we've seen this many errors in the window
 	return exists && float64(count) >= condition.Threshold
 }
@@ -342,14 +342,14 @@ func (ea *ErrorAlerter) checkServiceDegradationCondition(condition *AlertConditi
 	// For simplicity, we'll use a basic threshold
 	key := string(appErr.Type)
 	rate, exists := ea.errorRates[key]
-	
+
 	return exists && rate >= condition.Threshold
 }
 
 // triggerAlert triggers an alert
 func (ea *ErrorAlerter) triggerAlert(condition *AlertCondition, appErr *AppError) {
 	alertID := fmt.Sprintf("%s_%s_%d", condition.ID, appErr.Type, time.Now().Unix())
-	
+
 	// Check if we already have an active alert for this condition
 	if existingAlert, exists := ea.activeAlerts[condition.ID]; exists {
 		// Update existing alert
@@ -358,7 +358,7 @@ func (ea *ErrorAlerter) triggerAlert(condition *AlertCondition, appErr *AppError
 		existingAlert.Details["latest_error"] = appErr
 		return
 	}
-	
+
 	// Create new alert
 	alert := &Alert{
 		ID:          alertID,
@@ -379,20 +379,20 @@ func (ea *ErrorAlerter) triggerAlert(condition *AlertCondition, appErr *AppError
 		Runbook:     ea.generateRunbook(condition),
 		Actions:     ea.generateActions(condition, appErr),
 	}
-	
+
 	// Store alert
 	ea.activeAlerts[condition.ID] = alert
 	ea.alertHistory = append(ea.alertHistory, alert)
-	
+
 	// Send alert through channels
 	ea.sendAlert(alert)
-	
+
 	// Set cooldown
 	ea.setCooldown(condition.ID, condition.Cooldown)
-	
+
 	// Update rate limit
 	ea.updateRateLimit(condition.ID)
-	
+
 	// Log alert
 	ea.logger.Error("Alert triggered",
 		"alert_id", alert.ID,
@@ -428,11 +428,11 @@ func (ea *ErrorAlerter) generateAlertMessage(condition *AlertCondition, appErr *
 	switch condition.Type {
 	case AlertTypeErrorRate:
 		rate := ea.errorRates[string(appErr.Type)]
-		return fmt.Sprintf("Error rate for %s has exceeded threshold. Current rate: %.2f errors/minute (threshold: %.2f)", 
+		return fmt.Sprintf("Error rate for %s has exceeded threshold. Current rate: %.2f errors/minute (threshold: %.2f)",
 			appErr.Type, rate, condition.Threshold)
 	case AlertTypeErrorSpike:
 		count := ea.errorCounts[string(appErr.Type)]
-		return fmt.Sprintf("Spike in %s errors detected. Count: %d in the last %v", 
+		return fmt.Sprintf("Spike in %s errors detected. Count: %d in the last %v",
 			appErr.Type, count, condition.Window)
 	case AlertTypeNewError:
 		return fmt.Sprintf("New error pattern detected: %s - %s", appErr.Type, appErr.Message)
@@ -460,24 +460,24 @@ func (ea *ErrorAlerter) generateAlertDetails(condition *AlertCondition, appErr *
 		"error_category": appErr.Category,
 		"timestamp":      appErr.Timestamp,
 	}
-	
+
 	if appErr.Details != nil {
 		details["error_details"] = appErr.Details
 	}
-	
+
 	if appErr.Context != nil {
 		details["error_context"] = appErr.Context
 	}
-	
+
 	// Add current metrics
 	if rate, exists := ea.errorRates[string(appErr.Type)]; exists {
 		details["current_error_rate"] = rate
 	}
-	
+
 	if count, exists := ea.errorCounts[string(appErr.Type)]; exists {
 		details["current_error_count"] = count
 	}
-	
+
 	return details
 }
 
@@ -488,23 +488,23 @@ func (ea *ErrorAlerter) generateAlertContext(appErr *AppError) map[string]interf
 		"environment": "production", // This could be configurable
 		"timestamp":   time.Now(),
 	}
-	
+
 	if appErr.CorrelationID != "" {
 		context["correlation_id"] = appErr.CorrelationID
 	}
-	
+
 	if appErr.RequestID != "" {
 		context["request_id"] = appErr.RequestID
 	}
-	
+
 	if appErr.UserID != "" {
 		context["user_id"] = appErr.UserID
 	}
-	
+
 	if appErr.Source != "" {
 		context["source"] = appErr.Source
 	}
-	
+
 	return context
 }
 
@@ -517,13 +517,13 @@ func (ea *ErrorAlerter) generateAlertTags(condition *AlertCondition, appErr *App
 		fmt.Sprintf("alert_type:%s", condition.Type),
 		fmt.Sprintf("alert_level:%s", condition.Level),
 	}
-	
+
 	if appErr.Retryable {
 		tags = append(tags, "retryable:true")
 	} else {
 		tags = append(tags, "retryable:false")
 	}
-	
+
 	return tags
 }
 
@@ -540,7 +540,7 @@ func (ea *ErrorAlerter) generateActions(condition *AlertCondition, appErr *AppEr
 		"Review system metrics",
 		"Investigate error context",
 	}
-	
+
 	switch condition.Type {
 	case AlertTypeErrorRate:
 		actions = append(actions, "Check system load", "Review recent deployments")
@@ -553,7 +553,7 @@ func (ea *ErrorAlerter) generateActions(condition *AlertCondition, appErr *AppEr
 	case AlertTypeServiceDegraded:
 		actions = append(actions, "Check dependent services", "Review circuit breaker status")
 	}
-	
+
 	return actions
 }
 
@@ -563,11 +563,11 @@ func (ea *ErrorAlerter) sendAlert(alert *Alert) {
 		if !channel.IsEnabled() {
 			continue
 		}
-		
+
 		go func(ch AlertChannel) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			
+
 			if err := ch.Send(ctx, alert); err != nil {
 				ea.logger.Error("Failed to send alert",
 					"alert_id", alert.ID,
@@ -606,16 +606,16 @@ func (ea *ErrorAlerter) isRateLimited(conditionID string) bool {
 	if !exists {
 		return false
 	}
-	
+
 	now := time.Now()
-	
+
 	// Reset if window has passed
 	if now.Sub(rateLimit.LastReset) >= rateLimit.Window {
 		rateLimit.Count = 0
 		rateLimit.LastReset = now
 		rateLimit.Timestamps = []time.Time{}
 	}
-	
+
 	// Check if we've exceeded the limit
 	return rateLimit.Count >= 10 // Max 10 alerts per window
 }
@@ -632,7 +632,7 @@ func (ea *ErrorAlerter) updateRateLimit(conditionID string) {
 		}
 		ea.rateLimits[conditionID] = rateLimit
 	}
-	
+
 	rateLimit.Count++
 	rateLimit.Timestamps = append(rateLimit.Timestamps, time.Now())
 }
@@ -643,7 +643,7 @@ func (ea *ErrorAlerter) updateRateLimit(conditionID string) {
 func (ea *ErrorAlerter) AddCondition(condition *AlertCondition) {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	ea.conditions[condition.ID] = condition
 }
 
@@ -651,7 +651,7 @@ func (ea *ErrorAlerter) AddCondition(condition *AlertCondition) {
 func (ea *ErrorAlerter) RemoveCondition(conditionID string) {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	delete(ea.conditions, conditionID)
 }
 
@@ -659,12 +659,12 @@ func (ea *ErrorAlerter) RemoveCondition(conditionID string) {
 func (ea *ErrorAlerter) GetConditions() map[string]*AlertCondition {
 	ea.mu.RLock()
 	defer ea.mu.RUnlock()
-	
+
 	conditions := make(map[string]*AlertCondition)
 	for k, v := range ea.conditions {
 		conditions[k] = v
 	}
-	
+
 	return conditions
 }
 
@@ -672,12 +672,12 @@ func (ea *ErrorAlerter) GetConditions() map[string]*AlertCondition {
 func (ea *ErrorAlerter) GetActiveAlerts() map[string]*Alert {
 	ea.mu.RLock()
 	defer ea.mu.RUnlock()
-	
+
 	alerts := make(map[string]*Alert)
 	for k, v := range ea.activeAlerts {
 		alerts[k] = v
 	}
-	
+
 	return alerts
 }
 
@@ -685,10 +685,10 @@ func (ea *ErrorAlerter) GetActiveAlerts() map[string]*Alert {
 func (ea *ErrorAlerter) GetAlertHistory() []*Alert {
 	ea.mu.RLock()
 	defer ea.mu.RUnlock()
-	
+
 	history := make([]*Alert, len(ea.alertHistory))
 	copy(history, ea.alertHistory)
-	
+
 	return history
 }
 
@@ -696,7 +696,7 @@ func (ea *ErrorAlerter) GetAlertHistory() []*Alert {
 func (ea *ErrorAlerter) AddChannel(channel AlertChannel) {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	ea.channels = append(ea.channels, channel)
 }
 
@@ -704,7 +704,7 @@ func (ea *ErrorAlerter) AddChannel(channel AlertChannel) {
 func (ea *ErrorAlerter) AcknowledgeAlert(alertID, acknowledgedBy string) error {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	for _, alert := range ea.activeAlerts {
 		if alert.ID == alertID {
 			now := time.Now()
@@ -713,7 +713,7 @@ func (ea *ErrorAlerter) AcknowledgeAlert(alertID, acknowledgedBy string) error {
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("alert not found: %s", alertID)
 }
 
@@ -721,7 +721,7 @@ func (ea *ErrorAlerter) AcknowledgeAlert(alertID, acknowledgedBy string) error {
 func (ea *ErrorAlerter) ResolveAlert(alertID string) error {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	for conditionID, alert := range ea.activeAlerts {
 		if alert.ID == alertID {
 			now := time.Now()
@@ -731,7 +731,7 @@ func (ea *ErrorAlerter) ResolveAlert(alertID string) error {
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("alert not found: %s", alertID)
 }
 
@@ -739,7 +739,7 @@ func (ea *ErrorAlerter) ResolveAlert(alertID string) error {
 func (ea *ErrorAlerter) SuppressCondition(conditionID string, duration time.Duration) {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	ea.suppressions[conditionID] = time.Now().Add(duration)
 }
 
@@ -752,10 +752,10 @@ func (ea *ErrorAlerter) startBackgroundProcesses() {
 // alertMaintenanceLoop runs alert maintenance tasks
 func (ea *ErrorAlerter) alertMaintenanceLoop() {
 	defer ea.wg.Done()
-	
+
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -770,28 +770,28 @@ func (ea *ErrorAlerter) alertMaintenanceLoop() {
 func (ea *ErrorAlerter) performMaintenance() {
 	ea.mu.Lock()
 	defer ea.mu.Unlock()
-	
+
 	now := time.Now()
-	
+
 	// Clean up old suppressions
 	for conditionID, suppressedUntil := range ea.suppressions {
 		if now.After(suppressedUntil) {
 			delete(ea.suppressions, conditionID)
 		}
 	}
-	
+
 	// Clean up old rate limits
 	for conditionID, rateLimit := range ea.rateLimits {
 		if now.Sub(rateLimit.LastReset) >= rateLimit.Window*2 {
 			delete(ea.rateLimits, conditionID)
 		}
 	}
-	
+
 	// Clean up old alert history
 	if len(ea.alertHistory) > 1000 {
 		ea.alertHistory = ea.alertHistory[len(ea.alertHistory)-1000:]
 	}
-	
+
 	// Auto-resolve old alerts
 	for conditionID, alert := range ea.activeAlerts {
 		if now.Sub(alert.Timestamp) >= 24*time.Hour {

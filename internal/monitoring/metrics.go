@@ -15,18 +15,18 @@ import (
 // MetricsRegistry holds all Prometheus metrics
 type MetricsRegistry struct {
 	// HTTP metrics
-	HTTPRequestsTotal     *prometheus.CounterVec
-	HTTPRequestDuration   *prometheus.HistogramVec
-	HTTPResponseSize      *prometheus.HistogramVec
-	HTTPRequestsInFlight  *prometheus.GaugeVec
+	HTTPRequestsTotal    *prometheus.CounterVec
+	HTTPRequestDuration  *prometheus.HistogramVec
+	HTTPResponseSize     *prometheus.HistogramVec
+	HTTPRequestsInFlight *prometheus.GaugeVec
 
 	// Business metrics
-	ReviewsProcessed      *prometheus.CounterVec
-	ReviewsTotal          *prometheus.GaugeVec
-	ProcessingErrors      *prometheus.CounterVec
-	ProcessingDuration    *prometheus.HistogramVec
-	FileProcessingJobs    *prometheus.GaugeVec
-	
+	ReviewsProcessed   *prometheus.CounterVec
+	ReviewsTotal       *prometheus.GaugeVec
+	ProcessingErrors   *prometheus.CounterVec
+	ProcessingDuration *prometheus.HistogramVec
+	FileProcessingJobs *prometheus.GaugeVec
+
 	// Database metrics
 	DatabaseConnections   *prometheus.GaugeVec
 	DatabaseQueries       *prometheus.CounterVec
@@ -34,33 +34,33 @@ type MetricsRegistry struct {
 	DatabaseErrors        *prometheus.CounterVec
 
 	// Cache metrics
-	CacheHits             *prometheus.CounterVec
-	CacheMisses           *prometheus.CounterVec
-	CacheOperations       *prometheus.CounterVec
-	CacheSize             *prometheus.GaugeVec
+	CacheHits       *prometheus.CounterVec
+	CacheMisses     *prometheus.CounterVec
+	CacheOperations *prometheus.CounterVec
+	CacheSize       *prometheus.GaugeVec
 
 	// S3 metrics
-	S3Operations          *prometheus.CounterVec
-	S3OperationDuration   *prometheus.HistogramVec
-	S3Errors              *prometheus.CounterVec
-	S3ObjectSize          *prometheus.HistogramVec
+	S3Operations        *prometheus.CounterVec
+	S3OperationDuration *prometheus.HistogramVec
+	S3Errors            *prometheus.CounterVec
+	S3ObjectSize        *prometheus.HistogramVec
 
 	// System metrics
-	GoRoutines            *prometheus.GaugeVec
-	MemoryUsage           *prometheus.GaugeVec
-	CPUUsage              *prometheus.GaugeVec
-	GCPauses              *prometheus.HistogramVec
+	GoRoutines  *prometheus.GaugeVec
+	MemoryUsage *prometheus.GaugeVec
+	CPUUsage    *prometheus.GaugeVec
+	GCPauses    *prometheus.HistogramVec
 
 	// Circuit breaker metrics
-	CircuitBreakerState   *prometheus.GaugeVec
+	CircuitBreakerState    *prometheus.GaugeVec
 	CircuitBreakerRequests *prometheus.CounterVec
 	CircuitBreakerFailures *prometheus.CounterVec
 
 	// SLI/SLO metrics
-	SLIAvailability       *prometheus.GaugeVec
-	SLILatency            *prometheus.HistogramVec
-	SLIErrorRate          *prometheus.GaugeVec
-	SLIThroughput         *prometheus.GaugeVec
+	SLIAvailability *prometheus.GaugeVec
+	SLILatency      *prometheus.HistogramVec
+	SLIErrorRate    *prometheus.GaugeVec
+	SLIThroughput   *prometheus.GaugeVec
 
 	registry *prometheus.Registry
 }
@@ -410,7 +410,7 @@ func (s *MonitoringService) RecordReviewProcessed(provider, status string, durat
 func (s *MonitoringService) RecordDatabaseQuery(table, operation string, duration time.Duration, err error) {
 	s.metrics.DatabaseQueries.WithLabelValues(table, operation).Inc()
 	s.metrics.DatabaseQueryDuration.WithLabelValues(table, operation).Observe(duration.Seconds())
-	
+
 	if err != nil {
 		errorType := "unknown"
 		if err != nil {
@@ -423,7 +423,7 @@ func (s *MonitoringService) RecordDatabaseQuery(table, operation string, duratio
 // RecordCacheOperation records cache operation metrics
 func (s *MonitoringService) RecordCacheOperation(cacheType, operation string, hit bool) {
 	s.metrics.CacheOperations.WithLabelValues(cacheType, operation).Inc()
-	
+
 	if hit {
 		s.metrics.CacheHits.WithLabelValues(cacheType, operation).Inc()
 	} else {
@@ -435,7 +435,7 @@ func (s *MonitoringService) RecordCacheOperation(cacheType, operation string, hi
 func (s *MonitoringService) RecordS3Operation(operation, bucket, status string, duration time.Duration, objectSize int64) {
 	s.metrics.S3Operations.WithLabelValues(operation, bucket, status).Inc()
 	s.metrics.S3OperationDuration.WithLabelValues(operation, bucket).Observe(duration.Seconds())
-	
+
 	if objectSize > 0 {
 		s.metrics.S3ObjectSize.WithLabelValues(operation, bucket).Observe(float64(objectSize))
 	}
@@ -475,7 +475,7 @@ func (s *MonitoringService) StartSystemMetricsCollector(ctx context.Context) {
 func (s *MonitoringService) collectSystemMetrics() {
 	// This would typically collect real system metrics
 	// For now, we'll just record some placeholder values
-	s.metrics.GoRoutines.WithLabelValues("total").Set(float64(100)) // placeholder
+	s.metrics.GoRoutines.WithLabelValues("total").Set(float64(100))              // placeholder
 	s.metrics.MemoryUsage.WithLabelValues("heap").Set(float64(1024 * 1024 * 50)) // placeholder
-	s.metrics.CPUUsage.WithLabelValues("application").Set(float64(25.0)) // placeholder
+	s.metrics.CPUUsage.WithLabelValues("application").Set(float64(25.0))         // placeholder
 }

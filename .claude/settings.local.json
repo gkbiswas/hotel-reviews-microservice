@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git --version)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(go test:*)"
     ],
     "deny": []
   }

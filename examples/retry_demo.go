@@ -13,27 +13,27 @@ import (
 
 func main() {
 	fmt.Println("=== Retry Mechanism Demo ===")
-	
+
 	// Demo 1: Basic retry with exponential backoff
 	fmt.Println("\n1. Basic Retry with Exponential Backoff:")
 	demoBasicRetry()
-	
+
 	// Demo 2: Different retry strategies
 	fmt.Println("\n2. Different Retry Strategies:")
 	demoRetryStrategies()
-	
+
 	// Demo 3: Error classification
 	fmt.Println("\n3. Error Classification:")
 	demoErrorClassification()
-	
+
 	// Demo 4: Context cancellation
 	fmt.Println("\n4. Context Cancellation:")
 	demoContextCancellation()
-	
+
 	// Demo 5: Custom retry conditions
 	fmt.Println("\n5. Custom Retry Conditions:")
 	demoCustomConditions()
-	
+
 	fmt.Println("\n=== Demo Complete ===")
 }
 
@@ -42,34 +42,34 @@ func demoBasicRetry() {
 	maxAttempts := 3
 	baseDelay := 100 * time.Millisecond
 	multiplier := 2.0
-	
+
 	attempt := 0
 	operation := func() error {
 		attempt++
 		fmt.Printf("  Attempt %d/%d\n", attempt, maxAttempts)
-		
+
 		if attempt < 3 {
 			return errors.New("temporary failure")
 		}
 		return nil
 	}
-	
+
 	start := time.Now()
 	var err error
-	
+
 	for i := 1; i <= maxAttempts; i++ {
 		err = operation()
 		if err == nil {
 			break
 		}
-		
+
 		if i < maxAttempts {
 			delay := time.Duration(float64(baseDelay) * (multiplier * float64(i-1)))
 			fmt.Printf("  Waiting %v before retry...\n", delay)
 			time.Sleep(delay)
 		}
 	}
-	
+
 	duration := time.Since(start)
 	if err != nil {
 		fmt.Printf("  Failed after %d attempts in %v: %v\n", maxAttempts, duration, err)
@@ -113,7 +113,7 @@ func demoRetryStrategies() {
 			},
 		},
 	}
-	
+
 	for _, strategy := range strategies {
 		fmt.Printf("  %s:\n", strategy.name)
 		for i := 1; i <= 4; i++ {
@@ -139,7 +139,7 @@ func demoErrorClassification() {
 		{"Not Found", errors.New("404 not found"), false},
 		{"Invalid Input", errors.New("invalid input format"), false},
 	}
-	
+
 	for _, e := range errors {
 		retryable := classifyError(e.error)
 		status := "Non-retryable"
@@ -154,12 +154,12 @@ func demoErrorClassification() {
 func demoContextCancellation() {
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 	defer cancel()
-	
+
 	attempt := 0
 	operation := func() error {
 		attempt++
 		fmt.Printf("  Attempt %d\n", attempt)
-		
+
 		// Simulate work
 		select {
 		case <-time.After(100 * time.Millisecond):
@@ -168,21 +168,21 @@ func demoContextCancellation() {
 			return ctx.Err()
 		}
 	}
-	
+
 	start := time.Now()
 	var err error
-	
+
 	for i := 1; i <= 3; i++ {
 		err = operation()
 		if err == context.DeadlineExceeded || err == context.Canceled {
 			fmt.Printf("  Context cancelled after %v\n", time.Since(start))
 			break
 		}
-		
+
 		if err == nil {
 			break
 		}
-		
+
 		if i < 3 {
 			delay := 50 * time.Millisecond
 			select {
@@ -193,7 +193,7 @@ func demoContextCancellation() {
 			}
 		}
 	}
-	
+
 	duration := time.Since(start)
 	fmt.Printf("  Total duration: %v, Final error: %v\n", duration, err)
 }
@@ -205,32 +205,32 @@ func demoCustomConditions() {
 		if attempt >= 3 {
 			return false // Don't retry after 3 attempts
 		}
-		
+
 		// Only retry network-related errors
 		errStr := err.Error()
 		return contains(errStr, "network") || contains(errStr, "connection") || contains(errStr, "timeout")
 	}
-	
+
 	testErrors := []error{
 		errors.New("network connection failed"),
 		errors.New("timeout occurred"),
 		errors.New("invalid input"),
 		errors.New("500 server error"),
 	}
-	
+
 	for _, testErr := range testErrors {
 		fmt.Printf("  Testing: %s\n", testErr.Error())
 		attempt := 0
-		
+
 		for i := 1; i <= 5; i++ {
 			attempt++
 			fmt.Printf("    Attempt %d: %s\n", attempt, testErr.Error())
-			
+
 			if !customCondition(testErr, attempt) {
 				fmt.Printf("    Custom condition says: Do not retry\n")
 				break
 			}
-			
+
 			if i < 5 {
 				fmt.Printf("    Custom condition says: Retry allowed\n")
 			}
@@ -245,9 +245,9 @@ func classifyError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Retryable errors
 	if contains(errStr, "network") || contains(errStr, "connection") ||
 		contains(errStr, "timeout") || contains(errStr, "500") ||
@@ -255,24 +255,24 @@ func classifyError(err error) bool {
 		contains(errStr, "504") || contains(errStr, "rate limit") {
 		return true
 	}
-	
+
 	// Non-retryable errors
 	if contains(errStr, "400") || contains(errStr, "401") ||
 		contains(errStr, "403") || contains(errStr, "404") ||
 		contains(errStr, "invalid") || contains(errStr, "unauthorized") {
 		return false
 	}
-	
+
 	// Default to retryable for unknown errors
 	return true
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		(len(s) > len(substr) && 
-			(s[:len(substr)] == substr || 
-			 s[len(s)-len(substr):] == substr ||
-			 indexOf(s, substr) >= 0)))
+	return len(s) >= len(substr) && (s == substr ||
+		(len(s) > len(substr) &&
+			(s[:len(substr)] == substr ||
+				s[len(s)-len(substr):] == substr ||
+				indexOf(s, substr) >= 0)))
 }
 
 func indexOf(s, substr string) int {
