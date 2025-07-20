@@ -646,10 +646,11 @@ func (cw *ConfigWatcher) addToHistory(configName string, config interface{}, sou
 func (cw *ConfigWatcher) generateConfigHash(config interface{}) string {
 	data, _ := json.Marshal(config)
 	hexStr := fmt.Sprintf("%x", data)
-	if len(hexStr) < 16 {
-		return hexStr // Return the full string if it's shorter than 16 chars
+	// Use the full hex string to ensure uniqueness, but limit to reasonable length
+	if len(hexStr) > 64 {
+		return hexStr[:64] // Use first 64 chars for very long configs
 	}
-	return hexStr[:16] // Use first 16 chars as hash
+	return hexStr // Use full hex string for better uniqueness
 }
 
 // batchProcessor handles batched configuration updates

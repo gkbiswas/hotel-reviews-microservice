@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -126,7 +127,14 @@ func (s *Service) initializeServices() error {
 
 	// Initialize business metrics
 	if s.config.BusinessMetricsEnabled {
-		s.businessMetrics = NewBusinessMetrics(s.logger)
+		// Use the same registry as the metrics service
+		var registry *prometheus.Registry
+		if s.metricsService != nil {
+			registry = s.metricsService.GetMetrics().GetRegistry()
+		} else {
+			registry = prometheus.NewRegistry()
+		}
+		s.businessMetrics = NewBusinessMetrics(s.logger, registry)
 		s.logger.Info("Business metrics service initialized")
 	}
 
@@ -277,6 +285,11 @@ func (s *Service) registerWithGorillaMux(router interface{}) {
 func (s *Service) handleSLOReport(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	if s.sloManager == nil {
+		http.Error(w, "SLO manager not available", http.StatusServiceUnavailable)
+		return
+	}
+
 	report, err := s.sloManager.GetSLOReport(ctx)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate SLO report: %v", err), http.StatusInternalServerError)
@@ -287,10 +300,10 @@ func (s *Service) handleSLOReport(w http.ResponseWriter, r *http.Request) {
 
 	// Simple JSON response (in production, use a proper JSON library)
 	fmt.Fprintf(w, `{
-		"total_slos": %d,
-		"violated_slos": %d,
-		"slo_success_rate": %.4f,
-		"timestamp": "%s"
+		"total_slos": %v,
+		"violated_slos": %v,
+		"slo_success_rate": %v,
+		"timestamp": "%v"
 	}`,
 		report["total_slos"],
 		report["violated_slos"],

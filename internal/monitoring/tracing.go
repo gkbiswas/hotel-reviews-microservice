@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -43,6 +44,15 @@ func NewTracingService(config *TracingConfig, logger *logrus.Logger) (*TracingSe
 			config: config,
 			logger: logger,
 		}, nil
+	}
+
+	// Validate Jaeger endpoint URL
+	parsedURL, err := url.Parse(config.JaegerEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Jaeger exporter: invalid endpoint URL: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, fmt.Errorf("failed to create Jaeger exporter: invalid URL scheme '%s', expected 'http' or 'https'", parsedURL.Scheme)
 	}
 
 	// Create Jaeger exporter

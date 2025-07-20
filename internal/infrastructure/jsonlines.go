@@ -752,6 +752,8 @@ func (j *JSONLinesProcessor) parseFloat(value interface{}) (float64, error) {
 		return float64(v), nil
 	case string:
 		return strconv.ParseFloat(v, 64)
+	case json.Number:
+		return v.Float64()
 	default:
 		return 0, fmt.Errorf("cannot convert %T to float64", v)
 	}
@@ -773,6 +775,8 @@ func (j *JSONLinesProcessor) parseInt(value interface{}) (int, error) {
 		return int(v), nil
 	case string:
 		return strconv.Atoi(v)
+	case json.Number:
+		return strconv.Atoi(string(v))
 	default:
 		return 0, fmt.Errorf("cannot convert %T to int", v)
 	}
@@ -787,7 +791,15 @@ func (j *JSONLinesProcessor) parseBool(value interface{}) (bool, error) {
 	case bool:
 		return v, nil
 	case string:
-		return strconv.ParseBool(v)
+		// Handle common boolean string representations
+		switch strings.ToLower(v) {
+		case "yes", "y", "on", "1":
+			return true, nil
+		case "no", "n", "off", "0":
+			return false, nil
+		default:
+			return strconv.ParseBool(v)
+		}
 	case int:
 		return v != 0, nil
 	case float64:
@@ -800,6 +812,11 @@ func (j *JSONLinesProcessor) parseBool(value interface{}) (bool, error) {
 func (j *JSONLinesProcessor) parseDate(dateStr string) (time.Time, error) {
 	if dateStr == "" {
 		return time.Time{}, fmt.Errorf("date string is empty")
+	}
+
+	// Try Unix timestamp first
+	if timestamp, err := strconv.ParseInt(dateStr, 10, 64); err == nil {
+		return time.Unix(timestamp, 0), nil
 	}
 
 	// Try different date formats

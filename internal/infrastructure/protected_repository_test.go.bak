@@ -1,0 +1,829 @@
+package infrastructure
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
+	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
+)
+
+// MockCircuitBreaker is a mock implementation of CircuitBreaker
+type MockCircuitBreaker struct {
+	mock.Mock
+}
+
+func (m *MockCircuitBreaker) Execute(ctx context.Context, operation func(ctx context.Context) (interface{}, error)) (interface{}, error) {
+	args := m.Called(ctx, operation)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockCircuitBreaker) ExecuteWithFallback(ctx context.Context, operation func(ctx context.Context) (interface{}, error), fallback FallbackFunc) (interface{}, error) {
+	args := m.Called(ctx, operation, fallback)
+	if operation != nil && args.Error(1) == nil {
+		// Execute the operation with the context
+		return operation(ctx)
+	}
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockCircuitBreaker) GetState() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockCircuitBreaker) GetMetrics() map[string]interface{} {
+	args := m.Called()
+	return args.Get(0).(map[string]interface{})
+}
+
+func (m *MockCircuitBreaker) Reset() {
+	m.Called()
+}
+
+func (m *MockCircuitBreaker) IsOpen() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockCircuitBreaker) SetHealthCheck(fn func(context.Context) error) {
+	m.Called(fn)
+}
+
+// MockDatabaseWrapper mocks the DatabaseWrapper behavior
+type MockDatabaseWrapper struct {
+	mock.Mock
+	logger *logger.Logger
+}
+
+func (m *MockDatabaseWrapper) ExecuteQuery(ctx context.Context, queryFunc func(*gorm.DB) error) error {
+	args := m.Called(ctx, queryFunc)
+	return args.Error(0)
+}
+
+func (m *MockDatabaseWrapper) ExecuteTransaction(ctx context.Context, txFunc func(*gorm.DB) error) error {
+	args := m.Called(ctx, txFunc)
+	return args.Error(0)
+}
+
+func setupProtectedRepository() (*ProtectedReviewRepository, *MockDatabaseWrapper) {
+	mockWrapper := &MockDatabaseWrapper{
+		logger: logger.NewDefault(),
+	}
+	
+	repo := &ProtectedReviewRepository{
+		dbWrapper: mockWrapper,
+		logger:    mockWrapper.logger,
+	}
+	
+	return repo, mockWrapper
+}
+
+func TestNewProtectedReviewRepository(t *testing.T) {
+	mockBreaker := &MockCircuitBreaker{}
+	log := logger.NewDefault()
+	
+	wrapper := &DatabaseWrapper{
+		db:      nil,
+		breaker: mockBreaker,
+		logger:  log,
+	}
+
+	repo := NewProtectedReviewRepository(wrapper, log)
+
+	assert.NotNil(t, repo)
+	assert.Equal(t, wrapper, repo.dbWrapper)
+	assert.Equal(t, log, repo.logger)
+}
+
+func TestProtectedReviewRepository_CreateReview(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	review := &domain.Review{
+		ID:         uuid.New(),
+		ExternalID: "ext-123",
+		Rating:     4.5,
+		Comment:    "Great hotel!",
+	}
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		err := repo.CreateReview(context.Background(), review)
+
+		assert.NoError(t, err)
+		assert.NotEqual(t, time.Time{}, review.CreatedAt)
+		assert.NotEqual(t, time.Time{}, review.UpdatedAt)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("database connection failed")).Once()
+
+		err := repo.CreateReview(context.Background(), review)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "database connection failed")
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("generates ID if not set", func(t *testing.T) {
+		reviewWithoutID := &domain.Review{
+			ExternalID: "ext-456",
+			Rating:     3.0,
+			Comment:    "Average hotel",
+		}
+
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		err := repo.CreateReview(context.Background(), reviewWithoutID)
+
+		assert.NoError(t, err)
+		assert.NotEqual(t, uuid.Nil, reviewWithoutID.ID)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewByID(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	reviewID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		review, err := repo.GetReviewByID(context.Background(), reviewID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, review)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil, domain.ErrReviewNotFound).Once()
+
+		review, err := repo.GetReviewByID(context.Background(), reviewID)
+
+		assert.Error(t, err)
+		assert.Nil(t, review)
+		assert.Equal(t, domain.ErrReviewNotFound, err)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("connection timeout")).Once()
+
+		review, err := repo.GetReviewByID(context.Background(), reviewID)
+
+		assert.Error(t, err)
+		assert.Nil(t, review)
+		assert.Contains(t, err.Error(), "connection timeout")
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewsByHotelID(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	hotelID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.GetReviewsByHotelID(context.Background(), hotelID, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("database error")).Once()
+
+		reviews, err := repo.GetReviewsByHotelID(context.Background(), hotelID, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewsByProviderID(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	providerID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.GetReviewsByProviderID(context.Background(), providerID, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("database error")).Once()
+
+		reviews, err := repo.GetReviewsByProviderID(context.Background(), providerID, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviews(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, total, err := repo.GetReviews(context.Background(), 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		assert.GreaterOrEqual(t, total, int64(0))
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("database error")).Once()
+
+		reviews, total, err := repo.GetReviews(context.Background(), 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		assert.Equal(t, int64(0), total)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_UpdateReview(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	review := &domain.Review{
+		ID:         uuid.New(),
+		ExternalID: "ext-123",
+		Rating:     4.0,
+		Comment:    "Updated comment",
+	}
+
+	t.Run("success", func(t *testing.T) {
+		originalTime := review.UpdatedAt
+		
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		err := repo.UpdateReview(context.Background(), review)
+
+		assert.NoError(t, err)
+		assert.True(t, review.UpdatedAt.After(originalTime))
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("update failed")).Once()
+
+		err := repo.UpdateReview(context.Background(), review)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "update failed")
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_DeleteReview(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	reviewID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		err := repo.DeleteReview(context.Background(), reviewID)
+
+		assert.NoError(t, err)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil, domain.ErrReviewNotFound).Once()
+
+		err := repo.DeleteReview(context.Background(), reviewID)
+
+		assert.Error(t, err)
+		assert.Equal(t, domain.ErrReviewNotFound, err)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("delete failed")).Once()
+
+		err := repo.DeleteReview(context.Background(), reviewID)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "delete failed")
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewsByExternalID(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	providerID := uuid.New()
+	externalID := "ext-123"
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.GetReviewsByExternalID(context.Background(), providerID, externalID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("query failed")).Once()
+
+		reviews, err := repo.GetReviewsByExternalID(context.Background(), providerID, externalID)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewCount(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		count, err := repo.GetReviewCount(context.Background())
+
+		assert.NoError(t, err)
+		assert.GreaterOrEqual(t, count, int64(0))
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("count failed")).Once()
+
+		count, err := repo.GetReviewCount(context.Background())
+
+		assert.Error(t, err)
+		assert.Equal(t, int64(0), count)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewStatistics(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		stats, err := repo.GetReviewStatistics(context.Background())
+
+		assert.NoError(t, err)
+		assert.NotNil(t, stats)
+		assert.NotNil(t, stats.RatingDistribution)
+		assert.NotNil(t, stats.ReviewsByProvider)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("stats query failed")).Once()
+
+		stats, err := repo.GetReviewStatistics(context.Background())
+
+		assert.Error(t, err)
+		assert.Nil(t, stats)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_BatchCreateReviews(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	reviews := []*domain.Review{
+		{
+			ExternalID: "ext-1",
+			Rating:     4.5,
+			Comment:    "Great hotel!",
+		},
+		{
+			ExternalID: "ext-2",
+			Rating:     3.0,
+			Comment:    "Average hotel",
+		},
+	}
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		err := repo.BatchCreateReviews(context.Background(), reviews)
+
+		assert.NoError(t, err)
+		
+		// Check that IDs and timestamps were set
+		for _, review := range reviews {
+			assert.NotEqual(t, uuid.Nil, review.ID)
+			assert.NotEqual(t, time.Time{}, review.CreatedAt)
+			assert.NotEqual(t, time.Time{}, review.UpdatedAt)
+		}
+		
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("transaction error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("transaction failed")).Once()
+
+		err := repo.BatchCreateReviews(context.Background(), reviews)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "transaction failed")
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_FindReviewsByDateRange(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	startDate := time.Now().AddDate(0, -1, 0)
+	endDate := time.Now()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.FindReviewsByDateRange(context.Background(), startDate, endDate, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("date range query failed")).Once()
+
+		reviews, err := repo.FindReviewsByDateRange(context.Background(), startDate, endDate, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_FindReviewsByRating(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	rating := 4.5
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.FindReviewsByRating(context.Background(), rating, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("rating query failed")).Once()
+
+		reviews, err := repo.FindReviewsByRating(context.Background(), rating, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_SearchReviews(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	query := "excellent service"
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.SearchReviews(context.Background(), query, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("search failed")).Once()
+
+		reviews, err := repo.SearchReviews(context.Background(), query, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewsByLanguage(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	language := "en"
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.GetReviewsByLanguage(context.Background(), language, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("language query failed")).Once()
+
+		reviews, err := repo.GetReviewsByLanguage(context.Background(), language, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetLatestReviews(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.GetLatestReviews(context.Background(), 10)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("latest reviews query failed")).Once()
+
+		reviews, err := repo.GetLatestReviews(context.Background(), 10)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetReviewsWithRatings(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	minRating := 3.0
+	maxRating := 5.0
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		reviews, err := repo.GetReviewsWithRatings(context.Background(), minRating, maxRating, 10, 0)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("ratings range query failed")).Once()
+
+		reviews, err := repo.GetReviewsWithRatings(context.Background(), minRating, maxRating, 10, 0)
+
+		assert.Error(t, err)
+		assert.Nil(t, reviews)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_HealthCheck(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("healthy", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		err := repo.HealthCheck(context.Background())
+
+		assert.NoError(t, err)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("unhealthy", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("health check failed")).Once()
+
+		err := repo.HealthCheck(context.Background())
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "health check failed")
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_GetRepositoryMetrics(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("success", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil).Once()
+
+		metrics, err := repo.GetRepositoryMetrics(context.Background())
+
+		assert.NoError(t, err)
+		assert.NotNil(t, metrics)
+		assert.GreaterOrEqual(t, metrics.TotalReviews, int64(0))
+		assert.GreaterOrEqual(t, metrics.ReviewsToday, int64(0))
+		assert.GreaterOrEqual(t, metrics.ReviewsThisWeek, int64(0))
+		assert.GreaterOrEqual(t, metrics.ReviewsThisMonth, int64(0))
+		assert.GreaterOrEqual(t, metrics.AverageRating, 0.0)
+		assert.NotEqual(t, time.Time{}, metrics.LastUpdated)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(errors.New("metrics query failed")).Once()
+
+		metrics, err := repo.GetRepositoryMetrics(context.Background())
+
+		assert.Error(t, err)
+		assert.Nil(t, metrics)
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestRepositoryMetrics(t *testing.T) {
+	metrics := &RepositoryMetrics{
+		TotalReviews:     1000,
+		ReviewsToday:     50,
+		ReviewsThisWeek:  300,
+		ReviewsThisMonth: 800,
+		AverageRating:    4.2,
+		LastUpdated:      time.Now(),
+	}
+
+	assert.Equal(t, int64(1000), metrics.TotalReviews)
+	assert.Equal(t, int64(50), metrics.ReviewsToday)
+	assert.Equal(t, int64(300), metrics.ReviewsThisWeek)
+	assert.Equal(t, int64(800), metrics.ReviewsThisMonth)
+	assert.Equal(t, 4.2, metrics.AverageRating)
+	assert.NotEqual(t, time.Time{}, metrics.LastUpdated)
+}
+
+func TestProtectedReviewRepository_ConcurrentOperations(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	// Test concurrent read operations
+	t.Run("concurrent reads", func(t *testing.T) {
+		numGoroutines := 10
+		reviewID := uuid.New()
+
+		// Setup expectations for concurrent calls
+		for i := 0; i < numGoroutines; i++ {
+			mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+				Return(nil).Once()
+		}
+
+		errChan := make(chan error, numGoroutines)
+
+		for i := 0; i < numGoroutines; i++ {
+			go func() {
+				_, err := repo.GetReviewByID(context.Background(), reviewID)
+				errChan <- err
+			}()
+		}
+
+		// Collect results
+		for i := 0; i < numGoroutines; i++ {
+			err := <-errChan
+			assert.NoError(t, err)
+		}
+
+		mockWrapper.AssertExpectations(t)
+	})
+
+	// Test concurrent write operations
+	t.Run("concurrent writes", func(t *testing.T) {
+		numGoroutines := 5
+
+		// Setup expectations for concurrent calls
+		for i := 0; i < numGoroutines; i++ {
+			mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+				Return(nil).Once()
+		}
+
+		errChan := make(chan error, numGoroutines)
+
+		for i := 0; i < numGoroutines; i++ {
+			go func(index int) {
+				review := &domain.Review{
+					ExternalID: "ext-" + string(rune(index)),
+					Rating:     4.0,
+					Comment:    "Concurrent test",
+				}
+				err := repo.CreateReview(context.Background(), review)
+				errChan <- err
+			}(i)
+		}
+
+		// Collect results
+		for i := 0; i < numGoroutines; i++ {
+			err := <-errChan
+			assert.NoError(t, err)
+		}
+
+		mockWrapper.AssertExpectations(t)
+	})
+}
+
+func TestProtectedReviewRepository_ContextCancellation(t *testing.T) {
+	repo, mockWrapper := setupProtectedRepository()
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		
+		// Cancel the context immediately
+		cancel()
+
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil, context.Canceled).Once()
+
+		_, err := repo.GetReviewCount(ctx)
+
+		assert.Error(t, err)
+		assert.Equal(t, context.Canceled, err)
+		mockWrapper.AssertExpectations(t)
+	})
+
+	t.Run("context timeout", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+		defer cancel()
+
+		// Sleep to ensure timeout
+		time.Sleep(2 * time.Millisecond)
+
+		mockWrapper.On("ExecuteQuery", mock.Anything, mock.AnythingOfType("func(*gorm.DB) error")).
+			Return(nil, context.DeadlineExceeded).Once()
+
+		_, err := repo.GetReviewCount(ctx)
+
+		assert.Error(t, err)
+		assert.Equal(t, context.DeadlineExceeded, err)
+		mockWrapper.AssertExpectations(t)
+	})
+}

@@ -1454,11 +1454,10 @@ func (am *AuthMiddleware) extractResourceAndAction(path, method string) (string,
 		return "unknown", strings.ToLower(method)
 	}
 
-	// Skip "api" and "v1" parts
+	// Skip "api" and "v1" parts and get the resource name
 	resource := parts[2]
-	if len(parts) > 3 && parts[3] != "" {
-		resource = parts[3]
-	}
+	// parts[3] would be the resource ID (e.g., "123"), not the resource name
+	// so we keep parts[2] as the resource name
 
 	// Map HTTP methods to actions
 	actionMap := map[string]string{

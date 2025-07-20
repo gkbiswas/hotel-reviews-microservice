@@ -2,8 +2,10 @@ package application
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -598,8 +600,78 @@ func (h *AuthHandlers) parsePaginationParams(r *http.Request) (int, int) {
 }
 
 func (h *AuthHandlers) validateRequest(req interface{}) error {
-	// This is a placeholder for request validation
-	// In a real implementation, you would use a validation library like go-playground/validator
+	switch r := req.(type) {
+	case RegisterRequest:
+		return h.validateRegisterRequest(r)
+	case LoginRequest:
+		return h.validateLoginRequest(r)
+	default:
+		return errors.New("unknown request type")
+	}
+}
+
+func (h *AuthHandlers) validateRegisterRequest(req RegisterRequest) error {
+	var validationErrors []string
+	
+	// Validate required fields
+	if req.Username == "" {
+		validationErrors = append(validationErrors, "username is required")
+	}
+	if req.Email == "" {
+		validationErrors = append(validationErrors, "email is required")
+	}
+	if req.Password == "" {
+		validationErrors = append(validationErrors, "password is required")
+	}
+	
+	// Validate email format
+	if req.Email != "" {
+		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+		if !emailRegex.MatchString(req.Email) {
+			validationErrors = append(validationErrors, "email format is invalid")
+		}
+	}
+	
+	// Validate password strength
+	if req.Password != "" && len(req.Password) < 8 {
+		validationErrors = append(validationErrors, "password must be at least 8 characters long")
+	}
+	
+	// Validate username
+	if req.Username != "" && len(req.Username) < 3 {
+		validationErrors = append(validationErrors, "username must be at least 3 characters long")
+	}
+	
+	if len(validationErrors) > 0 {
+		return errors.New(strings.Join(validationErrors, "; "))
+	}
+	
+	return nil
+}
+
+func (h *AuthHandlers) validateLoginRequest(req LoginRequest) error {
+	var validationErrors []string
+	
+	// Validate required fields
+	if req.Email == "" {
+		validationErrors = append(validationErrors, "email is required")
+	}
+	if req.Password == "" {
+		validationErrors = append(validationErrors, "password is required")
+	}
+	
+	// Validate email format
+	if req.Email != "" {
+		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+		if !emailRegex.MatchString(req.Email) {
+			validationErrors = append(validationErrors, "email format is invalid")
+		}
+	}
+	
+	if len(validationErrors) > 0 {
+		return errors.New(strings.Join(validationErrors, "; "))
+	}
+	
 	return nil
 }
 

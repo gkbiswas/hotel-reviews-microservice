@@ -136,6 +136,10 @@ func (e *AppError) Unwrap() error {
 
 // IsRetryable returns true if the error is retryable
 func (e *AppError) IsRetryable() bool {
+	// Non-retryable category overrides everything
+	if e.Category == CategoryNonRetryable {
+		return false
+	}
 	return e.Retryable || e.Category == CategoryRetryable
 }
 
@@ -156,7 +160,46 @@ func (e *AppError) ToJSON() ([]byte, error) {
 
 // ToXML converts the error to XML format
 func (e *AppError) ToXML() ([]byte, error) {
-	return xml.Marshal(e)
+	// Create a simplified version for XML marshaling
+	type XMLError struct {
+		ID            string        `xml:"id"`
+		Type          ErrorType     `xml:"type"`
+		Category      ErrorCategory `xml:"category"`
+		Severity      ErrorSeverity `xml:"severity"`
+		Code          string        `xml:"code"`
+		Message       string        `xml:"message"`
+		UserMessage   string        `xml:"user_message,omitempty"`
+		Timestamp     time.Time     `xml:"timestamp"`
+		CorrelationID string        `xml:"correlation_id,omitempty"`
+		RequestID     string        `xml:"request_id,omitempty"`
+		UserID        string        `xml:"user_id,omitempty"`
+		Source        string        `xml:"source,omitempty"`
+		StackTrace    string        `xml:"stack_trace,omitempty"`
+		HTTPStatus    int           `xml:"http_status"`
+		Internal      bool          `xml:"internal"`
+		Retryable     bool          `xml:"retryable"`
+	}
+	
+	xmlErr := XMLError{
+		ID:            e.ID,
+		Type:          e.Type,
+		Category:      e.Category,
+		Severity:      e.Severity,
+		Code:          e.Code,
+		Message:       e.Message,
+		UserMessage:   e.UserMessage,
+		Timestamp:     e.Timestamp,
+		CorrelationID: e.CorrelationID,
+		RequestID:     e.RequestID,
+		UserID:        e.UserID,
+		Source:        e.Source,
+		StackTrace:    e.StackTrace,
+		HTTPStatus:    e.HTTPStatus,
+		Internal:      e.Internal,
+		Retryable:     e.Retryable,
+	}
+	
+	return xml.Marshal(xmlErr)
 }
 
 // ErrorResponse represents a structured error response

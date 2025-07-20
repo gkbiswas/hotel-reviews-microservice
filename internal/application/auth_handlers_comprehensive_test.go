@@ -229,18 +229,20 @@ func TestAuthHandlers_ParsePaginationParams_Comprehensive(t *testing.T) {
 	}
 }
 
-// Test register handler with password validation error
+// Test register handler with password hashing error
 func TestAuthHandlers_Register_PasswordValidation(t *testing.T) {
 	handlers, mockPasswordService := createTestAuthHandlersComprehensive()
 
-	// Test password validation failure
-	t.Run("password validation fails", func(t *testing.T) {
-		mockPasswordService.On("ValidatePasswordStrength", "weak").Return(ErrPasswordTooWeak)
+	// Test password hashing failure
+	t.Run("password hashing fails", func(t *testing.T) {
+		// Use a valid password that passes validation but fails hashing
+		validPassword := "validpassword123"
+		mockPasswordService.On("HashPassword", validPassword).Return("", errors.New("hashing failed"))
 
 		reqBody := RegisterRequest{
 			Username: "testuser",
 			Email:    "test@example.com",
-			Password: "weak",
+			Password: validPassword,
 		}
 
 		body, _ := json.Marshal(reqBody)
@@ -250,7 +252,7 @@ func TestAuthHandlers_Register_PasswordValidation(t *testing.T) {
 
 		handlers.Register(rec, req)
 
-		assert.Equal(t, http.StatusBadRequest, rec.Code)
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
 
 		var response map[string]interface{}
 		err := json.Unmarshal(rec.Body.Bytes(), &response)
@@ -572,10 +574,13 @@ func TestAuthHandlers_GetUserFromContext_Comprehensive(t *testing.T) {
 // Test that handlers properly handle missing authentication service methods
 // This tests the error handling when the underlying service methods return errors
 func TestAuthHandlers_ServiceErrorHandling(t *testing.T) {
-	handlers, _ := createTestAuthHandlersComprehensive()
+	handlers, mockPasswordService := createTestAuthHandlersComprehensive()
 
 	// Test that when the service has nil dependencies, it handles errors gracefully
 	t.Run("Register with service error", func(t *testing.T) {
+		// Mock password hashing to succeed so we can test service error
+		mockPasswordService.On("HashPassword", "password123").Return("hashedpassword", nil)
+		
 		reqBody := RegisterRequest{
 			Username:  "testuser",
 			Email:     "test@example.com",

@@ -62,6 +62,15 @@ func (h *DatabaseHealthChecker) Name() string {
 func (h *DatabaseHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	start := time.Now()
 
+	if h.db == nil {
+		return HealthCheckResult{
+			Status:       HealthStatusUnhealthy,
+			Message:      "database connection is nil",
+			Timestamp:    time.Now(),
+			ResponseTime: time.Since(start),
+		}
+	}
+
 	sqlDB, err := h.db.DB()
 	if err != nil {
 		return HealthCheckResult{
@@ -126,6 +135,15 @@ func (h *RedisHealthChecker) Name() string {
 // Check performs the health check
 func (h *RedisHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	start := time.Now()
+
+	if h.client == nil {
+		return HealthCheckResult{
+			Status:       HealthStatusUnhealthy,
+			Message:      "redis client is nil",
+			Timestamp:    time.Now(),
+			ResponseTime: time.Since(start),
+		}
+	}
 
 	// Ping Redis
 	if err := h.client.Ping(ctx).Err(); err != nil {

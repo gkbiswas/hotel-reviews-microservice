@@ -1175,6 +1175,11 @@ func NewAuthenticationService(
 
 // Login authenticates a user and returns a login response
 func (a *AuthenticationService) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.LoginResponse, error) {
+	// Check if rate limit service is available
+	if a.rateLimitService == nil {
+		return nil, errors.New("rate limit service not available")
+	}
+	
 	// Check rate limiting
 	isRateLimited, err := a.rateLimitService.IsRateLimited(ctx, email, ipAddress)
 	if err != nil {
@@ -1394,6 +1399,11 @@ func (a *AuthenticationService) AuditAction(ctx context.Context, userID *uuid.UU
 
 // Register registers a new user
 func (a *AuthenticationService) Register(ctx context.Context, user *domain.User, password string) error {
+	// Check if service dependencies are available
+	if a.passwordService == nil {
+		return errors.New("password service not available")
+	}
+	
 	// Hash the password
 	hashedPassword, err := a.passwordService.HashPassword(password)
 	if err != nil {

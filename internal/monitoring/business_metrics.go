@@ -63,38 +63,39 @@ type BusinessMetrics struct {
 }
 
 // NewBusinessMetrics creates a new business metrics collector
-func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
+func NewBusinessMetrics(logger *logrus.Logger, registry *prometheus.Registry) *BusinessMetrics {
+	factory := promauto.With(registry)
 	return &BusinessMetrics{
 		// Review processing metrics
-		ReviewsIngested: promauto.NewCounterVec(
+		ReviewsIngested: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_ingested_total",
 				Help: "Total number of reviews ingested",
 			},
 			[]string{"provider", "hotel_id", "source"},
 		),
-		ReviewsValidated: promauto.NewCounterVec(
+		ReviewsValidated: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_validated_total",
 				Help: "Total number of reviews validated",
 			},
 			[]string{"provider", "validation_status"},
 		),
-		ReviewsStored: promauto.NewCounterVec(
+		ReviewsStored: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_stored_total",
 				Help: "Total number of reviews stored successfully",
 			},
 			[]string{"provider", "hotel_id"},
 		),
-		ReviewsRejected: promauto.NewCounterVec(
+		ReviewsRejected: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_rejected_total",
 				Help: "Total number of reviews rejected",
 			},
 			[]string{"provider", "rejection_reason"},
 		),
-		ReviewsDeduplicationHits: promauto.NewCounterVec(
+		ReviewsDeduplicationHits: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_deduplication_hits_total",
 				Help: "Total number of duplicate reviews detected",
@@ -103,14 +104,14 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// File processing metrics
-		FilesProcessed: promauto.NewCounterVec(
+		FilesProcessed: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_files_processed_total",
 				Help: "Total number of files processed",
 			},
 			[]string{"provider", "file_type", "status"},
 		),
-		FileProcessingTime: promauto.NewHistogramVec(
+		FileProcessingTime: factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "hotel_reviews_file_processing_duration_seconds",
 				Help:    "Time taken to process a file",
@@ -118,7 +119,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "file_type"},
 		),
-		FileSize: promauto.NewHistogramVec(
+		FileSize: factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "hotel_reviews_file_size_bytes",
 				Help:    "Size of processed files in bytes",
@@ -126,7 +127,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "file_type"},
 		),
-		RecordsPerFile: promauto.NewHistogramVec(
+		RecordsPerFile: factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "hotel_reviews_records_per_file",
 				Help:    "Number of records in each processed file",
@@ -136,14 +137,14 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// Provider metrics
-		ProviderRequestsTotal: promauto.NewCounterVec(
+		ProviderRequestsTotal: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_provider_requests_total",
 				Help: "Total number of requests to providers",
 			},
 			[]string{"provider", "operation", "status"},
 		),
-		ProviderResponseTime: promauto.NewHistogramVec(
+		ProviderResponseTime: factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "hotel_reviews_provider_response_time_seconds",
 				Help:    "Response time for provider requests",
@@ -151,14 +152,14 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider", "operation"},
 		),
-		ProviderErrors: promauto.NewCounterVec(
+		ProviderErrors: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_provider_errors_total",
 				Help: "Total number of provider errors",
 			},
 			[]string{"provider", "error_type"},
 		),
-		ProviderDataQuality: promauto.NewGaugeVec(
+		ProviderDataQuality: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_provider_data_quality_score",
 				Help: "Data quality score for each provider (0-1)",
@@ -167,28 +168,28 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// Hotel metrics
-		HotelsTotal: promauto.NewGaugeVec(
+		HotelsTotal: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_hotels_total",
 				Help: "Total number of hotels in the system",
 			},
 			[]string{"provider", "location"},
 		),
-		HotelsWithReviews: promauto.NewGaugeVec(
+		HotelsWithReviews: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_hotels_with_reviews",
 				Help: "Number of hotels that have reviews",
 			},
 			[]string{"provider", "location"},
 		),
-		AverageRatingByHotel: promauto.NewGaugeVec(
+		AverageRatingByHotel: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_average_rating_by_hotel",
 				Help: "Average rating for each hotel",
 			},
 			[]string{"provider", "hotel_id"},
 		),
-		ReviewCountByHotel: promauto.NewGaugeVec(
+		ReviewCountByHotel: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_count_by_hotel",
 				Help: "Number of reviews for each hotel",
@@ -197,28 +198,28 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// Data quality metrics
-		DataQualityScore: promauto.NewGaugeVec(
+		DataQualityScore: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_data_quality_score",
 				Help: "Overall data quality score (0-1)",
 			},
 			[]string{"provider", "dimension"},
 		),
-		MissingFieldsCount: promauto.NewCounterVec(
+		MissingFieldsCount: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_missing_fields_total",
 				Help: "Total number of missing fields in reviews",
 			},
 			[]string{"provider", "field_name"},
 		),
-		InvalidDataCount: promauto.NewCounterVec(
+		InvalidDataCount: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_invalid_data_total",
 				Help: "Total number of invalid data entries",
 			},
 			[]string{"provider", "field_name", "validation_rule"},
 		),
-		DataCompleteness: promauto.NewGaugeVec(
+		DataCompleteness: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_data_completeness",
 				Help: "Data completeness percentage for each field",
@@ -227,7 +228,7 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// User engagement metrics
-		ReviewsPerUser: promauto.NewHistogramVec(
+		ReviewsPerUser: factory.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "hotel_reviews_per_user",
 				Help:    "Number of reviews per user",
@@ -235,14 +236,14 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 			},
 			[]string{"provider"},
 		),
-		UserActivityPattern: promauto.NewCounterVec(
+		UserActivityPattern: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_user_activity_pattern",
 				Help: "User activity patterns",
 			},
 			[]string{"provider", "time_period", "activity_type"},
 		),
-		ReviewSentimentDistribution: promauto.NewCounterVec(
+		ReviewSentimentDistribution: factory.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "hotel_reviews_sentiment_distribution",
 				Help: "Distribution of review sentiments",
@@ -251,28 +252,28 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// Business KPIs
-		ReviewVelocity: promauto.NewGaugeVec(
+		ReviewVelocity: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_velocity_per_hour",
 				Help: "Number of reviews processed per hour",
 			},
 			[]string{"provider"},
 		),
-		ReviewBacklog: promauto.NewGaugeVec(
+		ReviewBacklog: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_backlog_count",
 				Help: "Number of reviews waiting to be processed",
 			},
 			[]string{"provider", "priority"},
 		),
-		DataFreshness: promauto.NewGaugeVec(
+		DataFreshness: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_data_freshness_hours",
 				Help: "Age of the latest data in hours",
 			},
 			[]string{"provider", "data_type"},
 		),
-		CustomerSatisfactionScore: promauto.NewGaugeVec(
+		CustomerSatisfactionScore: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_customer_satisfaction_score",
 				Help: "Customer satisfaction score based on reviews",
@@ -281,28 +282,28 @@ func NewBusinessMetrics(logger *logrus.Logger) *BusinessMetrics {
 		),
 
 		// Operational metrics
-		ProcessingCapacity: promauto.NewGaugeVec(
+		ProcessingCapacity: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_processing_capacity",
 				Help: "Maximum processing capacity",
 			},
 			[]string{"component", "resource_type"},
 		),
-		ProcessingUtilization: promauto.NewGaugeVec(
+		ProcessingUtilization: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_processing_utilization",
 				Help: "Current processing utilization percentage",
 			},
 			[]string{"component", "resource_type"},
 		),
-		QueueDepth: promauto.NewGaugeVec(
+		QueueDepth: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_queue_depth",
 				Help: "Current queue depth",
 			},
 			[]string{"queue_type", "priority"},
 		),
-		ErrorRate: promauto.NewGaugeVec(
+		ErrorRate: factory.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "hotel_reviews_error_rate",
 				Help: "Error rate percentage",
