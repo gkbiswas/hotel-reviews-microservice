@@ -36,7 +36,7 @@ build: deps ## Build the application
 	CGO_ENABLED=0 GOOS=linux go build \
 		-ldflags="-X main.version=$(VERSION) -X main.buildDate=$(BUILD_DATE)" \
 		-o bin/$(BINARY_NAME) \
-		./cmd/server
+		./cmd/api
 
 test: ## Run unit tests
 	@echo "$(YELLOW)Running unit tests...$(RESET)"
