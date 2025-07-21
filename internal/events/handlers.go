@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gkbiswas/hotel-reviews/internal/domain"
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 )
 
 // ReviewAnalyticsHandler handles review events for analytics

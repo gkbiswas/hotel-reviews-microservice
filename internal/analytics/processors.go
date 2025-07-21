@@ -774,7 +774,8 @@ func (p *SearchEventProcessor) processSearchResultClicked(ctx context.Context, e
 
 func (p *SearchEventProcessor) processSearchFilterApplied(ctx context.Context, event *AnalyticsEvent, processed *ProcessedEvent) (*ProcessedEvent, error) {
 	filterType, _ := event.Properties["filter_type"].(string)
-	filterValue, _ := event.Properties["filter_value"].(string)
+	// filterValue could be used for more detailed analytics in the future
+	// filterValue, _ := event.Properties["filter_value"].(string)
 
 	// Track filter usage
 	if filterType != "" {

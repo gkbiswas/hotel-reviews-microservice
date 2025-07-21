@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 )
 
 // ReviewProcessingSaga handles the complete review processing workflow
@@ -82,43 +82,67 @@ func NewReviewProcessingSaga(
 		searchService:       searchService,
 	}
 	
-	// Define saga steps
+	// Define saga steps with wrapper functions
 	saga.Steps = []SagaStep{
 		{
 			StepID:      "validate_review",
 			Description: "Validate review data",
-			Execute:     saga.validateReview,
-			Compensate:  saga.compensateValidateReview,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.validateReview(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateValidateReview(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "moderate_content",
 			Description: "Moderate review content",
-			Execute:     saga.moderateContent,
-			Compensate:  saga.compensateModeratecontent,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.moderateContent(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateModeratecontent(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "update_analytics",
 			Description: "Update analytics with review data",
-			Execute:     saga.updateAnalytics,
-			Compensate:  saga.compensateUpdateAnalytics,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.updateAnalytics(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateUpdateAnalytics(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "index_review",
 			Description: "Index review for search",
-			Execute:     saga.indexReview,
-			Compensate:  saga.compensateIndexReview,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.indexReview(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateIndexReview(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "send_notifications",
 			Description: "Send relevant notifications",
-			Execute:     saga.sendNotifications,
-			Compensate:  saga.compensateSendNotifications,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.sendNotifications(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateSendNotifications(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "finalize_review",
 			Description: "Finalize review processing",
-			Execute:     saga.finalizeReview,
-			Compensate:  saga.compensateFinalizeReview,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.finalizeReview(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateFinalizeReview(ctx, data.(map[string]interface{}))
+			},
 		},
 	}
 	
@@ -410,11 +434,19 @@ func (s *ReviewProcessingSaga) indexReview(ctx context.Context, data map[string]
 	}
 	
 	// Convert ReviewData to domain.Review for indexing
+	reviewID, _ := uuid.Parse(review.ID)
+	hotelID, _ := uuid.Parse(review.HotelID)
+	var userID *uuid.UUID
+	if review.UserID != "" {
+		uid, _ := uuid.Parse(review.UserID)
+		userID = &uid
+	}
+	
 	domainReview := &domain.Review{
-		ID:      review.ID,
-		HotelID: review.HotelID,
-		UserID:  review.UserID,
-		Content: review.Content,
+		ID:      reviewID,
+		HotelID: hotelID,
+		UserID:  userID,
+		Comment: review.Content,
 		Rating:  review.Rating,
 	}
 	
@@ -584,38 +616,62 @@ func NewHotelOnboardingSaga(
 		{
 			StepID:      "validate_hotel_data",
 			Description: "Validate hotel information",
-			Execute:     saga.validateHotelData,
-			Compensate:  saga.compensateValidateHotelData,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.validateHotelData(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateValidateHotelData(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "validate_address",
 			Description: "Validate hotel address",
-			Execute:     saga.validateAddress,
-			Compensate:  saga.compensateValidateAddress,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.validateAddress(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateValidateAddress(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "validate_contact",
 			Description: "Validate hotel contact information",
-			Execute:     saga.validateContact,
-			Compensate:  saga.compensateValidateContact,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.validateContact(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateValidateContact(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "validate_license",
 			Description: "Validate hotel business license",
-			Execute:     saga.validateLicense,
-			Compensate:  saga.compensateValidateLicense,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.validateLicense(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateValidateLicense(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "index_hotel",
 			Description: "Index hotel for search",
-			Execute:     saga.indexHotel,
-			Compensate:  saga.compensateIndexHotel,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.indexHotel(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateIndexHotel(ctx, data.(map[string]interface{}))
+			},
 		},
 		{
 			StepID:      "notify_completion",
 			Description: "Send onboarding completion notification",
-			Execute:     saga.notifyCompletion,
-			Compensate:  saga.compensateNotifyCompletion,
+			Execute: func(ctx context.Context, data interface{}) error {
+				return saga.notifyCompletion(ctx, data.(map[string]interface{}))
+			},
+			Compensate: func(ctx context.Context, data interface{}) error {
+				return saga.compensateNotifyCompletion(ctx, data.(map[string]interface{}))
+			},
 		},
 	}
 	
@@ -785,8 +841,9 @@ func (s *HotelOnboardingSaga) indexHotel(ctx context.Context, data map[string]in
 	}
 	
 	// Convert to domain model and index
+	hotelID, _ := uuid.Parse(hotel.ID)
 	domainHotel := &domain.Hotel{
-		ID:   hotel.ID,
+		ID:   hotelID,
 		Name: hotel.Name,
 		// ... other fields
 	}
