@@ -218,6 +218,32 @@ func (m *MockReviewRepository) DeleteProcessingStatus(ctx context.Context, id uu
 	return args.Error(0)
 }
 
+// Additional query methods for optimization
+func (m *MockReviewRepository) GetTopRatedHotels(ctx context.Context, limit int) ([]Hotel, error) {
+	args := m.Called(ctx, limit)
+	return args.Get(0).([]Hotel), args.Error(1)
+}
+
+func (m *MockReviewRepository) GetRecentReviews(ctx context.Context, limit int) ([]Review, error) {
+	args := m.Called(ctx, limit)
+	return args.Get(0).([]Review), args.Error(1)
+}
+
+func (m *MockReviewRepository) GetAverageRatingByHotel(ctx context.Context, hotelID uuid.UUID) (float64, error) {
+	args := m.Called(ctx, hotelID)
+	return args.Get(0).(float64), args.Error(1)
+}
+
+func (m *MockReviewRepository) GetReviewCountByHotel(ctx context.Context, hotelID uuid.UUID, startDate, endDate time.Time) (int64, error) {
+	args := m.Called(ctx, hotelID, startDate, endDate)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockReviewRepository) GetReviewCountByProvider(ctx context.Context, providerID uuid.UUID, startDate, endDate time.Time) (int64, error) {
+	args := m.Called(ctx, providerID, startDate, endDate)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // Additional mock methods for extended functionality
 func (m *MockReviewRepository) UpsertReviewerInfo(ctx context.Context, reviewerInfo *ReviewerInfo) error {
 	args := m.Called(ctx, reviewerInfo)

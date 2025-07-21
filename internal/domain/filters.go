@@ -26,6 +26,8 @@ type ReviewFilter struct {
 type HotelFilter struct {
 	City          string   `json:"city,omitempty"`
 	Country       string   `json:"country,omitempty"`
+	MinRating     int      `json:"min_rating,omitempty"`
+	MaxRating     int      `json:"max_rating,omitempty"`
 	MinStarRating int      `json:"min_star_rating,omitempty"`
 	MaxStarRating int      `json:"max_star_rating,omitempty"`
 	SearchTerm    string   `json:"search_term,omitempty"`
@@ -37,6 +39,17 @@ type HotelFilter struct {
 	Offset        int      `json:"offset,omitempty"`
 	SortBy        string   `json:"sort_by,omitempty"`
 	SortDesc      bool     `json:"sort_desc,omitempty"`
+}
+
+// ProviderFilter represents filters for provider queries
+type ProviderFilter struct {
+	Name     string `json:"name,omitempty"`
+	IsActive *bool  `json:"is_active,omitempty"`
+	BaseURL  string `json:"base_url,omitempty"`
+	Limit    int    `json:"limit,omitempty"`
+	Offset   int    `json:"offset,omitempty"`
+	SortBy   string `json:"sort_by,omitempty"`
+	SortDesc bool   `json:"sort_desc,omitempty"`
 }
 
 // UserFilter represents filters for user queries

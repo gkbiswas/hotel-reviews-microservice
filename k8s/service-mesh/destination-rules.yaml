@@ -1,0 +1,551 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: user-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: user-service
+spec:
+  host: user-service
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        idleTimeout: 90s
+        h2UpgradePolicy: UPGRADE
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+  - name: canary
+    labels:
+      version: canary
+    trafficPolicy:
+      loadBalancer:
+        simple: RANDOM
+  - name: v1
+    labels:
+      version: v1
+  - name: v2
+    labels:
+      version: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: hotel-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: hotel-service
+spec:
+  host: hotel-service
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 200
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 200
+        maxRequestsPerConnection: 20
+        maxRetries: 3
+        idleTimeout: 120s
+        h2UpgradePolicy: UPGRADE
+    circuitBreaker:
+      consecutiveGatewayErrors: 10
+      consecutive5xxErrors: 10
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+      minHealthPercent: 70
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+  - name: canary
+    labels:
+      version: canary
+    trafficPolicy:
+      loadBalancer:
+        simple: LEAST_CONN
+  - name: blue
+    labels:
+      deployment: blue
+  - name: green
+    labels:
+      deployment: green
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: review-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: review-service
+spec:
+  host: review-service
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 150
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 75
+        http2MaxRequests: 150
+        maxRequestsPerConnection: 15
+        maxRetries: 3
+        idleTimeout: 90s
+    circuitBreaker:
+      consecutiveGatewayErrors: 8
+      consecutive5xxErrors: 8
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 40
+      minHealthPercent: 60
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+  - name: standard
+    labels:
+      tier: standard
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+  - name: premium
+    labels:
+      tier: premium
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      connectionPool:
+        tcp:
+          maxConnections: 300
+        http:
+          http1MaxPendingRequests: 150
+          maxRequestsPerConnection: 30
+  - name: stable
+    labels:
+      version: stable
+  - name: canary
+    labels:
+      version: canary
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: search-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: search-service
+spec:
+  host: search-service
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+    connectionPool:
+      tcp:
+        maxConnections: 250
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 125
+        http2MaxRequests: 250
+        maxRequestsPerConnection: 25
+        maxRetries: 2
+        idleTimeout: 60s
+    circuitBreaker:
+      consecutiveGatewayErrors: 15
+      consecutive5xxErrors: 15
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+    outlierDetection:
+      consecutiveGatewayErrors: 10
+      consecutive5xxErrors: 10
+      interval: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 30
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+  - name: canary
+    labels:
+      version: canary
+  - name: elasticsearch
+    labels:
+      backend: elasticsearch
+  - name: opensearch
+    labels:
+      backend: opensearch
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: analytics-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: analytics-service
+spec:
+  host: analytics-service
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 60s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 2
+        idleTimeout: 300s
+    circuitBreaker:
+      consecutiveGatewayErrors: 20
+      consecutive5xxErrors: 20
+      interval: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 25
+    outlierDetection:
+      consecutiveGatewayErrors: 15
+      consecutive5xxErrors: 15
+      interval: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 25
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+  - name: canary
+    labels:
+      version: canary
+  - name: realtime
+    labels:
+      mode: realtime
+    trafficPolicy:
+      loadBalancer:
+        simple: LEAST_CONN
+      connectionPool:
+        tcp:
+          maxConnections: 200
+        http:
+          maxRequestsPerConnection: 20
+  - name: batch
+    labels:
+      mode: batch
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      connectionPool:
+        tcp:
+          maxConnections: 50
+        http:
+          maxRequestsPerConnection: 5
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: file-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: file-service
+spec:
+  host: file-service
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 60s
+      http:
+        http1MaxPendingRequests: 25
+        http2MaxRequests: 50
+        maxRequestsPerConnection: 5
+        maxRetries: 1
+        idleTimeout: 600s
+    circuitBreaker:
+      consecutiveGatewayErrors: 25
+      consecutive5xxErrors: 25
+      interval: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 20
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+  - name: canary
+    labels:
+      version: canary
+  - name: upload
+    labels:
+      function: upload
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 25
+        http:
+          maxRequestsPerConnection: 3
+  - name: processing
+    labels:
+      function: processing
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 75
+        http:
+          maxRequestsPerConnection: 10
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: notification-service
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: notification-service
+spec:
+  host: notification-service
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 75
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 40
+        http2MaxRequests: 75
+        maxRequestsPerConnection: 8
+        maxRetries: 2
+        idleTimeout: 90s
+    circuitBreaker:
+      consecutiveGatewayErrors: 12
+      consecutive5xxErrors: 12
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 35
+    outlierDetection:
+      consecutiveGatewayErrors: 8
+      consecutive5xxErrors: 8
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 35
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+  - name: canary
+    labels:
+      version: canary
+  - name: email
+    labels:
+      channel: email
+  - name: sms
+    labels:
+      channel: sms
+  - name: push
+    labels:
+      channel: push
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: api-gateway
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: api-gateway
+spec:
+  host: api-gateway
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 500
+        connectTimeout: 30s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 250
+        http2MaxRequests: 500
+        maxRequestsPerConnection: 50
+        maxRetries: 2
+        idleTimeout: 90s
+        h2UpgradePolicy: UPGRADE
+    circuitBreaker:
+      consecutiveGatewayErrors: 50
+      consecutive5xxErrors: 50
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 10
+    outlierDetection:
+      consecutiveGatewayErrors: 30
+      consecutive5xxErrors: 30
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 10
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+  - name: canary
+    labels:
+      version: canary
+---
+# External service destination rules
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: postgresql-cluster
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: postgresql
+spec:
+  host: postgresql-cluster.hotel-reviews-production.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 20
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 2
+    circuitBreaker:
+      consecutiveGatewayErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+  - name: primary
+    labels:
+      role: primary
+  - name: replica
+    labels:
+      role: replica
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: redis-cluster
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: redis
+spec:
+  host: redis-cluster.hotel-reviews-production.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 10s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+  - name: master
+    labels:
+      role: master
+  - name: slave
+    labels:
+      role: slave
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: elasticsearch-cluster
+  namespace: hotel-reviews-production
+  labels:
+    app: hotel-reviews
+    service: elasticsearch
+spec:
+  host: elasticsearch-cluster.hotel-reviews-production.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 30
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 15
+        maxRequestsPerConnection: 5
+        idleTimeout: 300s
+    circuitBreaker:
+      consecutiveGatewayErrors: 10
+      interval: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 30
+  subsets:
+  - name: master
+    labels:
+      node.role: master
+  - name: data
+    labels:
+      node.role: data
+  - name: ingest
+    labels:
+      node.role: ingest

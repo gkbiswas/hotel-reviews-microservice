@@ -1,0 +1,243 @@
+# Staging Environment Configuration
+# Hotel Reviews Microservice - Staging
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "30s"
+  write_timeout: "30s"
+  shutdown_timeout: "10s"
+  max_header_bytes: 1048576
+
+database:
+  host: "hotel-reviews-staging-db.cluster-xyz.us-east-1.rds.amazonaws.com"
+  port: 5432
+  user: "hotel_reviews_staging"
+  password: "${HOTEL_REVIEWS_DATABASE_PASSWORD}"
+  dbname: "hotel_reviews_staging"
+  sslmode: "require"
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: "5m"
+  conn_max_idle_time: "5m"
+  
+  # Connection pool settings optimized for staging
+  pool:
+    max_size: 20
+    min_size: 5
+    acquire_timeout: "5s"
+    health_check_period: "1m"
+
+s3:
+  region: "us-east-1"
+  bucket: "hotel-reviews-staging-files"
+  endpoint: ""  # Use default AWS S3 endpoint
+  access_key_id: "${AWS_ACCESS_KEY_ID}"
+  secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+  session_token: "${AWS_SESSION_TOKEN}"
+  force_path_style: false
+  
+  # Upload settings
+  upload:
+    max_file_size: "10MB"
+    allowed_types: ["application/json", "text/csv", "text/plain"]
+    timeout: "30s"
+
+redis:
+  address: "hotel-reviews-staging-redis.abc123.cache.amazonaws.com:6379"
+  password: "${HOTEL_REVIEWS_REDIS_PASSWORD}"
+  database: 0
+  max_retries: 3
+  min_retry_backoff: "8ms"
+  max_retry_backoff: "512ms"
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  pool_size: 10
+  min_idle_conns: 5
+  pool_timeout: "4s"
+  idle_timeout: "5m"
+  idle_check_frequency: "1m"
+
+rate_limiting:
+  enabled: true
+  requests_per_minute: 1000
+  burst_size: 100
+  window_size: "1m"
+  storage: "redis"
+  
+  # Per-endpoint rate limits
+  endpoints:
+    "/api/v1/auth":
+      requests_per_minute: 100
+      burst_size: 20
+    "/api/v1/hotels":
+      requests_per_minute: 500
+      burst_size: 50
+    "/api/v1/reviews":
+      requests_per_minute: 300
+      burst_size: 30
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+  
+  # Structured logging configuration
+  fields:
+    service: "hotel-reviews"
+    environment: "staging"
+    version: "${APP_VERSION}"
+  
+  # Log sampling for high-volume endpoints
+  sampling:
+    enabled: true
+    initial: 100
+    thereafter: 10
+
+monitoring:
+  metrics:
+    enabled: true
+    path: "/api/v1/metrics"
+    namespace: "hotel_reviews_staging"
+  
+  tracing:
+    enabled: true
+    service_name: "hotel-reviews-staging"
+    jaeger_endpoint: "http://jaeger-collector.staging.svc.cluster.local:14268/api/traces"
+    sampling_rate: 0.1  # 10% sampling in staging
+  
+  health_checks:
+    enabled: true
+    path: "/api/v1/health"
+    interval: "30s"
+
+security:
+  cors:
+    enabled: true
+    allowed_origins: 
+      - "https://staging.hotel-reviews.com"
+      - "https://staging-admin.hotel-reviews.com"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+    max_age: "12h"
+  
+  tls:
+    enabled: false  # Handled by load balancer in staging
+    cert_file: ""
+    key_file: ""
+  
+  jwt:
+    secret: "${JWT_SECRET}"
+    expiration: "24h"
+    issuer: "hotel-reviews-staging"
+    
+  api_keys:
+    enabled: true
+    header_name: "X-API-Key"
+    # Staging API keys for testing
+    allowed_keys:
+      - "${STAGING_API_KEY_INTERNAL}"
+      - "${STAGING_API_KEY_TESTING}"
+
+# Feature flags for staging environment
+features:
+  analytics_v2: true
+  enhanced_search: true
+  caching_layer: true
+  rate_limiting: true
+  circuit_breaker: true
+  review_sentiment_analysis: false  # Disabled in staging
+  advanced_metrics: true
+  
+  # A/B testing features
+  ab_testing:
+    enabled: true
+    percentage: 50  # 50% of staging traffic
+
+# External service configurations
+external_services:
+  sentiment_api:
+    enabled: false  # Disabled in staging
+    endpoint: ""
+    timeout: "5s"
+    retry_attempts: 2
+  
+  email_service:
+    enabled: true
+    provider: "ses"
+    region: "us-east-1"
+    sender_email: "noreply-staging@hotel-reviews.com"
+  
+  notification_service:
+    enabled: true
+    slack_webhook: "${SLACK_WEBHOOK_STAGING}"
+    channels: ["#staging-alerts", "#engineering"]
+
+# Performance and optimization settings
+performance:
+  cache:
+    enabled: true
+    ttl: "5m"  # Shorter TTL in staging for testing
+    max_size: "100MB"
+  
+  compression:
+    enabled: true
+    level: 6
+    min_size: 1000
+  
+  request_timeout: "30s"
+  max_request_size: "10MB"
+  
+  # Background job settings
+  background_jobs:
+    enabled: true
+    workers: 2
+    queue_size: 100
+    retry_attempts: 3
+
+# Development and debugging settings
+debug:
+  enabled: true
+  profiling: true
+  verbose_errors: true
+  request_logging: true
+  
+  # Debug endpoints (staging only)
+  debug_endpoints:
+    - "/debug/pprof"
+    - "/debug/vars"
+    - "/debug/config"
+
+# Environment-specific overrides
+environment:
+  name: "staging"
+  aws_region: "us-east-1"
+  cluster_name: "hotel-reviews-staging-cluster"
+  service_name: "hotel-reviews-service-staging"
+  
+  # Resource limits for staging
+  resources:
+    cpu: "1000m"      # 1 CPU
+    memory: "2Gi"     # 2GB RAM
+    replicas: 2       # 2 instances for staging
+  
+  # Auto-scaling configuration
+  autoscaling:
+    enabled: true
+    min_replicas: 2
+    max_replicas: 5
+    target_cpu_percent: 70
+    target_memory_percent: 80
+
+# Backup and maintenance
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention_days: 7
+  s3_bucket: "hotel-reviews-staging-backups"
+
+maintenance:
+  window: "02:00-04:00"  # 2 AM to 4 AM UTC
+  timezone: "UTC"
+  notifications: true

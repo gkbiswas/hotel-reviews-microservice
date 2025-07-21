@@ -1,0 +1,319 @@
+# Production Environment Configuration
+# Hotel Reviews Microservice - Production
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "30s"
+  write_timeout: "30s"
+  shutdown_timeout: "15s"
+  max_header_bytes: 1048576
+
+database:
+  host: "hotel-reviews-prod-db.cluster-xyz.us-east-1.rds.amazonaws.com"
+  port: 5432
+  user: "hotel_reviews_prod"
+  password: "${HOTEL_REVIEWS_DATABASE_PASSWORD}"
+  dbname: "hotel_reviews_prod"
+  sslmode: "require"
+  max_open_conns: 50
+  max_idle_conns: 25
+  conn_max_lifetime: "5m"
+  conn_max_idle_time: "5m"
+  
+  # Production-optimized connection pool
+  pool:
+    max_size: 40
+    min_size: 10
+    acquire_timeout: "3s"
+    health_check_period: "30s"
+
+s3:
+  region: "us-east-1"
+  bucket: "hotel-reviews-production-files"
+  endpoint: ""  # Use default AWS S3 endpoint
+  access_key_id: "${AWS_ACCESS_KEY_ID}"
+  secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+  session_token: "${AWS_SESSION_TOKEN}"
+  force_path_style: false
+  
+  # Production upload settings
+  upload:
+    max_file_size: "50MB"
+    allowed_types: ["application/json", "text/csv", "text/plain"]
+    timeout: "60s"
+
+redis:
+  address: "hotel-reviews-prod-redis.abc123.cache.amazonaws.com:6379"
+  password: "${HOTEL_REVIEWS_REDIS_PASSWORD}"
+  database: 0
+  max_retries: 5
+  min_retry_backoff: "8ms"
+  max_retry_backoff: "512ms"
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  pool_size: 20
+  min_idle_conns: 10
+  pool_timeout: "4s"
+  idle_timeout: "5m"
+  idle_check_frequency: "1m"
+
+rate_limiting:
+  enabled: true
+  requests_per_minute: 10000
+  burst_size: 1000
+  window_size: "1m"
+  storage: "redis"
+  
+  # Production per-endpoint rate limits
+  endpoints:
+    "/api/v1/auth":
+      requests_per_minute: 1000
+      burst_size: 100
+    "/api/v1/hotels":
+      requests_per_minute: 5000
+      burst_size: 500
+    "/api/v1/reviews":
+      requests_per_minute: 3000
+      burst_size: 300
+    "/api/v1/search":
+      requests_per_minute: 2000
+      burst_size: 200
+
+logging:
+  level: "warn"  # More restrictive in production
+  format: "json"
+  output: "stdout"
+  
+  # Structured logging configuration
+  fields:
+    service: "hotel-reviews"
+    environment: "production"
+    version: "${APP_VERSION}"
+  
+  # Aggressive log sampling for production
+  sampling:
+    enabled: true
+    initial: 100
+    thereafter: 100  # Log every 100th occurrence
+
+monitoring:
+  metrics:
+    enabled: true
+    path: "/api/v1/metrics"
+    namespace: "hotel_reviews_production"
+  
+  tracing:
+    enabled: true
+    service_name: "hotel-reviews-production"
+    jaeger_endpoint: "http://jaeger-collector.production.svc.cluster.local:14268/api/traces"
+    sampling_rate: 0.01  # 1% sampling in production
+  
+  health_checks:
+    enabled: true
+    path: "/api/v1/health"
+    interval: "15s"  # More frequent health checks in prod
+
+security:
+  cors:
+    enabled: true
+    allowed_origins: 
+      - "https://hotel-reviews.com"
+      - "https://admin.hotel-reviews.com"
+      - "https://api.hotel-reviews.com"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Key"]
+    max_age: "24h"
+  
+  tls:
+    enabled: false  # Handled by ALB/CloudFront in production
+    cert_file: ""
+    key_file: ""
+  
+  jwt:
+    secret: "${JWT_SECRET}"
+    expiration: "1h"  # Shorter expiration in production
+    issuer: "hotel-reviews-production"
+    
+  api_keys:
+    enabled: true
+    header_name: "X-API-Key"
+    # Production API keys (managed via secrets)
+    allowed_keys:
+      - "${PROD_API_KEY_PARTNER_1}"
+      - "${PROD_API_KEY_PARTNER_2}"
+      - "${PROD_API_KEY_INTERNAL}"
+
+# Feature flags for production environment
+features:
+  analytics_v2: true
+  enhanced_search: true
+  caching_layer: true
+  rate_limiting: true
+  circuit_breaker: true
+  review_sentiment_analysis: true
+  advanced_metrics: true
+  
+  # A/B testing features (conservative in production)
+  ab_testing:
+    enabled: true
+    percentage: 10  # Only 10% of production traffic
+
+# External service configurations
+external_services:
+  sentiment_api:
+    enabled: true
+    endpoint: "https://sentiment-api.internal.hotel-reviews.com"
+    timeout: "5s"
+    retry_attempts: 3
+    circuit_breaker:
+      enabled: true
+      failure_threshold: 5
+      timeout: "10s"
+  
+  email_service:
+    enabled: true
+    provider: "ses"
+    region: "us-east-1"
+    sender_email: "noreply@hotel-reviews.com"
+  
+  notification_service:
+    enabled: true
+    slack_webhook: "${SLACK_WEBHOOK_PRODUCTION}"
+    channels: ["#production-alerts", "#incidents"]
+    pagerduty_integration_key: "${PAGERDUTY_INTEGRATION_KEY}"
+
+# Performance and optimization settings
+performance:
+  cache:
+    enabled: true
+    ttl: "15m"  # Longer TTL in production
+    max_size: "1GB"
+    distributed: true  # Use Redis for distributed caching
+  
+  compression:
+    enabled: true
+    level: 6
+    min_size: 1000
+  
+  request_timeout: "30s"
+  max_request_size: "50MB"
+  
+  # Background job settings
+  background_jobs:
+    enabled: true
+    workers: 5
+    queue_size: 1000
+    retry_attempts: 5
+    dead_letter_queue: true
+
+# Production debugging (limited)
+debug:
+  enabled: false
+  profiling: false  # Disabled in production for security
+  verbose_errors: false
+  request_logging: false  # Only log errors in production
+
+# Environment-specific overrides
+environment:
+  name: "production"
+  aws_region: "us-east-1"
+  cluster_name: "hotel-reviews-production-cluster"
+  service_name: "hotel-reviews-service-production"
+  
+  # Production resource allocation
+  resources:
+    cpu: "2000m"      # 2 CPUs
+    memory: "4Gi"     # 4GB RAM
+    replicas: 5       # 5 instances minimum
+  
+  # Production auto-scaling configuration
+  autoscaling:
+    enabled: true
+    min_replicas: 5
+    max_replicas: 20
+    target_cpu_percent: 60
+    target_memory_percent: 70
+    scale_up_cooldown: "3m"
+    scale_down_cooldown: "5m"
+
+# Backup and disaster recovery
+backup:
+  enabled: true
+  schedule: "0 1 * * *"  # Daily at 1 AM
+  retention_days: 30
+  s3_bucket: "hotel-reviews-production-backups"
+  cross_region_replication: true
+  encryption: true
+
+disaster_recovery:
+  enabled: true
+  backup_regions: ["us-west-2"]
+  rto: "4h"  # Recovery Time Objective
+  rpo: "1h"  # Recovery Point Objective
+
+maintenance:
+  window: "03:00-05:00"  # 3 AM to 5 AM UTC
+  timezone: "UTC"
+  notifications: true
+  approval_required: true
+
+# Compliance and audit settings
+compliance:
+  gdpr:
+    enabled: true
+    data_retention_days: 365
+    anonymization: true
+  
+  audit_logging:
+    enabled: true
+    retention_days: 90
+    s3_bucket: "hotel-reviews-audit-logs"
+  
+  encryption:
+    at_rest: true
+    in_transit: true
+    key_rotation: "90d"
+
+# Business continuity
+business_continuity:
+  circuit_breakers:
+    enabled: true
+    failure_threshold: 5
+    timeout: "60s"
+    recovery_timeout: "10s"
+  
+  graceful_shutdown:
+    enabled: true
+    timeout: "30s"
+    drain_connections: true
+  
+  health_checks:
+    startup_probe:
+      initial_delay: "30s"
+      period: "10s"
+      failure_threshold: 3
+    
+    liveness_probe:
+      initial_delay: "30s"
+      period: "30s"
+      failure_threshold: 3
+    
+    readiness_probe:
+      initial_delay: "5s"
+      period: "10s"
+      failure_threshold: 3
+
+# Alerting thresholds (production-specific)
+alerting:
+  error_rate_threshold: 1.0  # 1% error rate
+  latency_threshold: "500ms"  # P95 latency
+  cpu_threshold: 80  # 80% CPU utilization
+  memory_threshold: 85  # 85% memory utilization
+  disk_threshold: 90  # 90% disk utilization
+  
+  escalation:
+    immediate: ["pagerduty", "slack"]
+    after_5min: ["email", "sms"]
+    after_15min: ["phone", "manager_escalation"]

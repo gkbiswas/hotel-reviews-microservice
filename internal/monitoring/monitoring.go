@@ -3,13 +3,13 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 )
@@ -45,7 +45,7 @@ type Config struct {
 // Service represents the main monitoring service
 type Service struct {
 	config *Config
-	logger *logrus.Logger
+	logger *slog.Logger
 
 	// Core monitoring services
 	metricsService  *MonitoringService
@@ -60,7 +60,7 @@ type Service struct {
 }
 
 // NewService creates a new monitoring service
-func NewService(config *Config, logger *logrus.Logger, db *gorm.DB, redisClient *redis.Client) (*Service, error) {
+func NewService(config *Config, logger *slog.Logger, db *gorm.DB, redisClient *redis.Client) (*Service, error) {
 	service := &Service{
 		config:      config,
 		logger:      logger,
@@ -181,7 +181,7 @@ func (s *Service) Stop(ctx context.Context) error {
 	// Stop tracing service
 	if s.tracingService != nil {
 		if err := s.tracingService.Close(ctx); err != nil {
-			s.logger.WithError(err).Error("Failed to close tracing service")
+			s.logger.Error("Failed to close tracing service", "error", err)
 		}
 	}
 

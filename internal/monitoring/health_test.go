@@ -3,13 +3,14 @@ package monitoring
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,8 +19,7 @@ import (
 
 // Test DatabaseHealthChecker
 func TestDatabaseHealthChecker(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(nil) // Disable logging during tests
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	t.Run("constructor and name", func(t *testing.T) {
 		checker := NewDatabaseHealthChecker(nil, "test-db", logger)
@@ -42,8 +42,7 @@ func TestDatabaseHealthChecker(t *testing.T) {
 
 // Test RedisHealthChecker
 func TestRedisHealthChecker(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(nil)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	t.Run("constructor and name", func(t *testing.T) {
 		// Test with nil client (we'll focus on the interface)
@@ -69,8 +68,7 @@ func TestRedisHealthChecker(t *testing.T) {
 
 // Test S3HealthChecker
 func TestS3HealthChecker(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(nil)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	t.Run("constructor and name", func(t *testing.T) {
 		checker := NewS3HealthChecker("test-bucket", "test-s3", logger)
@@ -94,8 +92,7 @@ func TestS3HealthChecker(t *testing.T) {
 
 // Test HTTPHealthChecker
 func TestHTTPHealthChecker(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(nil)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	t.Run("healthy endpoint", func(t *testing.T) {
 		// Create test server
@@ -160,8 +157,7 @@ func TestHTTPHealthChecker(t *testing.T) {
 
 // Test HealthService
 func TestHealthService(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(nil)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	t.Run("add checker and check all", func(t *testing.T) {
 		service := NewHealthService(logger)
@@ -357,7 +353,7 @@ func TestHealthService(t *testing.T) {
 
 		// Assertions
 		assert.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, "Ready", rec.Body.String())
+		assert.Contains(t, rec.Body.String(), "\"status\":\"ready\"")
 	})
 
 	t.Run("readiness handler - not ready", func(t *testing.T) {
@@ -383,7 +379,7 @@ func TestHealthService(t *testing.T) {
 
 		// Assertions
 		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
-		assert.Equal(t, "Not Ready", rec.Body.String())
+		assert.Contains(t, rec.Body.String(), "\"status\":\"not_ready\"")
 	})
 
 	t.Run("liveness handler", func(t *testing.T) {
@@ -401,7 +397,7 @@ func TestHealthService(t *testing.T) {
 
 		// Assertions - always returns OK
 		assert.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, "Alive", rec.Body.String())
+		assert.Contains(t, rec.Body.String(), "\"status\":\"alive\"")
 	})
 
 	t.Run("periodic health checks start", func(t *testing.T) {

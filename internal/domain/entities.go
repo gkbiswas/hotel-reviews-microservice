@@ -303,5 +303,40 @@ type ReviewStatistics struct {
 
 // Common errors
 var (
-	ErrReviewNotFound = fmt.Errorf("review not found")
+	// Review errors
+	ErrReviewNotFound      = fmt.Errorf("review not found")
+	ErrReviewAlreadyExists = fmt.Errorf("review already exists")
+	
+	// Hotel errors
+	ErrHotelNotFound      = fmt.Errorf("hotel not found")
+	ErrHotelAlreadyExists = fmt.Errorf("hotel already exists")
+	
+	// Provider errors
+	ErrProviderNotFound      = fmt.Errorf("provider not found")
+	ErrProviderAlreadyExists = fmt.Errorf("provider already exists")
+	
+	// Processing errors
+	ErrProcessingNotFound = fmt.Errorf("processing job not found")
+	
+	// Validation errors
+	ErrValidationFailed = fmt.Errorf("validation failed")
 )
+
+// ValidationError represents a validation error with field-specific details
+type ValidationError struct {
+	Field   string      `json:"field"`
+	Message string      `json:"message"`
+	Value   interface{} `json:"value,omitempty"`
+}
+
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("validation failed for field '%s': %s", e.Field, e.Message)
+}
+
+// NewValidationError creates a new validation error
+func NewValidationError(field, message string) *ValidationError {
+	return &ValidationError{
+		Field:   field,
+		Message: message,
+	}
+}

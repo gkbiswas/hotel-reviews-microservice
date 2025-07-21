@@ -2,9 +2,8 @@ package monitoring
 
 import (
 	"context"
+	"log/slog"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // SLIType represents the type of SLI
@@ -69,12 +68,12 @@ type SLOViolation struct {
 type SLOManager struct {
 	slis    []SLI
 	slos    []SLO
-	logger  *logrus.Logger
+	logger  *slog.Logger
 	metrics *MetricsRegistry
 }
 
 // NewSLOManager creates a new SLO manager
-func NewSLOManager(metrics *MetricsRegistry, logger *logrus.Logger) *SLOManager {
+func NewSLOManager(metrics *MetricsRegistry, logger *slog.Logger) *SLOManager {
 	manager := &SLOManager{
 		slis:    []SLI{},
 		slos:    []SLO{},
@@ -420,7 +419,7 @@ func (m *SLOManager) CheckSLOViolations(ctx context.Context) ([]SLOViolation, er
 
 		met, result, err := m.EvaluateSLO(ctx, slo)
 		if err != nil {
-			m.logger.WithError(err).WithField("slo", slo.Name).Error("Failed to evaluate SLO")
+			m.logger.Error("Failed to evaluate SLO", "error", err, "slo", slo.Name)
 			continue
 		}
 
@@ -451,18 +450,17 @@ func (m *SLOManager) StartSLOMonitoring(ctx context.Context, interval time.Durat
 			case <-ticker.C:
 				violations, err := m.CheckSLOViolations(ctx)
 				if err != nil {
-					m.logger.WithError(err).Error("Failed to check SLO violations")
+					m.logger.Error("Failed to check SLO violations", "error", err)
 					continue
 				}
 
 				for _, violation := range violations {
-					m.logger.WithFields(logrus.Fields{
-						"slo":           violation.SLO.Name,
-						"service":       violation.SLO.Service,
-						"current_value": violation.CurrentValue,
-						"target":        violation.Target,
-						"severity":      violation.Severity,
-					}).Warn("SLO violation detected")
+					m.logger.Warn("SLO violation detected",
+						"slo", violation.SLO.Name,
+						"service", violation.SLO.Service,
+						"current_value", violation.CurrentValue,
+						"target", violation.Target,
+						"severity", violation.Severity)
 
 					// Update SLO metrics
 					m.updateSLOMetrics(violation)

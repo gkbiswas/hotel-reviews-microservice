@@ -3,7 +3,12 @@
     "allow": [
       "Bash(git --version)",
       "Bash(grep:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(go mod:*)",
+      "Bash(chmod:*)",
+      "Bash(./quick_test.sh:*)",
+      "Bash(find:*)",
+      "Bash(go build:*)"
     ],
     "deny": []
   }

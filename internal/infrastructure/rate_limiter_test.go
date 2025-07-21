@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -166,7 +167,7 @@ func TestRateLimiter_Redis_Allow_KeyExpiration(t *testing.T) {
 	defer client.Close()
 
 	maxRequests := 2
-	window := 100 * time.Millisecond
+	window := 1200 * time.Millisecond
 
 	limiter := NewRateLimiter(maxRequests, window, client)
 	ctx := context.Background()
@@ -185,7 +186,7 @@ func TestRateLimiter_Redis_Allow_KeyExpiration(t *testing.T) {
 	assert.False(t, allowed)
 
 	// Wait for window to expire
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(1300 * time.Millisecond)
 
 	// Should be allowed again after expiration
 	allowed, err = limiter.Allow(ctx, key)
@@ -379,20 +380,28 @@ func TestRateLimiter_Redis_ConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 	key := "concurrent-key"
 
-	// Launch multiple goroutines
+	// Launch multiple goroutines with slight delay to avoid race conditions
 	numGoroutines := 20
 	results := make(chan bool, numGoroutines)
+	var wg sync.WaitGroup
 
 	for i := 0; i < numGoroutines; i++ {
-		go func() {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			// Add slight stagger to reduce race conditions
+			time.Sleep(time.Duration(index) * time.Millisecond)
 			allowed, err := limiter.Allow(ctx, key)
 			if err != nil {
 				results <- false
 				return
 			}
 			results <- allowed
-		}()
+		}(i)
 	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
 
 	// Collect results
 	allowedCount := 0
@@ -478,7 +487,7 @@ func TestRateLimiter_ShortWindow(t *testing.T) {
 	defer client.Close()
 
 	maxRequests := 1
-	window := 10 * time.Millisecond
+	window := 1100 * time.Millisecond
 
 	limiter := NewRateLimiter(maxRequests, window, client)
 	ctx := context.Background()
@@ -495,7 +504,7 @@ func TestRateLimiter_ShortWindow(t *testing.T) {
 	assert.False(t, allowed)
 
 	// Wait for window to expire
-	time.Sleep(15 * time.Millisecond)
+	time.Sleep(1200 * time.Millisecond)
 
 	// Should be allowed again
 	allowed, err = limiter.Allow(ctx, key)

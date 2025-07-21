@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
+	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -41,11 +45,11 @@ type HealthChecker interface {
 type DatabaseHealthChecker struct {
 	db     *gorm.DB
 	name   string
-	logger *logrus.Logger
+	logger *slog.Logger
 }
 
 // NewDatabaseHealthChecker creates a new database health checker
-func NewDatabaseHealthChecker(db *gorm.DB, name string, logger *logrus.Logger) *DatabaseHealthChecker {
+func NewDatabaseHealthChecker(db *gorm.DB, name string, logger *slog.Logger) *DatabaseHealthChecker {
 	return &DatabaseHealthChecker{
 		db:     db,
 		name:   name,
@@ -115,11 +119,11 @@ func (h *DatabaseHealthChecker) Check(ctx context.Context) HealthCheckResult {
 type RedisHealthChecker struct {
 	client *redis.Client
 	name   string
-	logger *logrus.Logger
+	logger *slog.Logger
 }
 
 // NewRedisHealthChecker creates a new Redis health checker
-func NewRedisHealthChecker(client *redis.Client, name string, logger *logrus.Logger) *RedisHealthChecker {
+func NewRedisHealthChecker(client *redis.Client, name string, logger *slog.Logger) *RedisHealthChecker {
 	return &RedisHealthChecker{
 		client: client,
 		name:   name,
@@ -181,13 +185,13 @@ func (h *RedisHealthChecker) Check(ctx context.Context) HealthCheckResult {
 type S3HealthChecker struct {
 	bucketName string
 	name       string
-	logger     *logrus.Logger
+	logger     *slog.Logger
 	// We'll use a simple HTTP check for now
 	httpClient *http.Client
 }
 
 // NewS3HealthChecker creates a new S3 health checker
-func NewS3HealthChecker(bucketName, name string, logger *logrus.Logger) *S3HealthChecker {
+func NewS3HealthChecker(bucketName, name string, logger *slog.Logger) *S3HealthChecker {
 	return &S3HealthChecker{
 		bucketName: bucketName,
 		name:       name,
@@ -255,12 +259,12 @@ func (h *S3HealthChecker) Check(ctx context.Context) HealthCheckResult {
 type HTTPHealthChecker struct {
 	url        string
 	name       string
-	logger     *logrus.Logger
+	logger     *slog.Logger
 	httpClient *http.Client
 }
 
 // NewHTTPHealthChecker creates a new HTTP health checker
-func NewHTTPHealthChecker(url, name string, logger *logrus.Logger) *HTTPHealthChecker {
+func NewHTTPHealthChecker(url, name string, logger *slog.Logger) *HTTPHealthChecker {
 	return &HTTPHealthChecker{
 		url:    url,
 		name:   name,
@@ -322,16 +326,250 @@ func (h *HTTPHealthChecker) Check(ctx context.Context) HealthCheckResult {
 	}
 }
 
+// MemoryHealthChecker checks memory usage
+type MemoryHealthChecker struct {
+	name           string
+	logger         *slog.Logger
+	maxMemoryBytes uint64
+}
+
+// NewMemoryHealthChecker creates a new memory health checker
+func NewMemoryHealthChecker(name string, maxMemoryBytes uint64, logger *slog.Logger) *MemoryHealthChecker {
+	return &MemoryHealthChecker{
+		name:           name,
+		logger:         logger,
+		maxMemoryBytes: maxMemoryBytes,
+	}
+}
+
+// Name returns the name of the health checker
+func (h *MemoryHealthChecker) Name() string {
+	return h.name
+}
+
+// Check performs the memory health check
+func (h *MemoryHealthChecker) Check(ctx context.Context) HealthCheckResult {
+	start := time.Now()
+
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	// Convert bytes to MB for readability
+	allocMB := memStats.Alloc / 1024 / 1024
+	sysMB := memStats.Sys / 1024 / 1024
+	maxMemoryMB := h.maxMemoryBytes / 1024 / 1024
+
+	details := map[string]interface{}{
+		"alloc_mb":        allocMB,
+		"sys_mb":          sysMB,
+		"max_memory_mb":   maxMemoryMB,
+		"num_gc":          memStats.NumGC,
+		"gc_pause_ns":     memStats.PauseTotalNs,
+		"heap_objects":    memStats.HeapObjects,
+		"stack_in_use_mb": memStats.StackInuse / 1024 / 1024,
+	}
+
+	status := HealthStatusHealthy
+	message := "memory usage is within limits"
+
+	if h.maxMemoryBytes > 0 && memStats.Alloc > h.maxMemoryBytes {
+		status = HealthStatusUnhealthy
+		message = fmt.Sprintf("memory usage (%d MB) exceeds limit (%d MB)", allocMB, maxMemoryMB)
+	}
+
+	return HealthCheckResult{
+		Status:       status,
+		Message:      message,
+		Timestamp:    time.Now(),
+		ResponseTime: time.Since(start),
+		Details:      details,
+	}
+}
+
+// DiskHealthChecker checks disk usage
+type DiskHealthChecker struct {
+	name        string
+	logger      *slog.Logger
+	path        string
+	maxUsagePct float64
+}
+
+// NewDiskHealthChecker creates a new disk health checker
+func NewDiskHealthChecker(name, path string, maxUsagePct float64, logger *slog.Logger) *DiskHealthChecker {
+	return &DiskHealthChecker{
+		name:        name,
+		logger:      logger,
+		path:        path,
+		maxUsagePct: maxUsagePct,
+	}
+}
+
+// Name returns the name of the health checker
+func (h *DiskHealthChecker) Name() string {
+	return h.name
+}
+
+// Check performs the disk health check
+func (h *DiskHealthChecker) Check(ctx context.Context) HealthCheckResult {
+	start := time.Now()
+
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(h.path, &stat)
+	if err != nil {
+		return HealthCheckResult{
+			Status:       HealthStatusUnhealthy,
+			Message:      fmt.Sprintf("failed to get disk stats: %v", err),
+			Timestamp:    time.Now(),
+			ResponseTime: time.Since(start),
+		}
+	}
+
+	// Calculate disk usage
+	totalBytes := stat.Blocks * uint64(stat.Bsize)
+	freeBytes := stat.Bavail * uint64(stat.Bsize)
+	usedBytes := totalBytes - freeBytes
+	usagePct := float64(usedBytes) / float64(totalBytes) * 100
+
+	totalGB := float64(totalBytes) / 1024 / 1024 / 1024
+	freeGB := float64(freeBytes) / 1024 / 1024 / 1024
+	usedGB := float64(usedBytes) / 1024 / 1024 / 1024
+
+	details := map[string]interface{}{
+		"path":        h.path,
+		"total_gb":    fmt.Sprintf("%.2f", totalGB),
+		"used_gb":     fmt.Sprintf("%.2f", usedGB),
+		"free_gb":     fmt.Sprintf("%.2f", freeGB),
+		"usage_pct":   fmt.Sprintf("%.2f", usagePct),
+		"max_usage":   fmt.Sprintf("%.2f", h.maxUsagePct),
+	}
+
+	status := HealthStatusHealthy
+	message := "disk usage is within limits"
+
+	if usagePct > h.maxUsagePct {
+		status = HealthStatusUnhealthy
+		message = fmt.Sprintf("disk usage (%.2f%%) exceeds limit (%.2f%%)", usagePct, h.maxUsagePct)
+	}
+
+	return HealthCheckResult{
+		Status:       status,
+		Message:      message,
+		Timestamp:    time.Now(),
+		ResponseTime: time.Since(start),
+		Details:      details,
+	}
+}
+
+// KafkaHealthChecker checks Kafka health
+type KafkaHealthChecker struct {
+	name    string
+	logger  *slog.Logger
+	brokers []string
+	config  *sarama.Config
+}
+
+// NewKafkaHealthChecker creates a new Kafka health checker
+func NewKafkaHealthChecker(name string, brokers []string, config *sarama.Config, logger *slog.Logger) *KafkaHealthChecker {
+	if config == nil {
+		config = sarama.NewConfig()
+		config.Version = sarama.V2_6_0_0
+		config.Net.DialTimeout = 10 * time.Second
+		config.Metadata.Timeout = 10 * time.Second
+	}
+
+	return &KafkaHealthChecker{
+		name:    name,
+		logger:  logger,
+		brokers: brokers,
+		config:  config,
+	}
+}
+
+// Name returns the name of the health checker
+func (h *KafkaHealthChecker) Name() string {
+	return h.name
+}
+
+// Check performs the Kafka health check
+func (h *KafkaHealthChecker) Check(ctx context.Context) HealthCheckResult {
+	start := time.Now()
+
+	if len(h.brokers) == 0 {
+		return HealthCheckResult{
+			Status:       HealthStatusUnhealthy,
+			Message:      "no kafka brokers configured",
+			Timestamp:    time.Now(),
+			ResponseTime: time.Since(start),
+		}
+	}
+
+	// Create a new client to test connectivity
+	client, err := sarama.NewClient(h.brokers, h.config)
+	if err != nil {
+		return HealthCheckResult{
+			Status:       HealthStatusUnhealthy,
+			Message:      fmt.Sprintf("failed to connect to kafka: %v", err),
+			Timestamp:    time.Now(),
+			ResponseTime: time.Since(start),
+		}
+	}
+	defer client.Close()
+
+	// Get broker information
+	brokers := client.Brokers()
+	connectedBrokers := make([]string, 0, len(brokers))
+	for _, broker := range brokers {
+		if connected, _ := broker.Connected(); connected {
+			connectedBrokers = append(connectedBrokers, broker.Addr())
+		}
+	}
+
+	// Get topics (basic check)
+	topics, err := client.Topics()
+	if err != nil {
+		return HealthCheckResult{
+			Status:       HealthStatusUnhealthy,
+			Message:      fmt.Sprintf("failed to get kafka topics: %v", err),
+			Timestamp:    time.Now(),
+			ResponseTime: time.Since(start),
+		}
+	}
+
+	details := map[string]interface{}{
+		"configured_brokers": h.brokers,
+		"connected_brokers":  connectedBrokers,
+		"total_brokers":      len(brokers),
+		"connected_count":    len(connectedBrokers),
+		"topics_count":       len(topics),
+	}
+
+	status := HealthStatusHealthy
+	message := "kafka cluster is healthy"
+
+	if len(connectedBrokers) == 0 {
+		status = HealthStatusUnhealthy
+		message = "no kafka brokers are connected"
+	}
+
+	return HealthCheckResult{
+		Status:       status,
+		Message:      message,
+		Timestamp:    time.Now(),
+		ResponseTime: time.Since(start),
+		Details:      details,
+	}
+}
+
 // HealthService manages health checks for all dependencies
 type HealthService struct {
 	checkers []HealthChecker
-	logger   *logrus.Logger
+	logger   *slog.Logger
 	mu       sync.RWMutex
 	results  map[string]HealthCheckResult
 }
 
 // NewHealthService creates a new health service
-func NewHealthService(logger *logrus.Logger) *HealthService {
+func NewHealthService(logger *slog.Logger) *HealthService {
 	return &HealthService{
 		checkers: make([]HealthChecker, 0),
 		logger:   logger,
@@ -460,23 +698,36 @@ func (s *HealthService) ReadinessHandler() http.Handler {
 		ctx := r.Context()
 		results := s.CheckAll(ctx)
 
-		// For readiness, we might be more strict about which checks must pass
+		// For readiness, check critical dependencies
 		ready := true
-		for name, result := range results {
-			// Consider database as critical for readiness
-			if name == "database" && result.Status != HealthStatusHealthy {
-				ready = false
-				break
+		criticalDeps := []string{"database", "redis", "kafka"}
+		failedDeps := []string{}
+
+		for _, dep := range criticalDeps {
+			if result, exists := results[dep]; exists {
+				if result.Status != HealthStatusHealthy {
+					ready = false
+					failedDeps = append(failedDeps, dep)
+				}
 			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		response := map[string]interface{}{
+			"status":    "ready",
+			"timestamp": time.Now(),
 		}
 
 		if ready {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Ready"))
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("Not Ready"))
+			response["status"] = "not_ready"
+			response["failed_dependencies"] = failedDeps
 		}
+
+		json.NewEncoder(w).Encode(response)
 	})
 }
 
@@ -485,7 +736,114 @@ func (s *HealthService) LivenessHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Liveness check is typically more lenient
 		// It should only fail if the application is completely broken
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Alive"))
+
+		response := map[string]interface{}{
+			"status":    "alive",
+			"timestamp": time.Now(),
+			"uptime":    time.Since(time.Now().Add(-time.Hour)), // Placeholder for actual uptime
+		}
+
+		json.NewEncoder(w).Encode(response)
+	})
+}
+
+// DetailedHealthHandler returns a detailed health handler with all check results
+func (s *HealthService) DetailedHealthHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		results := s.CheckAll(ctx)
+
+		// Categorize results
+		healthy := []string{}
+		unhealthy := []string{}
+		unknown := []string{}
+
+		for name, result := range results {
+			switch result.Status {
+			case HealthStatusHealthy:
+				healthy = append(healthy, name)
+			case HealthStatusUnhealthy:
+				unhealthy = append(unhealthy, name)
+			case HealthStatusUnknown:
+				unknown = append(unknown, name)
+			}
+		}
+
+		// Determine overall status
+		overall := HealthStatusHealthy
+		if len(unhealthy) > 0 {
+			overall = HealthStatusUnhealthy
+		} else if len(unknown) > 0 {
+			overall = HealthStatusUnknown
+		}
+
+		// Set appropriate status code
+		switch overall {
+		case HealthStatusHealthy:
+			w.WriteHeader(http.StatusOK)
+		case HealthStatusUnhealthy:
+			w.WriteHeader(http.StatusServiceUnavailable)
+		default:
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		response := map[string]interface{}{
+			"status":     overall,
+			"timestamp":  time.Now(),
+			"summary": map[string]interface{}{
+				"total":     len(results),
+				"healthy":   len(healthy),
+				"unhealthy": len(unhealthy),
+				"unknown":   len(unknown),
+			},
+			"services": map[string]interface{}{
+				"healthy":   healthy,
+				"unhealthy": unhealthy,
+				"unknown":   unknown,
+			},
+			"details": results,
+		}
+
+		json.NewEncoder(w).Encode(response)
+	})
+}
+
+// GetSystemInfo returns system information for monitoring
+func (s *HealthService) GetSystemInfo() map[string]interface{} {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	return map[string]interface{}{
+		"go_version":       runtime.Version(),
+		"go_os":            runtime.GOOS,
+		"go_arch":          runtime.GOARCH,
+		"num_cpu":          runtime.NumCPU(),
+		"num_goroutine":    runtime.NumGoroutine(),
+		"alloc_mb":         memStats.Alloc / 1024 / 1024,
+		"sys_mb":           memStats.Sys / 1024 / 1024,
+		"gc_count":         memStats.NumGC,
+		"last_gc":          time.Unix(0, int64(memStats.LastGC)),
+		"next_gc_mb":       memStats.NextGC / 1024 / 1024,
+		"heap_objects":     memStats.HeapObjects,
+		"process_id":       os.Getpid(),
+	}
+}
+
+// SystemInfoHandler returns system information
+func (s *HealthService) SystemInfoHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		response := map[string]interface{}{
+			"timestamp":   time.Now(),
+			"system_info": s.GetSystemInfo(),
+		}
+
+		json.NewEncoder(w).Encode(response)
 	})
 }

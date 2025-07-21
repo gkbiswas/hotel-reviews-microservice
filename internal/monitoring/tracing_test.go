@@ -3,12 +3,12 @@ package monitoring
 import (
 	"context"
 	"errors"
-	"io"
+	"log/slog"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -18,8 +18,7 @@ import (
 )
 
 func TestNewTracingService_Disabled(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName:    "test-service",
@@ -39,8 +38,7 @@ func TestNewTracingService_Disabled(t *testing.T) {
 }
 
 func TestNewTracingService_Enabled_InvalidEndpoint(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName:    "test-service",
@@ -57,8 +55,7 @@ func TestNewTracingService_Enabled_InvalidEndpoint(t *testing.T) {
 }
 
 func TestTracingService_StartSpan(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName:    "test-service",
@@ -82,8 +79,7 @@ func TestTracingService_StartSpan(t *testing.T) {
 }
 
 func TestTracingService_SpanFromContext(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -103,8 +99,7 @@ func TestTracingService_SpanFromContext(t *testing.T) {
 }
 
 func TestTracingService_WithSpan_Success(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -129,8 +124,7 @@ func TestTracingService_WithSpan_Success(t *testing.T) {
 }
 
 func TestTracingService_WithSpan_Error(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -152,8 +146,7 @@ func TestTracingService_WithSpan_Error(t *testing.T) {
 }
 
 func TestTracingService_TraceHTTPRequest(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -178,8 +171,7 @@ func TestTracingService_TraceHTTPRequest(t *testing.T) {
 }
 
 func TestTracingService_TraceDatabaseQuery(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -204,8 +196,7 @@ func TestTracingService_TraceDatabaseQuery(t *testing.T) {
 }
 
 func TestTracingService_TraceS3Operation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -230,8 +221,7 @@ func TestTracingService_TraceS3Operation(t *testing.T) {
 }
 
 func TestTracingService_TraceFileProcessing(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -256,8 +246,7 @@ func TestTracingService_TraceFileProcessing(t *testing.T) {
 }
 
 func TestTracingService_TraceReviewProcessing(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -282,8 +271,7 @@ func TestTracingService_TraceReviewProcessing(t *testing.T) {
 }
 
 func TestTracingService_TraceCacheOperation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -308,8 +296,7 @@ func TestTracingService_TraceCacheOperation(t *testing.T) {
 }
 
 func TestTracingService_TraceCircuitBreakerOperation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -334,8 +321,7 @@ func TestTracingService_TraceCircuitBreakerOperation(t *testing.T) {
 }
 
 func TestTracingService_AddSpanAttributes(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -357,8 +343,7 @@ func TestTracingService_AddSpanAttributes(t *testing.T) {
 }
 
 func TestTracingService_AddSpanEvent(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -380,8 +365,7 @@ func TestTracingService_AddSpanEvent(t *testing.T) {
 }
 
 func TestTracingService_RecordError(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -402,8 +386,7 @@ func TestTracingService_RecordError(t *testing.T) {
 }
 
 func TestTracingService_SetSpanStatus(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -423,8 +406,7 @@ func TestTracingService_SetSpanStatus(t *testing.T) {
 }
 
 func TestTracingService_TraceContextPropagation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -451,8 +433,7 @@ func TestTracingService_TraceContextPropagation(t *testing.T) {
 }
 
 func TestTracingService_Close_Disabled(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -468,8 +449,7 @@ func TestTracingService_Close_Disabled(t *testing.T) {
 }
 
 func TestTracingService_TraceOperation_Success(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -499,8 +479,7 @@ func TestTracingService_TraceOperation_Success(t *testing.T) {
 }
 
 func TestTracingService_TraceOperation_Error(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -526,8 +505,7 @@ func TestTracingService_TraceOperation_Error(t *testing.T) {
 }
 
 func TestTracingService_MeasureLatency_Success(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -552,8 +530,7 @@ func TestTracingService_MeasureLatency_Success(t *testing.T) {
 }
 
 func TestTracingService_MeasureLatency_Error(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -576,8 +553,7 @@ func TestTracingService_MeasureLatency_Error(t *testing.T) {
 }
 
 func TestTracingConfig_Validation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	tests := []struct {
 		name   string
@@ -648,12 +624,15 @@ func TestTracingConfig_Validation(t *testing.T) {
 }
 
 func TestTracingService_NestedSpans(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
-		ServiceName: "test-service",
-		Enabled:     false,
+		ServiceName:    "test-service",
+		ServiceVersion: "1.0.0",
+		Environment:    "test",
+		JaegerEndpoint: "http://localhost:14268/api/traces",
+		SamplingRate:   1.0,
+		Enabled:        true,
 	}
 
 	service, err := NewTracingService(config, logger)
@@ -683,8 +662,7 @@ func TestTracingService_NestedSpans(t *testing.T) {
 }
 
 func TestTracingService_ConcurrentSpans(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -717,8 +695,7 @@ func TestTracingService_ConcurrentSpans(t *testing.T) {
 }
 
 func TestTracingService_AttributeTypes(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",
@@ -749,8 +726,7 @@ func TestTracingService_AttributeTypes(t *testing.T) {
 }
 
 func TestTraceableFunction(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	config := &TracingConfig{
 		ServiceName: "test-service",

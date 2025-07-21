@@ -3,10 +3,10 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -32,11 +32,11 @@ type TracingConfig struct {
 type TracingService struct {
 	tracer trace.Tracer
 	config *TracingConfig
-	logger *logrus.Logger
+	logger *slog.Logger
 }
 
 // NewTracingService creates a new tracing service
-func NewTracingService(config *TracingConfig, logger *logrus.Logger) (*TracingService, error) {
+func NewTracingService(config *TracingConfig, logger *slog.Logger) (*TracingService, error) {
 	if !config.Enabled {
 		logger.Info("Tracing is disabled")
 		return &TracingService{
@@ -91,14 +91,11 @@ func NewTracingService(config *TracingConfig, logger *logrus.Logger) (*TracingSe
 	tracer := otel.Tracer(config.ServiceName)
 
 	logger.Info("Tracing initialized successfully",
-		logrus.Fields{
-			"service":         config.ServiceName,
-			"version":         config.ServiceVersion,
-			"environment":     config.Environment,
-			"jaeger_endpoint": config.JaegerEndpoint,
-			"sampling_rate":   config.SamplingRate,
-		},
-	)
+		"service", config.ServiceName,
+		"version", config.ServiceVersion,
+		"environment", config.Environment,
+		"jaeger_endpoint", config.JaegerEndpoint,
+		"sampling_rate", config.SamplingRate)
 
 	return &TracingService{
 		tracer: tracer,

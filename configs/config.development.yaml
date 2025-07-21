@@ -1,0 +1,172 @@
+# Development Configuration for Hotel Reviews Microservice
+# This file contains development-friendly settings with debugging and convenience features
+
+# Database Configuration
+database:
+  host: "localhost"
+  port: 5432
+  user: "hotel_reviews"
+  password: "dev_password"
+  name: "hotel_reviews_dev"
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime: "5m"
+  conn_max_idle_time: "5m"
+  timezone: "UTC"
+  log_level: "info"
+
+# S3 Configuration (LocalStack for development)
+s3:
+  region: "us-east-1"
+  access_key_id: "test"
+  secret_access_key: "test"
+  bucket: "hotel-reviews-dev"
+  endpoint: "http://localhost:4566"
+  use_ssl: false
+  force_path_style: true
+  timeout: "30s"
+  retry_count: 3
+  retry_delay: "1s"
+  upload_part_size: 5242880   # 5MB
+  download_part_size: 5242880 # 5MB
+
+# Server Configuration
+server:
+  host: "localhost"
+  port: 8080
+  read_timeout: "10s"
+  write_timeout: "10s"
+  idle_timeout: "60s"
+  shutdown_timeout: "30s"
+  max_header_bytes: 1048576 # 1MB
+  enable_cors: true
+  enable_gzip: true
+  enable_metrics: true
+  enable_pprof: true
+  trusted_proxies:
+    - "127.0.0.1"
+    - "::1"
+
+# Logging Configuration
+log:
+  level: "debug"
+  format: "text"
+  output: "stdout"
+  enable_caller: true
+  enable_stacktrace: true
+
+# Cache Configuration
+cache:
+  type: "redis"
+  host: "localhost"
+  port: 6379
+  password: ""
+  database: 0
+  pool_size: 10
+  min_idle_conns: 5
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  ttl: "1h"
+  max_memory: 104857600 # 100MB
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  type: "prometheus"
+  host: "localhost"
+  port: 9090
+  path: "/metrics"
+  namespace: "hotel_reviews"
+  service_name: "hotel-reviews-api"
+  environment: "development"
+  version: "dev"
+
+# Notification Configuration
+notification:
+  email:
+    enabled: false
+    host: "localhost"
+    port: 1025 # MailHog port
+    username: ""
+    password: ""
+    from: "dev@hotelreviews.local"
+    use_tls: false
+  slack:
+    enabled: false
+    webhook_url: ""
+    channel: "#hotel-reviews-dev"
+    username: "Hotel Reviews Dev Bot"
+    icon_emoji: ":construction:"
+
+# Processing Configuration
+processing:
+  batch_size: 100
+  worker_count: 2
+  max_file_size: 104857600 # 100MB
+  processing_timeout: "10m"
+  max_retries: 3
+  retry_delay: "5s"
+  enable_validation: true
+  enable_duplicate_check: true
+  temp_directory: "/tmp/hotel-reviews-dev"
+
+# Security Configuration
+security:
+  jwt_secret: "dev-jwt-secret-change-in-production"
+  jwt_expiration: "24h"
+  rate_limit: 1000
+  rate_limit_window: "1m"
+  enable_api_key: false
+  api_key_header: "X-API-Key"
+  enable_encryption: false
+  encryption_key: "dev-encryption-key"
+
+# Authentication Configuration
+auth:
+  jwt_secret: "dev-auth-jwt-secret-change-in-production"
+  jwt_issuer: "hotel-reviews-api.dev"
+  access_token_expiry: "30m"
+  refresh_token_expiry: "336h" # 14 days
+  max_login_attempts: 10
+  login_attempt_window: "15m"
+  account_lock_duration: "5m"
+  password_min_length: 6
+  password_max_length: 128
+  require_strong_password: false
+  enable_two_factor: false
+  enable_email_verification: false
+  enable_password_reset: true
+  enable_session_cleanup: true
+  session_cleanup_interval: "1h"
+  enable_audit_logging: true
+  enable_rate_limiting: false
+  bcrypt_cost: 10
+  api_key_length: 32
+  api_key_prefix: "hr_dev_"
+  default_role: "user"
+
+# Kafka Configuration
+kafka:
+  brokers:
+    - "localhost:9092"
+  review_topic: "hotel-reviews-dev"
+  processing_topic: "hotel-reviews-processing-dev"
+  dead_letter_topic: "hotel-reviews-dlq-dev"
+  consumer_group: "hotel-reviews-consumer-dev"
+  batch_size: 10
+  batch_timeout: "1s"
+  max_retries: 3
+  retry_delay: "1s"
+  enable_sasl: false
+  sasl_username: ""
+  sasl_password: ""
+  enable_tls: false
+  max_message_size: 1048576 # 1MB
+  compression_type: "none"
+  producer_flush_timeout: "10s"
+  consumer_timeout: "10s"
+  enable_idempotence: true
+  partitions: 3
+  replication_factor: 1

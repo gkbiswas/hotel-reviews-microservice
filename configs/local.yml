@@ -1,0 +1,265 @@
+# Local Development Environment Configuration
+# Hotel Reviews Microservice - Local Development
+
+server:
+  host: "localhost"
+  port: 8080
+  read_timeout: "30s"
+  write_timeout: "30s"
+  shutdown_timeout: "5s"
+  max_header_bytes: 1048576
+
+database:
+  host: "localhost"
+  port: 5432
+  user: "postgres"
+  password: "postgres"
+  dbname: "hotel_reviews_dev"
+  sslmode: "disable"  # Disabled for local development
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: "5m"
+  conn_max_idle_time: "5m"
+  
+  # Minimal connection pool for local dev
+  pool:
+    max_size: 10
+    min_size: 2
+    acquire_timeout: "10s"
+    health_check_period: "5m"
+
+s3:
+  region: "us-east-1"
+  bucket: "hotel-reviews-local-dev"
+  endpoint: "http://localhost:9000"  # Local MinIO endpoint
+  access_key_id: "minioadmin"
+  secret_access_key: "minioadmin"
+  session_token: ""
+  force_path_style: true  # Required for MinIO
+  
+  # Local development upload settings
+  upload:
+    max_file_size: "5MB"
+    allowed_types: ["application/json", "text/csv", "text/plain"]
+    timeout: "30s"
+
+redis:
+  address: "localhost:6379"
+  password: ""  # No password for local Redis
+  database: 0
+  max_retries: 3
+  min_retry_backoff: "8ms"
+  max_retry_backoff: "512ms"
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  pool_size: 5
+  min_idle_conns: 2
+  pool_timeout: "4s"
+  idle_timeout: "5m"
+  idle_check_frequency: "1m"
+
+rate_limiting:
+  enabled: false  # Disabled for local development
+  requests_per_minute: 1000
+  burst_size: 100
+  window_size: "1m"
+  storage: "memory"  # Use memory instead of Redis for local
+
+logging:
+  level: "debug"  # Verbose logging for development
+  format: "text"  # Human-readable format for local
+  output: "stdout"
+  
+  # Structured logging configuration
+  fields:
+    service: "hotel-reviews"
+    environment: "local"
+    version: "dev"
+  
+  # No sampling for local development
+  sampling:
+    enabled: false
+
+monitoring:
+  metrics:
+    enabled: true
+    path: "/api/v1/metrics"
+    namespace: "hotel_reviews_local"
+  
+  tracing:
+    enabled: false  # Disabled for local development
+    service_name: "hotel-reviews-local"
+    jaeger_endpoint: "http://localhost:14268/api/traces"
+    sampling_rate: 1.0  # 100% sampling if enabled
+  
+  health_checks:
+    enabled: true
+    path: "/api/v1/health"
+    interval: "60s"
+
+security:
+  cors:
+    enabled: true
+    allowed_origins: 
+      - "http://localhost:3000"  # React dev server
+      - "http://localhost:8080"  # Local API
+      - "http://127.0.0.1:3000"
+      - "http://127.0.0.1:8080"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["*"]  # Allow all headers for development
+    max_age: "1h"
+  
+  tls:
+    enabled: false  # No TLS for local development
+    cert_file: ""
+    key_file: ""
+  
+  jwt:
+    secret: "local-dev-secret-key-change-in-production"
+    expiration: "24h"  # Long expiration for development
+    issuer: "hotel-reviews-local"
+    
+  api_keys:
+    enabled: false  # Disabled for local development
+
+# Feature flags for local development
+features:
+  analytics_v2: true
+  enhanced_search: true
+  caching_layer: false  # Disabled for simpler debugging
+  rate_limiting: false
+  circuit_breaker: false
+  review_sentiment_analysis: false  # Disabled without external API
+  advanced_metrics: false
+  
+  # A/B testing features
+  ab_testing:
+    enabled: false
+
+# External service configurations (mostly disabled for local)
+external_services:
+  sentiment_api:
+    enabled: false
+    endpoint: ""
+    timeout: "5s"
+    retry_attempts: 1
+  
+  email_service:
+    enabled: false  # Use console output for local
+    provider: "console"
+  
+  notification_service:
+    enabled: false
+
+# Performance and optimization settings
+performance:
+  cache:
+    enabled: false  # Disabled for easier development
+    ttl: "1m"
+    max_size: "10MB"
+  
+  compression:
+    enabled: false  # Disabled for easier debugging
+    level: 1
+    min_size: 1000
+  
+  request_timeout: "60s"  # Longer timeout for debugging
+  max_request_size: "10MB"
+  
+  # Background job settings
+  background_jobs:
+    enabled: false  # Disabled for simpler local setup
+    workers: 1
+    queue_size: 10
+    retry_attempts: 1
+
+# Development and debugging settings
+debug:
+  enabled: true
+  profiling: true
+  verbose_errors: true
+  request_logging: true
+  
+  # Debug endpoints enabled for local development
+  debug_endpoints:
+    - "/debug/pprof"
+    - "/debug/vars"
+    - "/debug/config"
+    - "/debug/routes"
+
+# Environment-specific overrides
+environment:
+  name: "local"
+  aws_region: "us-east-1"
+  cluster_name: "local-development"
+  service_name: "hotel-reviews-local"
+  
+  # Minimal resources for local development
+  resources:
+    cpu: "500m"       # 0.5 CPU
+    memory: "1Gi"     # 1GB RAM
+    replicas: 1       # Single instance
+  
+  # No auto-scaling for local
+  autoscaling:
+    enabled: false
+
+# Backup and maintenance (disabled for local)
+backup:
+  enabled: false
+
+maintenance:
+  window: "00:00-23:59"  # Any time for local development
+  timezone: "Local"
+  notifications: false
+
+# Local development helpers
+development:
+  # Hot reloading
+  hot_reload: true
+  watch_files: true
+  
+  # Database seeding
+  seed_data: true
+  reset_on_start: false
+  
+  # Mock services
+  mock_external_apis: true
+  
+  # Testing helpers
+  test_data_generation: true
+  
+  # Development middleware
+  middleware:
+    request_logger: true
+    cors_permissive: true
+    error_handler_verbose: true
+
+# Docker Compose integration
+docker_compose:
+  database:
+    image: "postgres:15-alpine"
+    environment:
+      POSTGRES_DB: "hotel_reviews_dev"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+    ports:
+      - "5432:5432"
+  
+  redis:
+    image: "redis:7-alpine"
+    ports:
+      - "6379:6379"
+  
+  minio:
+    image: "minio/minio:latest"
+    command: "server /data --console-address :9001"
+    environment:
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - "minio_data:/data"

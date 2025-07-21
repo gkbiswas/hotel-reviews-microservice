@@ -55,6 +55,13 @@ type ReviewRepository interface {
 	GetProcessingStatusByProvider(ctx context.Context, providerID uuid.UUID, limit, offset int) ([]ReviewProcessingStatus, error)
 	UpdateProcessingStatus(ctx context.Context, id uuid.UUID, status string, recordsProcessed int, errorMsg string) error
 	DeleteProcessingStatus(ctx context.Context, id uuid.UUID) error
+
+	// Additional query methods for optimization
+	GetTopRatedHotels(ctx context.Context, limit int) ([]Hotel, error)
+	GetRecentReviews(ctx context.Context, limit int) ([]Review, error)
+	GetAverageRatingByHotel(ctx context.Context, hotelID uuid.UUID) (float64, error)
+	GetReviewCountByHotel(ctx context.Context, hotelID uuid.UUID, startDate, endDate time.Time) (int64, error)
+	GetReviewCountByProvider(ctx context.Context, providerID uuid.UUID, startDate, endDate time.Time) (int64, error)
 }
 
 // S3Client defines the interface for AWS S3 operations
@@ -146,6 +153,28 @@ type ReviewService interface {
 	ValidateReviewData(ctx context.Context, review *Review) error
 	EnrichReviewData(ctx context.Context, review *Review) error
 	DetectDuplicateReviews(ctx context.Context, review *Review) ([]Review, error)
+}
+
+// HotelService defines the interface for hotel business logic
+type HotelService interface {
+	CreateHotel(ctx context.Context, hotel *Hotel) error
+	GetHotel(ctx context.Context, id uuid.UUID) (*Hotel, error)
+	GetHotels(ctx context.Context, filter HotelFilter) ([]*Hotel, error)
+	UpdateHotel(ctx context.Context, hotel *Hotel) error
+	DeleteHotel(ctx context.Context, id uuid.UUID) error
+	GetHotelsByCity(ctx context.Context, city string, limit, offset int) ([]*Hotel, error)
+	GetHotelsByRating(ctx context.Context, minRating int, limit, offset int) ([]*Hotel, error)
+}
+
+// ProviderService defines the interface for provider business logic  
+type ProviderService interface {
+	CreateProvider(ctx context.Context, provider *Provider) error
+	GetProvider(ctx context.Context, id uuid.UUID) (*Provider, error)
+	GetProviders(ctx context.Context, filter ProviderFilter) ([]*Provider, error)
+	UpdateProvider(ctx context.Context, provider *Provider) error
+	DeleteProvider(ctx context.Context, id uuid.UUID) error
+	GetActiveProviders(ctx context.Context) ([]*Provider, error)
+	ToggleProviderStatus(ctx context.Context, id uuid.UUID) (*Provider, error)
 
 	// Batch operations
 	ProcessReviewBatch(ctx context.Context, reviews []Review) error

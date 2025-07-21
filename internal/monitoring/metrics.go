@@ -3,13 +3,13 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 )
 
 // MetricsRegistry holds all Prometheus metrics
@@ -343,11 +343,11 @@ func (m *MetricsRegistry) GetHandler() http.Handler {
 // MonitoringService provides monitoring functionality
 type MonitoringService struct {
 	metrics *MetricsRegistry
-	logger  *logrus.Logger
+	logger  *slog.Logger
 }
 
 // NewMonitoringService creates a new monitoring service
-func NewMonitoringService(logger *logrus.Logger) *MonitoringService {
+func NewMonitoringService(logger *slog.Logger) *MonitoringService {
 	return &MonitoringService{
 		metrics: NewMetricsRegistry(),
 		logger:  logger,

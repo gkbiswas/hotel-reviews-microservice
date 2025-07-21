@@ -13,12 +13,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/application"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/domain"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure"
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/infrastructure/middleware"
+	"github.com/gkbiswas/hotel-reviews-microservice/internal/monitoring"
 	"github.com/gkbiswas/hotel-reviews-microservice/internal/server"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/config"
 	"github.com/gkbiswas/hotel-reviews-microservice/pkg/logger"
@@ -156,7 +159,6 @@ func main() {
 	)
 
 	// Initialize application handlers
-
 	handlers := application.NewSimplifiedIntegratedHandlers(
 		reviewService,
 		authService,
@@ -171,13 +173,54 @@ func main() {
 		appLogger,
 	)
 
-	// Initialize auth handlers
+	// Initialize specific handlers
 	authHandlers := application.NewAuthHandlers(authService, passwordService, slogLogger)
+	
+	// Initialize hotel and provider services using adapters
+	hotelService := application.NewHotelServiceAdapter(reviewService)
+	providerService := application.NewProviderServiceAdapter(reviewService)
+	hotelHandlers := application.NewHotelHandlers(hotelService, appLogger)
+	providerHandlers := application.NewProviderHandlers(providerService, appLogger)
+	
+	// Initialize search and analytics handlers
+	searchAnalyticsHandlers := application.NewSearchAnalyticsHandlers(reviewService, appLogger)
+	
+	// Initialize security middleware
+	securityMiddleware := middleware.NewSecurityMiddleware(&cfg.Security, appLogger, redisClient)
+	
+	// Initialize rate limiting middleware
+	rateLimitConfig := middleware.UserBasedRateLimitConfig(cfg.Security.RateLimit)
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(rateLimitConfig, redisClient, appLogger)
+	
+	// Initialize processing engine and file handlers
+	processingConfig := &application.ProcessingConfig{
+		MaxWorkers:         4, // default workers
+		MaxConcurrentFiles: 10,
+		MaxRetries:         3,
+		RetryDelay:         time.Second * 5,
+		ProcessingTimeout:  time.Minute * 30,
+		WorkerIdleTimeout:  time.Minute * 5,
+		MetricsInterval:    time.Second * 30,
+	}
+	processingEngine := application.NewProcessingEngine(reviewService, s3Client, jsonProcessor, appLogger, processingConfig)
+	fileHandlers := application.NewFileHandlers(reviewService, s3Client, jsonProcessor, processingEngine, appLogger, cfg.S3.Bucket)
 
-	// Initialize health checker
+	// Initialize business metrics system
+	metricsRegistry := prometheus.NewRegistry()
+	businessMetrics := monitoring.NewBusinessMetrics(slogLogger, metricsRegistry)
+	businessMetricsMiddleware := middleware.NewBusinessMetricsMiddleware(businessMetrics, slogLogger)
+	
+	// Initialize dashboard manager
+	dashboardManager := monitoring.NewDashboardManager(slogLogger)
+
+	// Initialize simple health checker (using existing implementation)
 	healthChecker := &HealthChecker{logger: loggerAdapter, checks: make(map[string]func(context.Context) error)}
 	healthChecker.AddCheck("database", func(ctx context.Context) error {
-		return nil // simplified for now
+		sqlDB, err := database.DB.DB()
+		if err != nil {
+			return err
+		}
+		return sqlDB.PingContext(ctx)
 	})
 	if redisClient != nil {
 		healthChecker.AddCheck("redis", func(ctx context.Context) error {
@@ -202,11 +245,32 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(requestIDMiddleware())
 	router.Use(loggingMiddleware(appLogger))
-	router.Use(corsMiddleware())
+	
+	// Add security middleware
+	router.Use(securityMiddleware.SecurityHeadersMiddleware())
+	router.Use(securityMiddleware.CORSMiddleware())
+	router.Use(securityMiddleware.InputValidationMiddleware())
+	router.Use(securityMiddleware.DDoSProtectionMiddleware())
+	
+	// Add rate limiting middleware
+	router.Use(rateLimitMiddleware.Middleware())
+	
+	// Add business metrics middleware
+	router.Use(businessMetricsMiddleware.Middleware())
 
-	// Public routes
+	// Health check routes
 	router.GET("/health", gin.HandlerFunc(healthChecker.Handler))
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	router.GET("/healthz", gin.HandlerFunc(healthChecker.Handler))
+	
+	// Metrics endpoints
+	router.GET("/metrics", gin.WrapH(promhttp.HandlerFor(metricsRegistry, promhttp.HandlerOpts{})))
+	router.GET("/metrics/prometheus", gin.WrapH(promhttp.Handler())) // Default prometheus metrics
+	
+	// Dashboard management routes
+	router.GET("/dashboards", gin.WrapH(dashboardManager.GetDashboardHTTPHandler()))
+	router.POST("/dashboards", gin.WrapH(dashboardManager.GetDashboardHTTPHandler()))
+	router.PUT("/dashboards", gin.WrapH(dashboardManager.GetDashboardHTTPHandler()))
+	router.DELETE("/dashboards", gin.WrapH(dashboardManager.GetDashboardHTTPHandler()))
 
 	// API routes
 	api := router.Group("/api/v1")
@@ -231,55 +295,54 @@ func main() {
 			// Bulk operations not implemented in simplified handlers
 		}
 
-		// Hotel routes (placeholder - not implemented in simplified handlers)
+		// Hotel routes
 		hotels := api.Group("/hotels")
 		{
-			hotels.GET("", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Hotel endpoints not implemented"})
-			})
-			hotels.GET("/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Hotel endpoints not implemented"})
-			})
-			hotels.POST("", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Hotel endpoints not implemented"})
-			})
-			hotels.PUT("/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Hotel endpoints not implemented"})
-			})
-			hotels.DELETE("/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Hotel endpoints not implemented"})
-			})
+			hotels.GET("", hotelHandlers.GetHotels)
+			hotels.GET("/:id", hotelHandlers.GetHotel)
+			hotels.POST("", hotelHandlers.CreateHotel)
+			hotels.PUT("/:id", hotelHandlers.UpdateHotel)
+			hotels.DELETE("/:id", hotelHandlers.DeleteHotel)
 		}
 
-		// Provider routes (placeholder - not implemented in simplified handlers)
+		// Provider routes
 		providers := api.Group("/providers")
 		{
-			providers.GET("", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Provider endpoints not implemented"})
-			})
-			providers.GET("/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Provider endpoints not implemented"})
-			})
-			providers.POST("", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Provider endpoints not implemented"})
-			})
-			providers.PUT("/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Provider endpoints not implemented"})
-			})
-			providers.DELETE("/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "Provider endpoints not implemented"})
-			})
+			providers.GET("", providerHandlers.GetProviders)
+			providers.GET("/:id", providerHandlers.GetProvider)
+			providers.POST("", providerHandlers.CreateProvider)
+			providers.PUT("/:id", providerHandlers.UpdateProvider)
+			providers.DELETE("/:id", providerHandlers.DeleteProvider)
 		}
 
-		// File processing routes (placeholder - not implemented in simplified handlers)
-		processing := api.Group("/processing")
+		// File processing routes
+		files := api.Group("/files")
 		{
-			processing.POST("/upload", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "File processing endpoints not implemented"})
-			})
-			processing.GET("/status/:id", func(c *gin.Context) {
-				c.JSON(http.StatusNotImplemented, gin.H{"error": "File processing endpoints not implemented"})
-			})
+			files.POST("/upload", fileHandlers.UploadAndProcessFile)
+			files.GET("/processing/:id", fileHandlers.GetProcessingStatus)
+			files.GET("/processing/history", fileHandlers.GetProcessingHistory)
+			files.POST("/processing/:id/cancel", fileHandlers.CancelProcessing)
+			files.POST("/validate", fileHandlers.ValidateFile)
+			files.GET("/metrics", fileHandlers.GetProcessingMetrics)
+		}
+
+		// Search routes
+		search := api.Group("/search")
+		{
+			search.GET("/reviews", searchAnalyticsHandlers.SearchReviews)
+			search.GET("/hotels", searchAnalyticsHandlers.SearchHotels)
+		}
+
+		// Analytics routes
+		analytics := api.Group("/analytics")
+		{
+			analytics.GET("/overview", searchAnalyticsHandlers.GetOverallAnalytics)
+			analytics.GET("/hotels/top-rated", searchAnalyticsHandlers.GetTopRatedHotels)
+			analytics.GET("/hotels/:id/stats", searchAnalyticsHandlers.GetHotelStats)
+			analytics.GET("/hotels/:id/summary", searchAnalyticsHandlers.GetReviewSummary)
+			analytics.GET("/providers/:id/stats", searchAnalyticsHandlers.GetProviderStats)
+			analytics.GET("/reviews/recent", searchAnalyticsHandlers.GetRecentReviews)
+			analytics.GET("/trends/reviews", searchAnalyticsHandlers.GetReviewTrends)
 		}
 
 		// User management routes
@@ -323,6 +386,13 @@ func main() {
 		} else {
 			appLogger.Info("Admin user created successfully")
 		}
+	}
+
+	// Start processing engine
+	if err := processingEngine.Start(); err != nil {
+		appLogger.Error("Failed to start processing engine", "error", err)
+	} else {
+		appLogger.Info("Processing engine started successfully")
 	}
 
 	// Start server

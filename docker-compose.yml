@@ -1,0 +1,206 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotel-reviews-db-local
+    environment:
+      POSTGRES_DB: hotel_reviews_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hotel_reviews_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hotel-reviews-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: hotel-reviews-redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - hotel-reviews-network
+
+  # MinIO S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: hotel-reviews-minio-local
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_REGION: us-east-1
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - hotel-reviews-network
+
+  # MinIO Client for bucket creation
+  minio-client:
+    image: minio/mc:latest
+    container_name: hotel-reviews-minio-client
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/hotel-reviews-local-dev;
+      /usr/bin/mc policy set public myminio/hotel-reviews-local-dev;
+      exit 0;
+      "
+    networks:
+      - hotel-reviews-network
+
+  # Jaeger for distributed tracing (optional)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: hotel-reviews-jaeger-local
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "6831:6831/udp"  # UDP agent
+      - "6832:6832/udp"  # UDP agent
+    networks:
+      - hotel-reviews-network
+
+  # Prometheus for metrics collection (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hotel-reviews-prometheus-local
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus/prometheus.local.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - hotel-reviews-app
+    networks:
+      - hotel-reviews-network
+
+  # Grafana for metrics visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hotel-reviews-grafana-local
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - hotel-reviews-network
+
+  # Hotel Reviews Application
+  hotel-reviews-app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.optimized
+      target: runtime-alpine
+    container_name: hotel-reviews-app-local
+    environment:
+      HOTEL_REVIEWS_DATABASE_HOST: postgres
+      HOTEL_REVIEWS_DATABASE_PORT: 5432
+      HOTEL_REVIEWS_DATABASE_USER: postgres
+      HOTEL_REVIEWS_DATABASE_PASSWORD: postgres
+      HOTEL_REVIEWS_DATABASE_NAME: hotel_reviews_dev
+      HOTEL_REVIEWS_DATABASE_SSLMODE: disable
+      
+      HOTEL_REVIEWS_REDIS_ADDRESS: redis:6379
+      HOTEL_REVIEWS_REDIS_PASSWORD: ""
+      
+      HOTEL_REVIEWS_S3_ENDPOINT: http://minio:9000
+      HOTEL_REVIEWS_S3_REGION: us-east-1
+      HOTEL_REVIEWS_S3_BUCKET: hotel-reviews-local-dev
+      HOTEL_REVIEWS_S3_ACCESS_KEY_ID: minioadmin
+      HOTEL_REVIEWS_S3_SECRET_ACCESS_KEY: minioadmin
+      HOTEL_REVIEWS_S3_FORCE_PATH_STYLE: "true"
+      
+      HOTEL_REVIEWS_SERVER_HOST: 0.0.0.0
+      HOTEL_REVIEWS_SERVER_PORT: 8080
+      HOTEL_REVIEWS_LOG_LEVEL: debug
+      HOTEL_REVIEWS_LOG_FORMAT: text
+      
+      # Monitoring
+      HOTEL_REVIEWS_METRICS_ENABLED: "true"
+      HOTEL_REVIEWS_TRACING_ENABLED: "true"
+      HOTEL_REVIEWS_JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      
+      # Security (development only)
+      JWT_SECRET: local-dev-secret-key-change-in-production
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-client:
+        condition: service_completed_successfully
+    volumes:
+      - ./configs/local.yml:/app/config.yml:ro
+    networks:
+      - hotel-reviews-network
+    healthcheck:
+      test: ["CMD", "/app/hotel-reviews-api", "-health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  hotel-reviews-network:
+    driver: bridge
+    name: hotel-reviews-local
+
+volumes:
+  postgres_data:
+    name: hotel-reviews-postgres-data
+  redis_data:
+    name: hotel-reviews-redis-data
+  minio_data:
+    name: hotel-reviews-minio-data
+  prometheus_data:
+    name: hotel-reviews-prometheus-data
+  grafana_data:
+    name: hotel-reviews-grafana-data

@@ -1,0 +1,176 @@
+# Staging Configuration for Hotel Reviews Microservice
+# This file contains staging environment settings that mirror production but with less strict requirements
+
+# Database Configuration
+database:
+  host: "${DATABASE_HOST}"
+  port: 5432
+  user: "${DATABASE_USER}"
+  password: "${DATABASE_PASSWORD}"
+  name: "${DATABASE_NAME}"
+  ssl_mode: "require"
+  max_open_conns: 30
+  max_idle_conns: 15
+  conn_max_lifetime: "15m"
+  conn_max_idle_time: "5m"
+  timezone: "UTC"
+  log_level: "warn"
+
+# S3 Configuration
+s3:
+  region: "${AWS_REGION}"
+  access_key_id: "${AWS_ACCESS_KEY_ID}"
+  secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+  session_token: "${AWS_SESSION_TOKEN}"
+  bucket: "${S3_BUCKET}"
+  use_ssl: true
+  force_path_style: false
+  timeout: "45s"
+  retry_count: 3
+  retry_delay: "2s"
+  upload_part_size: 5242880   # 5MB
+  download_part_size: 5242880 # 5MB
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: "20s"
+  write_timeout: "20s"
+  idle_timeout: "90s"
+  shutdown_timeout: "45s"
+  max_header_bytes: 1048576 # 1MB
+  enable_cors: true
+  enable_gzip: true
+  enable_metrics: true
+  enable_pprof: true
+  tls_cert_file: "${TLS_CERT_FILE}"
+  tls_key_file: "${TLS_KEY_FILE}"
+  trusted_proxies:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+
+# Logging Configuration
+log:
+  level: "debug"
+  format: "json"
+  output: "stdout"
+  enable_caller: true
+  enable_stacktrace: true
+
+# Cache Configuration
+cache:
+  type: "redis"
+  host: "${REDIS_HOST}"
+  port: 6379
+  password: "${REDIS_PASSWORD}"
+  database: 0
+  pool_size: 20
+  min_idle_conns: 5
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  ttl: "2h"
+  max_memory: 268435456 # 256MB
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  type: "prometheus"
+  host: "0.0.0.0"
+  port: 9090
+  path: "/metrics"
+  namespace: "hotel_reviews"
+  service_name: "hotel-reviews-api"
+  environment: "staging"
+  version: "${APP_VERSION}"
+
+# Notification Configuration
+notification:
+  email:
+    enabled: true
+    host: "${SMTP_HOST}"
+    port: 587
+    username: "${SMTP_USERNAME}"
+    password: "${SMTP_PASSWORD}"
+    from: "staging@hotelreviews.com"
+    use_tls: true
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#hotel-reviews-staging"
+    username: "Hotel Reviews Staging Bot"
+    icon_emoji: ":test_tube:"
+
+# Processing Configuration
+processing:
+  batch_size: 1000
+  worker_count: 4
+  max_file_size: 209715200 # 200MB
+  processing_timeout: "30m"
+  max_retries: 3
+  retry_delay: "5s"
+  enable_validation: true
+  enable_duplicate_check: true
+  temp_directory: "/tmp/hotel-reviews-staging"
+
+# Security Configuration
+security:
+  jwt_secret: "${JWT_SECRET}"
+  jwt_expiration: "24h"
+  rate_limit: 5000
+  rate_limit_window: "1h"
+  enable_api_key: true
+  api_key_header: "X-API-Key"
+  enable_encryption: true
+  encryption_key: "${ENCRYPTION_KEY}"
+
+# Authentication Configuration
+auth:
+  jwt_secret: "${AUTH_JWT_SECRET}"
+  jwt_issuer: "hotel-reviews-api.staging"
+  access_token_expiry: "30m"
+  refresh_token_expiry: "168h" # 7 days
+  max_login_attempts: 7
+  login_attempt_window: "15m"
+  account_lock_duration: "30m"
+  password_min_length: 8
+  password_max_length: 128
+  require_strong_password: true
+  enable_two_factor: false
+  enable_email_verification: false
+  enable_password_reset: true
+  enable_session_cleanup: true
+  session_cleanup_interval: "30m"
+  enable_audit_logging: true
+  enable_rate_limiting: true
+  bcrypt_cost: 12
+  api_key_length: 48
+  api_key_prefix: "hr_stg_"
+  default_role: "user"
+
+# Kafka Configuration
+kafka:
+  brokers:
+    - "${KAFKA_BROKER_1}"
+    - "${KAFKA_BROKER_2}"
+  review_topic: "hotel-reviews-staging"
+  processing_topic: "hotel-reviews-processing-staging"
+  dead_letter_topic: "hotel-reviews-dlq-staging"
+  consumer_group: "hotel-reviews-consumer-staging"
+  batch_size: 500
+  batch_timeout: "2s"
+  max_retries: 3
+  retry_delay: "2s"
+  enable_sasl: true
+  sasl_username: "${KAFKA_SASL_USERNAME}"
+  sasl_password: "${KAFKA_SASL_PASSWORD}"
+  enable_tls: true
+  max_message_size: 5242880 # 5MB
+  compression_type: "snappy"
+  producer_flush_timeout: "15s"
+  consumer_timeout: "15s"
+  enable_idempotence: true
+  partitions: 6
+  replication_factor: 2

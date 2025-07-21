@@ -2,15 +2,15 @@ package monitoring
 
 import (
 	"context"
-	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,8 +88,7 @@ func TestMetricsRegistry_GetHandler(t *testing.T) {
 }
 
 func TestNewMonitoringService(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 	assert.NotNil(t, service)
@@ -98,8 +97,7 @@ func TestNewMonitoringService(t *testing.T) {
 }
 
 func TestMonitoringService_GetMetrics(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 	metrics := service.GetMetrics()
@@ -108,8 +106,7 @@ func TestMonitoringService_GetMetrics(t *testing.T) {
 }
 
 func TestMonitoringService_RecordHTTPRequest(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -141,8 +138,7 @@ func TestMonitoringService_RecordHTTPRequest(t *testing.T) {
 }
 
 func TestMonitoringService_RecordReviewProcessed(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -166,8 +162,7 @@ func TestMonitoringService_RecordReviewProcessed(t *testing.T) {
 }
 
 func TestMonitoringService_RecordDatabaseQuery(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -198,8 +193,7 @@ func TestMonitoringService_RecordDatabaseQuery(t *testing.T) {
 }
 
 func TestMonitoringService_RecordCacheOperation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -234,8 +228,7 @@ func TestMonitoringService_RecordCacheOperation(t *testing.T) {
 }
 
 func TestMonitoringService_RecordS3Operation(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -267,8 +260,7 @@ func TestMonitoringService_RecordS3Operation(t *testing.T) {
 }
 
 func TestMonitoringService_RecordCircuitBreakerState(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -292,8 +284,7 @@ func TestMonitoringService_RecordCircuitBreakerState(t *testing.T) {
 }
 
 func TestMonitoringService_RecordSLI(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -322,8 +313,7 @@ func TestMonitoringService_RecordSLI(t *testing.T) {
 }
 
 func TestMonitoringService_StartSystemMetricsCollector(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 
@@ -426,8 +416,7 @@ func TestMetricsRegistry_HistogramBuckets(t *testing.T) {
 }
 
 func TestMonitoringService_ConcurrentOperations(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	service := NewMonitoringService(logger)
 

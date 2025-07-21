@@ -2,11 +2,11 @@ package monitoring
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/sirupsen/logrus"
 )
 
 // BusinessMetrics tracks hotel reviews specific business metrics
@@ -59,11 +59,11 @@ type BusinessMetrics struct {
 	QueueDepth            *prometheus.GaugeVec
 	ErrorRate             *prometheus.GaugeVec
 
-	logger *logrus.Logger
+	logger *slog.Logger
 }
 
 // NewBusinessMetrics creates a new business metrics collector
-func NewBusinessMetrics(logger *logrus.Logger, registry *prometheus.Registry) *BusinessMetrics {
+func NewBusinessMetrics(logger *slog.Logger, registry *prometheus.Registry) *BusinessMetrics {
 	factory := promauto.With(registry)
 	return &BusinessMetrics{
 		// Review processing metrics
