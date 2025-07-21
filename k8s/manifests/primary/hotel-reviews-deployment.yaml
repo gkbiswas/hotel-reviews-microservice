@@ -1,0 +1,175 @@
+# Hotel Reviews Application Deployment - Primary Region (US-East-1)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-reviews
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+    tier: application
+    region: us-east-1
+    environment: production
+spec:
+  replicas: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: hotel-reviews
+  template:
+    metadata:
+      labels:
+        app: hotel-reviews
+        tier: application
+        region: us-east-1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: hotel-reviews
+      containers:
+      - name: hotel-reviews
+        image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/hotel-reviews:latest
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8081
+          name: metrics
+          protocol: TCP
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: hotel-reviews-db-secret
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: hotel-reviews-redis-secret
+              key: redis-url
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: REGION_TYPE
+          value: "primary"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: config
+        configMap:
+          name: hotel-reviews-config
+      - name: tmp
+        emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - hotel-reviews
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "compute"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-reviews
+  namespace: hotel-reviews
+  labels:
+    app: hotel-reviews
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "alb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    service.beta.kubernetes.io/aws-load-balancer-ssl-redirect: "443"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8080
+    protocol: TCP
+    name: https
+  selector:
+    app: hotel-reviews
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hotel-reviews
+  namespace: hotel-reviews
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/hotel-reviews-service-role
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-reviews-config
+  namespace: hotel-reviews
+data:
+  app.yaml: |
+    server:
+      port: 8080
+      timeout: 30s
+    database:
+      pool_size: 10
+      max_idle_time: 300s
+    cache:
+      ttl: 3600s
+      max_size: 1000
+    monitoring:
+      enabled: true
+      endpoint: "/metrics"
+    features:
+      rate_limiting: true
+      circuit_breaker: true
+      distributed_tracing: true

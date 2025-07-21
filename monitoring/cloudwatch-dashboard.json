@@ -1,0 +1,174 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "hotel-reviews-use1-alb" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-alb" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-alb" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ALB Request Count by Region",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "hotel-reviews-use1-alb" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-alb" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-alb" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ALB Response Time by Region",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 1
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/EKS", "cluster_failed_request_count", "ClusterName", "hotel-reviews-use1-eks" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-eks" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-eks" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "EKS Cluster Failed Requests",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "hotel-reviews-use1-primary" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-replica" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-replica" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "RDS CPU Utilization",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ElastiCache", "CPUUtilization", "CacheClusterId", "hotel-reviews-use1-redis-001" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-redis-001" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-redis-001" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ElastiCache CPU Utilization",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "hotel-reviews-use1-primary" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-replica" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-replica" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "RDS Database Connections",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 12,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ElastiCache", "CacheHitRate", "CacheClusterId", "hotel-reviews-use1-redis-001" ],
+          [ ".", ".", ".", "hotel-reviews-euw1-redis-001" ],
+          [ ".", ".", ".", "hotel-reviews-apse1-redis-001" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ElastiCache Hit Rate",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 18,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/aws/eks/hotel-reviews-use1-eks/cluster' | fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 100",
+        "region": "us-east-1",
+        "title": "Recent Application Errors",
+        "view": "table"
+      }
+    }
+  ]
+}

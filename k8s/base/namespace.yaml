@@ -1,7 +1,81 @@
+# Hotel Reviews Kubernetes Namespace
 apiVersion: v1
 kind: Namespace
 metadata:
   name: hotel-reviews
   labels:
-    app: hotel-reviews
-    environment: base
+    name: hotel-reviews
+    environment: production
+    managed-by: terraform
+  annotations:
+    description: "Hotel Reviews microservice namespace"
+
+---
+# Network Policy for namespace isolation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hotel-reviews-network-policy
+  namespace: hotel-reviews
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: hotel-reviews
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  - to: []  # Allow all egress traffic
+
+---
+# Resource Quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: hotel-reviews-quota
+  namespace: hotel-reviews
+spec:
+  hard:
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "20"
+    limits.memory: 40Gi
+    persistentvolumeclaims: "10"
+    pods: "50"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+
+---
+# Limit Range for default resource limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: hotel-reviews-limits
+  namespace: hotel-reviews
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container
+  - max:
+      cpu: "2"
+      memory: "4Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    type: Container
+EOF < /dev/null
