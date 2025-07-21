@@ -1938,7 +1938,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support & Community
 
 ### Getting Help
-- 📧 **Email**: support@hotel-reviews.com
+- 📧 **Email**: gkbiswas@gmail.com
 - 🐛 **Issues**: [GitHub Issues](https://github.com/gkbiswas/hotel-reviews-microservice/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/gkbiswas/hotel-reviews-microservice/discussions)
 - 📖 **Documentation**: [docs.hotel-reviews.com](https://docs.hotel-reviews.com)
