@@ -1085,7 +1085,7 @@ If you encounter persistent errors:
    - Timestamp of occurrence
 
 2. **Report to Support**
-   - Email: api-support@hotelreviews.com
+   - Email: gkbiswas@gmail.com
    - Include trace ID in subject line
    - Attach request/response logs
 

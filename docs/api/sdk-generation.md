@@ -151,7 +151,7 @@ openapi-generator-cli generate \
   "packageUrl": "https://github.com/hotelreviews/python-sdk",
   "packageCompany": "Hotel Reviews API",
   "packageAuthor": "API Team",
-  "packageEmail": "api-support@hotelreviews.com",
+  "packageEmail": "gkbiswas@gmail.com",
   "clientPackage": "hotel_reviews_sdk"
 }
 ```

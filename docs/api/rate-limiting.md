@@ -682,7 +682,7 @@ If you need higher rate limits:
 2. **Enterprise**: Contact sales for custom limits
 3. **Optimization**: Review your integration for optimization opportunities
 
-Contact api-support@hotelreviews.com with:
+Contact gkbiswas@gmail.com with:
 - Current usage patterns
 - Expected growth
 - Use case description

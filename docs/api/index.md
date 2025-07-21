@@ -144,5 +144,5 @@ All API responses follow a consistent format:
 
 - **Documentation**: https://docs.hotelreviews.com
 - **API Status**: https://status.hotelreviews.com
-- **Support Email**: api-support@hotelreviews.com
+- **Support Email**: gkbiswas@gmail.com
 - **Developer Forum**: https://forum.hotelreviews.com

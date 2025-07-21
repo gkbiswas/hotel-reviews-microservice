@@ -2,7 +2,7 @@
 
 * Status: Accepted
 * Date: 2024-01-15
-* Authors: Development Team
+* Authors: Goutam Kumar Biswas
 * Deciders: Technical Leadership
 
 ## Context

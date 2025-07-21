@@ -335,6 +335,6 @@ aws globalaccelerator update-endpoint-group \
 
 ## 📞 **Support**
 
-**Infrastructure Team**: infrastructure@hotelreviews.com  
-**On-Call**: +1-555-INFRA-01  
-**Slack**: #infrastructure-alerts
+**Infrastructure Team**: Goutam Kumar Biswas  
+**Email**: gkbiswas@gmail.com  
+**GitHub**: @gkbiswas

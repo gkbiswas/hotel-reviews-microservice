@@ -279,6 +279,6 @@ Tertiary DB:    hotel-reviews-apse1-replica.cluster-def.ap-southeast-1.rds.amazo
 
 ---
 
-**Infrastructure Team**: Claude & Development Team  
-**Contact**: infrastructure@hotelreviews.com  
+**Infrastructure Team**: Goutam Kumar Biswas (gkbiswas@gmail.com)  
+**Contact**: gkbiswas@gmail.com  
 **Documentation**: `/docs/multi-region-architecture.md`
