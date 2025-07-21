@@ -1941,7 +1941,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 📧 **Email**: gkbiswas@gmail.com
 - 🐛 **Issues**: [GitHub Issues](https://github.com/gkbiswas/hotel-reviews-microservice/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/gkbiswas/hotel-reviews-microservice/discussions)
-- 📖 **Documentation**: [docs.hotel-reviews.com](https://docs.hotel-reviews.com)
+- 📖 **Documentation**: [Project Documentation](https://github.com/gkbiswas/hotel-reviews-microservice/tree/main/docs)
 
 ### Community
 - 🌟 **Star** the repository if you find it useful
