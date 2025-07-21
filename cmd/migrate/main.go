@@ -27,6 +27,11 @@ func main() {
 	dbPassword := getEnv("HOTEL_REVIEWS_DATABASE_PASSWORD", "postgres")
 	dbName := getEnv("HOTEL_REVIEWS_DATABASE_NAME", "hotel_reviews_test")
 
+	// First, try to create the database if it doesn't exist
+	if err := createDatabaseIfNotExists(dbHost, dbPort, dbUser, dbPassword, dbName); err != nil {
+		log.Printf("Warning: Could not create database: %v", err)
+	}
+
 	// Build connection string
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
@@ -75,6 +80,37 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func createDatabaseIfNotExists(host, port, user, password, dbName string) error {
+	// Connect to postgres database to create the target database
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=disable",
+		host, port, user, password)
+	
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// Check if database exists
+	var exists bool
+	err = db.QueryRow("SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname = $1)", dbName).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Created database: %s\n", dbName)
+	} else {
+		fmt.Printf("Database already exists: %s\n", dbName)
+	}
+
+	return nil
 }
 
 func createMigrationsTable(db *sql.DB) error {
