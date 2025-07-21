@@ -25,8 +25,9 @@ func testCircuitBreakerConfig() *CircuitBreakerConfig {
 		OpenTimeout:         100 * time.Millisecond,
 		RequestTimeout:      5 * time.Second,
 		EnableHealthCheck:   false,
-		EnableMetrics:       false,
+		EnableMetrics:       true,  // Enable metrics for metrics tests
 		EnableLogging:       false,
+		EnableFallback:      true,  // Enable fallback for fallback tests
 	}
 }
 
@@ -673,6 +674,7 @@ func TestCircuitBreakerManager(t *testing.T) {
 func TestCircuitBreaker_Metrics(t *testing.T) {
 	logger := logger.NewDefault()
 	config := testCircuitBreakerConfig()
+	config.EnableFallback = false // Disable fallback for metrics test to avoid interference
 
 	cb := NewCircuitBreaker(config, logger)
 	defer cb.Close()
@@ -699,6 +701,11 @@ func TestCircuitBreaker_Metrics(t *testing.T) {
 	}
 
 	metrics := cb.GetMetrics()
+
+	// Debug output
+	t.Logf("TotalRequests: %d, TotalSuccesses: %d, TotalFailures: %d", 
+		metrics.TotalRequests, metrics.TotalSuccesses, metrics.TotalFailures)
+	t.Logf("SuccessRate: %f, FailureRate: %f", metrics.SuccessRate, metrics.FailureRate)
 
 	assert.Equal(t, uint64(5), metrics.TotalRequests)
 	assert.Equal(t, uint64(3), metrics.TotalSuccesses)

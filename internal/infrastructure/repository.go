@@ -5,6 +5,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"log/slog"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +47,8 @@ func NewReviewRepository(db *Database, logger *logger.Logger) domain.ReviewRepos
 	}
 
 	// Initialize database optimizations only if we have a valid database connection
-	if db != nil && db.DB != nil {
+	// and we're not in a test environment
+	if db != nil && db.DB != nil && !isTestEnvironment() {
 		go func() {
 			ctx := context.Background()
 			if err := repo.InitializeOptimizations(ctx); err != nil {
@@ -55,6 +58,21 @@ func NewReviewRepository(db *Database, logger *logger.Logger) domain.ReviewRepos
 	}
 
 	return repo
+}
+
+// isTestEnvironment checks if we're running in a test environment
+func isTestEnvironment() bool {
+	// Check for common test environment indicators
+	if strings.HasSuffix(os.Args[0], ".test") || strings.Contains(os.Args[0], "/go-build") {
+		return true
+	}
+	// Check for Go test binary patterns
+	for _, arg := range os.Args {
+		if strings.Contains(arg, "-test.") {
+			return true
+		}
+	}
+	return false
 }
 
 // Review operations

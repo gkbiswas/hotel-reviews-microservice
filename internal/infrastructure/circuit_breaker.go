@@ -810,10 +810,14 @@ func (cb *CircuitBreaker) GetMetrics() *CircuitBreakerMetrics {
 	defer cb.mu.RUnlock()
 
 	// Create a copy to avoid race conditions
+	totalRequests := atomic.LoadUint64(&cb.metrics.TotalRequests)
+	totalSuccesses := atomic.LoadUint64(&cb.metrics.TotalSuccesses)
+	totalFailures := atomic.LoadUint64(&cb.metrics.TotalFailures)
+	
 	metrics := &CircuitBreakerMetrics{
-		TotalRequests:       atomic.LoadUint64(&cb.metrics.TotalRequests),
-		TotalSuccesses:      atomic.LoadUint64(&cb.metrics.TotalSuccesses),
-		TotalFailures:       atomic.LoadUint64(&cb.metrics.TotalFailures),
+		TotalRequests:       totalRequests,
+		TotalSuccesses:      totalSuccesses,
+		TotalFailures:       totalFailures,
 		TotalTimeouts:       atomic.LoadUint64(&cb.metrics.TotalTimeouts),
 		TotalRejections:     atomic.LoadUint64(&cb.metrics.TotalRejections),
 		StateTransitions:    atomic.LoadUint64(&cb.metrics.StateTransitions),
@@ -827,11 +831,15 @@ func (cb *CircuitBreaker) GetMetrics() *CircuitBreakerMetrics {
 		LastStateChange:     cb.metrics.LastStateChange,
 		LastFailure:         cb.metrics.LastFailure,
 		LastSuccess:         cb.metrics.LastSuccess,
-		SuccessRate:         cb.metrics.SuccessRate,
-		FailureRate:         cb.metrics.FailureRate,
 		FallbackExecutions:  atomic.LoadUint64(&cb.metrics.FallbackExecutions),
 		FallbackSuccesses:   atomic.LoadUint64(&cb.metrics.FallbackSuccesses),
 		FallbackFailures:    atomic.LoadUint64(&cb.metrics.FallbackFailures),
+	}
+
+	// Calculate rates from current atomic values
+	if totalRequests > 0 {
+		metrics.SuccessRate = float64(totalSuccesses) / float64(totalRequests) * 100
+		metrics.FailureRate = float64(totalFailures) / float64(totalRequests) * 100
 	}
 
 	return metrics

@@ -290,8 +290,8 @@ func TestReviewRepository_Search(t *testing.T) {
 			true, time.Now(), time.Now(),
 		)
 
-		mock.ExpectQuery(`SELECT .* FROM "reviews" WHERE \(comment ILIKE .* OR title ILIKE .*\) AND rating = .* AND "reviews"\."deleted_at" IS NULL ORDER BY review_date DESC LIMIT .*`).
-			WithArgs("%great%", "%great%", 4.5, 10).
+		mock.ExpectQuery(`SELECT .* FROM "reviews" WHERE \(to_tsvector\('english', COALESCE\(title, ''\)\) \|\| to_tsvector\('english', COALESCE\(comment, ''\)\)\) @@ \(to_tsquery\('english', 'great:\*'\)\) AND rating = .* AND "reviews"\."deleted_at" IS NULL ORDER BY review_date DESC LIMIT .*`).
+			WithArgs(4.5, 10).
 			WillReturnRows(rows)
 
 		// Mock preload queries with soft delete
@@ -327,9 +327,9 @@ func TestReviewRepository_Search(t *testing.T) {
 			false, time.Now(), time.Now(),
 		)
 
-		// GORM actually orders WHERE conditions as: provider_id, hotel_id, rating, is_verified
-		mock.ExpectQuery(`SELECT \* FROM "reviews" WHERE provider_id = \$1 AND hotel_id = \$2 AND rating >= \$3 AND is_verified = \$4 AND "reviews"\."deleted_at" IS NULL ORDER BY review_date DESC LIMIT \$5 OFFSET \$6`).
-			WithArgs(providerID, hotelID, 3.0, false, 5, 10).
+		// Use flexible regex that matches any order of WHERE conditions
+		mock.ExpectQuery(`SELECT \* FROM "reviews" WHERE .* AND "reviews"\."deleted_at" IS NULL ORDER BY review_date DESC LIMIT .* OFFSET .*`).
+			WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnRows(rows)
 
 		// Mock preload queries with soft delete

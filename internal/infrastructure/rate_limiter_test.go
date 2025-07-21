@@ -185,8 +185,11 @@ func TestRateLimiter_Redis_Allow_KeyExpiration(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, allowed)
 
-	// Wait for window to expire
-	time.Sleep(1300 * time.Millisecond)
+	// Wait for window to expire (add extra buffer for timing precision)
+	time.Sleep(1500 * time.Millisecond)
+
+	// Force expiration in miniredis (it may not auto-expire)
+	s.FastForward(2 * time.Second)
 
 	// Should be allowed again after expiration
 	allowed, err = limiter.Allow(ctx, key)
@@ -503,8 +506,11 @@ func TestRateLimiter_ShortWindow(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, allowed)
 
-	// Wait for window to expire
-	time.Sleep(1200 * time.Millisecond)
+	// Wait for window to expire (add extra buffer for timing precision)
+	time.Sleep(1400 * time.Millisecond)
+
+	// Force expiration in miniredis (it may not auto-expire)
+	s.FastForward(2 * time.Second)
 
 	// Should be allowed again
 	allowed, err = limiter.Allow(ctx, key)
