@@ -1,0 +1,86 @@
+sequenceDiagram
+    participant Provider as Review Provider
+    participant API as Processing API
+    participant Producer as Kafka Producer
+    participant PT as Processing Topic
+    participant RT as Review Topic
+    participant Consumer as Kafka Consumer
+    participant PH as Processing Handler
+    participant Worker as Async Worker
+    participant RS as Review Service
+    participant HS as Hotel Service
+    participant AS as Analytics Service
+    participant DB as PostgreSQL
+    participant Cache as Redis
+    participant DLQ as Dead Letter Queue
+
+    %% File Upload Flow
+    Provider->>API: Upload reviews file (CSV/JSON)
+    API->>API: Validate file format
+    API->>DB: Create processing job
+    API->>Producer: Create ProcessingStartedEvent
+    Producer->>PT: Publish event
+    API-->>Provider: Return job ID
+
+    %% Processing Started
+    PT->>Consumer: Consume ProcessingStartedEvent
+    Consumer->>PH: Handle event
+    PH->>Worker: Start async processing
+    
+    %% File Processing
+    loop For each batch
+        Worker->>Worker: Read batch from file
+        Worker->>RS: Validate reviews
+        RS->>DB: Bulk insert reviews
+        Worker->>Producer: Create ProcessingProgressEvent
+        Producer->>PT: Publish progress
+        
+        %% Review Events
+        RS->>Producer: Create ReviewBatchCreated event
+        Producer->>RT: Publish event
+    end
+
+    %% Review Processing
+    RT->>Consumer: Consume ReviewBatchCreated
+    Consumer->>PH: Handle review event
+    
+    par Hotel Summary Update
+        PH->>HS: Update hotel statistics
+        HS->>DB: Update hotel summary
+        HS->>Cache: Invalidate cache
+        HS->>Producer: Create HotelSummaryUpdated
+        Producer->>RT: Publish event
+    and Analytics Update
+        PH->>AS: Update analytics
+        AS->>DB: Update analytics data
+        AS->>Producer: Create HotelAnalyticsUpdated
+        Producer->>RT: Publish event
+    end
+
+    %% Success Flow
+    Worker->>Producer: Create ProcessingCompletedEvent
+    Producer->>PT: Publish completion
+    PT->>Consumer: Consume completion event
+    Consumer->>PH: Handle completion
+    PH->>DB: Update job status
+
+    %% Error Handling
+    alt Processing Error
+        Worker->>Producer: Create ProcessingFailedEvent
+        Producer->>PT: Publish failure
+        PT->>Consumer: Consume failure
+        Consumer->>PH: Handle failure
+        
+        alt Retry Available
+            PH->>Producer: Create ProcessingRetryEvent
+            Producer->>PT: Publish retry
+        else Max Retries Exceeded
+            PH->>Producer: Send to DLQ
+            Producer->>DLQ: Publish to dead letter
+        end
+    end
+
+    %% Monitoring Events
+    note over Producer,PT: System events published throughout
+    Producer->>PT: SystemHealthCheckEvent
+    Producer->>PT: SystemMetricsEvent

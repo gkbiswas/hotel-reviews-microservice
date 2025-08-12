@@ -1,0 +1,85 @@
+graph TB
+    subgraph "Kafka Cluster"
+        subgraph "Review Topic"
+            RP0[Partition 0<br/>Key: HotelID % 3 = 0]
+            RP1[Partition 1<br/>Key: HotelID % 3 = 1]
+            RP2[Partition 2<br/>Key: HotelID % 3 = 2]
+        end
+        
+        subgraph "Processing Topic"
+            PP0[Partition 0<br/>Key: ProviderID % 3 = 0]
+            PP1[Partition 1<br/>Key: ProviderID % 3 = 1]
+            PP2[Partition 2<br/>Key: ProviderID % 3 = 2]
+        end
+        
+        subgraph "Dead Letter Topic"
+            DLP0[Partition 0<br/>Round-robin]
+        end
+    end
+    
+    subgraph "Producers"
+        P1[Producer 1]
+        P2[Producer 2]
+        P3[Producer 3]
+    end
+    
+    subgraph "Consumer Group: review-processors"
+        C1[Consumer 1<br/>Assigned: RP0]
+        C2[Consumer 2<br/>Assigned: RP1]
+        C3[Consumer 3<br/>Assigned: RP2]
+    end
+    
+    subgraph "Consumer Group: processing-workers"
+        W1[Worker 1<br/>Assigned: PP0]
+        W2[Worker 2<br/>Assigned: PP1]
+        W3[Worker 3<br/>Assigned: PP2]
+    end
+    
+    subgraph "Partition Key Examples"
+        subgraph "Review Events"
+            RE1[ReviewCreated<br/>HotelID: 123<br/>→ Partition 0]
+            RE2[ReviewUpdated<br/>HotelID: 124<br/>→ Partition 1]
+            RE3[ReviewDeleted<br/>HotelID: 125<br/>→ Partition 2]
+        end
+        
+        subgraph "Processing Events"
+            PE1[ProcessingStarted<br/>ProviderID: 456<br/>→ Partition 0]
+            PE2[ProcessingProgress<br/>ProviderID: 457<br/>→ Partition 1]
+            PE3[ProcessingCompleted<br/>ProviderID: 458<br/>→ Partition 2]
+        end
+    end
+    
+    %% Producer to partition flows
+    P1 --> RP0
+    P1 --> RP1
+    P1 --> RP2
+    P2 --> PP0
+    P2 --> PP1
+    P2 --> PP2
+    P3 --> DLP0
+    
+    %% Partition to consumer flows
+    RP0 --> C1
+    RP1 --> C2
+    RP2 --> C3
+    PP0 --> W1
+    PP1 --> W2
+    PP2 --> W3
+    
+    %% Event routing
+    RE1 --> RP0
+    RE2 --> RP1
+    RE3 --> RP2
+    PE1 --> PP0
+    PE2 --> PP1
+    PE3 --> PP2
+    
+    classDef partition fill:#f9f,stroke:#333,stroke-width:2px
+    classDef producer fill:#bbf,stroke:#333,stroke-width:2px
+    classDef consumer fill:#bfb,stroke:#333,stroke-width:2px
+    classDef event fill:#ffd,stroke:#333,stroke-width:1px
+    
+    class RP0,RP1,RP2,PP0,PP1,PP2,DLP0 partition
+    class P1,P2,P3 producer
+    class C1,C2,C3,W1,W2,W3 consumer
+    class RE1,RE2,RE3,PE1,PE2,PE3 event

@@ -1,0 +1,63 @@
+stateDiagram-v2
+    [*] --> EventCreated: New Event
+    
+    EventCreated --> Published: PublishEvent()
+    
+    Published --> InKafka: Kafka Accepts
+    Published --> PublishFailed: Kafka Error
+    
+    PublishFailed --> RetryPublish: Retry < MaxRetries
+    PublishFailed --> Failed: Max Retries Exceeded
+    
+    RetryPublish --> Published: Retry Publish
+    
+    InKafka --> Consumed: Consumer Reads
+    InKafka --> Expired: TTL Exceeded
+    
+    Consumed --> Processing: Handler Invoked
+    
+    Processing --> Processed: Success
+    Processing --> ProcessingError: Handler Error
+    
+    ProcessingError --> RetryProcessing: Retry < MaxRetries
+    ProcessingError --> DeadLetter: Max Retries Exceeded
+    
+    RetryProcessing --> Processing: Retry Handler
+    
+    Processed --> Committed: Offset Committed
+    
+    DeadLetter --> DLQPublished: Publish to DLQ
+    
+    DLQPublished --> ManualReview: Admin Action
+    DLQPublished --> Reprocessed: Auto Retry
+    
+    Reprocessed --> Processing: Reprocess Event
+    
+    ManualReview --> [*]: Resolved
+    Committed --> [*]: Complete
+    Failed --> [*]: Abandoned
+    Expired --> [*]: Timeout
+    
+    note right of EventCreated
+        Event Types:
+        - ProcessingEvent
+        - ReviewEvent
+        - HotelEvent
+        - ProviderEvent
+        - SystemEvent
+    end note
+    
+    note right of Processing
+        Handlers:
+        - ProcessingEventHandler
+        - ReviewEventHandler
+        - RetryableEventHandler
+    end note
+    
+    note right of DeadLetter
+        DLQ contains:
+        - Original message
+        - Error details
+        - Retry count
+        - Timestamps
+    end note

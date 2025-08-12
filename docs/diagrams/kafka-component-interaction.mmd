@@ -1,0 +1,107 @@
+graph LR
+    subgraph "Kafka Infrastructure"
+        subgraph "Configuration"
+            KC[KafkaConfig<br/>- Brokers<br/>- Topics<br/>- SASL/TLS<br/>- Batch Settings]
+        end
+        
+        subgraph "Producer Components"
+            KP[KafkaProducer]
+            KW[kafka.Writer]
+            EP[Event Publishers]
+        end
+        
+        subgraph "Consumer Components"
+            KCons[KafkaConsumer]
+            KR[kafka.Reader]
+            EH[Event Handlers]
+        end
+        
+        subgraph "Event Types"
+            BE[BaseEvent]
+            PE[ProcessingEvent]
+            RE[ReviewEvent]
+            HE[HotelEvent]
+            SE[SystemEvent]
+        end
+        
+        subgraph "Topics"
+            RT[review_topic]
+            PT[processing_topic]
+            DLT[dead_letter_topic]
+        end
+    end
+    
+    subgraph "Async Processor"
+        AP[AsyncProcessor<br/>- Worker Pool<br/>- Message Routing]
+        MH[Message Handlers]
+        WP[Worker Processes]
+    end
+    
+    subgraph "Application Layer"
+        PS[Processing Service]
+        RS[Review Service]
+        HS[Hotel Service]
+        AS[Analytics Service]
+    end
+    
+    subgraph "Event Handlers"
+        PEH[ProcessingEventHandler]
+        REH[ReviewEventHandler]
+        RET[RetryableEventHandler]
+    end
+    
+    %% Configuration flows
+    KC --> KP
+    KC --> KCons
+    KC --> AP
+    
+    %% Producer flows
+    PS --> EP
+    RS --> EP
+    HS --> EP
+    EP --> KP
+    KP --> KW
+    KW --> RT
+    KW --> PT
+    KW --> DLT
+    
+    %% Event type flows
+    BE --> PE
+    BE --> RE
+    BE --> HE
+    BE --> SE
+    
+    %% Consumer flows
+    RT --> KR
+    PT --> KR
+    KR --> KCons
+    KCons --> EH
+    EH --> PEH
+    EH --> REH
+    EH --> RET
+    
+    %% Handler to service flows
+    PEH --> PS
+    REH --> RS
+    REH --> HS
+    REH --> AS
+    
+    %% Async processor flows
+    AP --> MH
+    MH --> WP
+    WP --> PS
+    WP --> RS
+    
+    %% Error handling
+    RET --> PEH
+    RET --> REH
+    PEH --> DLT
+    REH --> DLT
+    
+    style KC fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style KP fill:#e6f3ff,stroke:#333,stroke-width:2px
+    style KCons fill:#e6f3ff,stroke:#333,stroke-width:2px
+    style AP fill:#fff2e6,stroke:#333,stroke-width:2px
+    style RT fill:#ffe6e6,stroke:#333,stroke-width:2px
+    style PT fill:#ffe6e6,stroke:#333,stroke-width:2px
+    style DLT fill:#ffcccc,stroke:#333,stroke-width:2px

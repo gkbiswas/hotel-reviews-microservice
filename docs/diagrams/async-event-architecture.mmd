@@ -1,0 +1,145 @@
+graph TB
+    subgraph "External Sources"
+        Provider[Review Providers]
+        API[REST API]
+        FileUpload[File Upload]
+    end
+
+    subgraph "API Layer"
+        APIGateway[API Gateway]
+        ReviewAPI[Review Service]
+        HotelAPI[Hotel Service]
+        ProcessingAPI[Processing Service]
+    end
+
+    subgraph "Kafka Topics"
+        ReviewTopic[Review Topic]
+        ProcessingTopic[Processing Topic]
+        DLQ[Dead Letter Queue]
+    end
+
+    subgraph "Event Types"
+        subgraph "Processing Events"
+            PE1[processing.started]
+            PE2[processing.progress]
+            PE3[processing.completed]
+            PE4[processing.failed]
+            PE5[processing.retry]
+        end
+        
+        subgraph "Review Events"
+            RE1[review.created]
+            RE2[review.updated]
+            RE3[review.deleted]
+            RE4[review.batch.created]
+        end
+        
+        subgraph "Hotel Events"
+            HE1[hotel.summary.updated]
+            HE2[hotel.analytics.updated]
+        end
+    end
+
+    subgraph "Event Handlers"
+        ProcessingHandler[Processing Event Handler]
+        ReviewHandler[Review Event Handler]
+        RetryHandler[Retryable Event Handler]
+    end
+
+    subgraph "Async Workers"
+        Worker1[Worker Pool 1]
+        Worker2[Worker Pool 2]
+        WorkerN[Worker Pool N]
+    end
+
+    subgraph "Services"
+        ReviewService[Review Service]
+        HotelService[Hotel Service]
+        AnalyticsService[Analytics Service]
+        NotificationService[Notification Service]
+    end
+
+    subgraph "Data Storage"
+        PostgresDB[(PostgreSQL)]
+        Redis[(Redis Cache)]
+        S3[S3/Object Storage]
+    end
+
+    %% API to Kafka flows
+    Provider --> FileUpload
+    FileUpload --> APIGateway
+    API --> APIGateway
+    APIGateway --> ProcessingAPI
+    ProcessingAPI --> PE1
+    PE1 --> ProcessingTopic
+
+    %% Processing flows
+    ProcessingTopic --> ProcessingHandler
+    ProcessingHandler --> Worker1
+    ProcessingHandler --> Worker2
+    ProcessingHandler --> WorkerN
+    
+    Worker1 --> ReviewService
+    Worker2 --> ReviewService
+    WorkerN --> ReviewService
+    
+    ReviewService --> RE1
+    RE1 --> ReviewTopic
+    ReviewService --> RE4
+    RE4 --> ReviewTopic
+    
+    %% Review processing flows
+    ReviewTopic --> ReviewHandler
+    ReviewHandler --> HotelService
+    ReviewHandler --> AnalyticsService
+    
+    HotelService --> HE1
+    HE1 --> ReviewTopic
+    HotelService --> HE2
+    HE2 --> ReviewTopic
+    
+    %% Storage flows
+    ReviewService --> PostgresDB
+    HotelService --> PostgresDB
+    AnalyticsService --> PostgresDB
+    HotelService --> Redis
+    ProcessingAPI --> S3
+    
+    %% Error handling
+    ProcessingHandler --> PE4
+    PE4 --> DLQ
+    ReviewHandler --> DLQ
+    
+    %% Retry flows
+    DLQ --> RetryHandler
+    RetryHandler --> PE5
+    PE5 --> ProcessingTopic
+    
+    %% Progress updates
+    Worker1 --> PE2
+    Worker2 --> PE2
+    WorkerN --> PE2
+    PE2 --> ProcessingTopic
+    
+    %% Completion flows
+    Worker1 --> PE3
+    Worker2 --> PE3
+    WorkerN --> PE3
+    PE3 --> ProcessingTopic
+    
+    %% Notification flows
+    PE3 --> NotificationService
+    PE4 --> NotificationService
+    HE1 --> NotificationService
+
+    classDef topic fill:#f9f,stroke:#333,stroke-width:4px
+    classDef service fill:#bbf,stroke:#333,stroke-width:2px
+    classDef storage fill:#bfb,stroke:#333,stroke-width:2px
+    classDef handler fill:#fbf,stroke:#333,stroke-width:2px
+    classDef event fill:#ffd,stroke:#333,stroke-width:1px
+    
+    class ReviewTopic,ProcessingTopic,DLQ topic
+    class ReviewService,HotelService,AnalyticsService,NotificationService,ReviewAPI,HotelAPI,ProcessingAPI service
+    class PostgresDB,Redis,S3 storage
+    class ProcessingHandler,ReviewHandler,RetryHandler handler
+    class PE1,PE2,PE3,PE4,PE5,RE1,RE2,RE3,RE4,HE1,HE2 event
